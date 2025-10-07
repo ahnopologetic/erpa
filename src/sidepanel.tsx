@@ -1,4 +1,5 @@
 import React from "react"
+import { TocPopup } from "~components/toc-popup"
 import "~style.css"
 
 function Sidepanel() {
@@ -44,18 +45,24 @@ function Sidepanel() {
                 </p>
             </div>
 
-            <button
-                onClick={handleToggleMic}
-                className="w-full p-4 bg-gray-300 text-center text-sm font-medium select-none focus:outline-none"
-                style={{ cursor: "pointer" }}
-                aria-pressed={isListening}
-                aria-label={isListening ? "Turn microphone off" : "Turn microphone on"}
-            >
-                <div className="flex items-center justify-center gap-2">
-                    <div className="h-8 w-8 bg-gray-400" />
-                    <span>{isListening ? "Mic On" : "Tap to Turn Mic On"}</span>
+            <div className="action-panel flex">
+                <div className="toc">
+                    {/* popup component */}
+                    <TocPopup />
                 </div>
-            </button>
+                <button
+                    onClick={handleToggleMic}
+                    className="w-full p-4 bg-gray-300 text-center text-sm font-medium select-none focus:outline-none"
+                    style={{ cursor: "pointer" }}
+                    aria-pressed={isListening}
+                    aria-label={isListening ? "Turn microphone off" : "Turn microphone on"}
+                >
+                    <div className="flex items-center justify-center gap-2">
+                        <div className="h-8 w-8 bg-gray-400" />
+                        <span>{isListening ? "Mic On" : "Tap to Turn Mic On"}</span>
+                    </div>
+                </button>
+            </div>
         </div>
     )
 }
