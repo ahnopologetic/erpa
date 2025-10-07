@@ -6,9 +6,22 @@ export const TocPopup = () => {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<unknown>(null)
 
+    // --- logging helpers ---
+    const LOG_PREFIX = '[Erpa]'
+    const isVerbose = process.env.NODE_ENV !== 'production'
+    const log = (...args: unknown[]) => {
+        if (isVerbose) console.log(LOG_PREFIX, ...args)
+    }
+    const warn = (...args: unknown[]) => console.warn(LOG_PREFIX, ...args)
+    const err = (...args: unknown[]) => console.error(LOG_PREFIX, ...args)
+    const timeStart = (label: string) => ({ label, start: performance.now() })
+    const timeEnd = (t: { label: string; start: number }) => {
+        log(`${t.label} in ${(performance.now() - t.start).toFixed(0)} ms`)
+    }
+
     const initializeSummarizer = async (): Promise<SummarizerInstance | null> => {
         if (!('Summarizer' in self)) {
-            console.error('Summarizer API is not supported')
+            err('Summarizer API is not supported')
             return null
         }
 
@@ -28,14 +41,17 @@ export const TocPopup = () => {
         };
 
         const availability = await instance.availability();
+        log('Summarizer availability:', availability)
         if (availability === 'unavailable') {
             // The Summarizer API isn't usable.
-            console.error('Summarizer API is not available')
+            err('Summarizer API is not available')
             return null
         }
 
         // Check for user activation before creating the summarizer
+        const createTimer = timeStart('Create summarizer')
         const summarizer = await instance.create(options);
+        timeEnd(createTimer)
         return summarizer;
     }
 
@@ -65,24 +81,103 @@ export const TocPopup = () => {
             if (!summarizer) {
                 throw new Error('Summarizer API is not supported')
             }
+            const fetchTimer = timeStart('Fetch main text')
             const mainText = await fetchPageMainText()
-            console.log("Fetched main text")
-            console.log("Starting summarization")
+            timeEnd(fetchTimer)
+            log('Starting summarization (chunked)')
             setIsLoading(true)
-            const data = await summarizer.summarize(mainText, {
-                context: 'Summarize the page\'s main content into concise key points for a visually impaired user. Prefer short, clear bullets.'
+
+            // Paragraph-based chunking with simple character budget
+            const paragraphs = mainText
+                .split(/\n\s*\n/g)
+                .map((p) => p.trim())
+                .filter((p) => p.length > 50)
+
+            // Conservative budget: ~1024 tokens ≈ ~4000 chars (very rough approx)
+            const MAX_CHARS = 4000
+            const chunks: string[] = []
+            let current = ""
+
+            const flushCurrent = () => {
+                if (current && current.trim().length) {
+                    chunks.push(current.trim())
+                }
+                current = ""
+            }
+
+            for (const p of paragraphs) {
+                // If a single paragraph exceeds the cap, slice it into safe pieces
+                if (p.length > MAX_CHARS) {
+                    if (current) flushCurrent()
+                    for (let i = 0; i < p.length; i += MAX_CHARS) {
+                        const piece = p.slice(i, i + MAX_CHARS).trim()
+                        if (piece.length) {
+                            chunks.push(piece)
+                            log(`Split oversized paragraph into piece ${(i / MAX_CHARS) + 1} (${piece.length} chars)`)
+                        }
+                    }
+                    continue
+                }
+
+                if (!current) {
+                    current = p
+                    continue
+                }
+
+                if (current.length + 2 + p.length <= MAX_CHARS) {
+                    current = current + "\n\n" + p
+                } else {
+                    flushCurrent()
+                    current = p
+                }
+            }
+            flushCurrent()
+            log('Paragraphs:', paragraphs.length, '| Chunks:', chunks.length)
+            if (isVerbose) {
+                log('Chunk sizes (chars):', chunks.map((c) => c.length))
+            }
+
+            const partialSummaries: string[] = []
+            const sumTimer = timeStart('Summarize chunks')
+            for (let i = 0; i < chunks.length; i++) {
+                let chunk = chunks[i]
+                if (chunk.length > MAX_CHARS) {
+                    log(`Hard-capping oversized chunk ${i + 1} from ${chunk.length} to ${MAX_CHARS} chars`)
+                    chunk = chunk.slice(0, MAX_CHARS)
+                }
+                log(`Summarizing chunk ${i + 1}/${chunks.length} (${chunk.length} chars) ...`)
+                const part = await summarizer.summarize(chunk, {
+                    context: 'Summarize this chunk into concise, non-redundant key points for a visually impaired user. Prefer short bullets.'
+                })
+                partialSummaries.push(part)
+                log(`Chunk ${i + 1} summarized (${part.length} chars)`)
+            }
+            timeEnd(sumTimer)
+
+            let combined = partialSummaries.join("\n\n")
+            if (combined.length > MAX_CHARS) {
+                log(`Hard-capping combined summary input from ${combined.length} to ${MAX_CHARS} chars`)
+                combined = combined.slice(0, MAX_CHARS)
+            }
+            const mergeTimer = timeStart('Merge + final summarize')
+            const data = await summarizer.summarize(combined, {
+                context: 'Merge these partial summaries into a single, non-redundant set of key points. Prefer short, accessible bullets.'
             })
-            console.log("Summarization complete")
+            timeEnd(mergeTimer)
+
+            log('Summarization complete')
             if (!data) {
                 setIsLoading(false)
                 setError(new Error('Summarization failed'))
                 return
             }
-            console.log({ data })
+            if (isVerbose) log('Final summary length (chars):', data.length)
+            log('Final summary:', { data })
             setToc(data.split('\n').map(item => item.trim()))
             setIsLoading(false)
         } catch (error) {
             setIsLoading(false)
+            err('Summarization error', error)
             setError(error)
         }
     }
