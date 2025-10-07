@@ -7,6 +7,12 @@ export const TocPopup = () => {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<unknown>(null)
     const [progress, setProgress] = useState<{ total: number; done: number }>({ total: 0, done: 0 })
+    const [downloadProgress, setDownloadProgress] = useState<{ hidden: boolean; value: number; indeterminate: boolean }>({
+        hidden: true,
+        value: 0,
+        indeterminate: false
+    })
+    const [notDownloaded, setNotDownloaded] = useState(true)
 
     // --- logging helpers ---
     const LOG_PREFIX = '[Erpa]'
@@ -21,39 +27,54 @@ export const TocPopup = () => {
         log(`${t.label} in ${(performance.now() - t.start).toFixed(0)} ms`)
     }
 
-    const initializeSummarizer = async (): Promise<SummarizerInstance | null> => {
-        if (!('Summarizer' in self)) {
-            err('Summarizer API is not supported')
+    const checkModelAvailability = async (): Promise<LanguageModelAvailability> => {
+        if (!('LanguageModel' in self)) {
+            err('Prompt API is not supported')
+            return 'unavailable'
+        }
+        return await LanguageModel.availability()
+    }
+
+    const initializePromptSession = async (): Promise<LanguageModelSession | null> => {
+        if (!('LanguageModel' in self)) {
+            err('Prompt API is not supported')
             return null
         }
 
-        const instance = Summarizer
-        const options: SummarizerCreateOptions = {
-            sharedContext: "You're a helpful assistant that can summarize the content of a page for visually impaired users",
-            type: 'key-points',
-            format: 'plain-text',
-            length: 'medium',
-            expectedInputLanguages: ['en'],
-            outputLanguage: 'en',
+        // Reset progress UI
+        setDownloadProgress({ hidden: true, value: 0, indeterminate: false })
+
+        const availability = await LanguageModel.availability()
+        log('Prompt API availability:', availability)
+        if (availability === 'unavailable') {
+            err('Prompt API is not available')
+            return null
+        }
+
+        let modelNewlyDownloaded = false
+        if (availability !== 'available') {
+            modelNewlyDownloaded = true
+            setDownloadProgress({ hidden: false, value: 0, indeterminate: false })
+        }
+
+        const createTimer = timeStart('Create LanguageModel session')
+        const session = await LanguageModel.create({
             monitor(m) {
                 m.addEventListener('downloadprogress', (e) => {
                     console.log(`Downloaded ${e.loaded * 100}%`);
-                });
+                    setDownloadProgress(prev => ({ ...prev, value: e.loaded }))
+                    if (modelNewlyDownloaded && e.loaded === 1) {
+                        // Model downloaded, now extracting and loading into memory
+                        setDownloadProgress(prev => ({ ...prev, indeterminate: true }))
+                    }
+                })
             }
-        };
-
-        const availability = await instance.availability();
-        log('Summarizer availability:', availability)
-        if (availability === 'unavailable') {
-            err('Summarizer API is not available')
-            return null
-        }
-
-        // Check for user activation before creating the summarizer
-        const createTimer = timeStart('Create summarizer')
-        const summarizer = await instance.create(options);
+        })
         timeEnd(createTimer)
-        return summarizer;
+
+        setDownloadProgress({ hidden: true, value: 0, indeterminate: false })
+        setNotDownloaded(false)
+        return session
     }
 
     const getActiveTabId = async (): Promise<number | null> => {
@@ -78,9 +99,9 @@ export const TocPopup = () => {
         setIsLoading(true)
         setError(null)
         try {
-            const summarizer = await initializeSummarizer()
-            if (!summarizer) {
-                throw new Error('Summarizer API is not supported')
+            const session = await initializePromptSession()
+            if (!session) {
+                throw new Error('Prompt API is not supported')
             }
             const fetchTimer = timeStart('Fetch main text + headings')
             const { text: mainText, headings } = await fetchPageMainText()
@@ -145,9 +166,26 @@ export const TocPopup = () => {
                     chunk = chunk.slice(0, MAX_CHARS)
                 }
                 log(`Summarizing chunk ${i + 1}/${chunks.length} (${chunk.length} chars) ...`)
-                const part = await summarizer.summarize(chunk, {
-                    context: 'You are extracting navigable sections. Always include css selectors for the sections in the page.'
-                })
+                const schema = {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['title', 'anchor'],
+                        properties: {
+                            title: { type: 'string' },
+                            anchor: { type: 'string' }
+                        }
+                    }
+                }
+                const system = [
+                    'You extract navigable sections from web page text.',
+                    'Return ONLY JSON, no markdown and no prose.',
+                    'Each item must map to an existing heading provided separately.',
+                    'The anchor must be a valid CSS selector for that heading.'
+                ].join(' ')
+                const headingsHint = '\n\nHeadings (title -> selector):\n' + headings.map(h => `- ${h.text} -> ${h.selector}`).join('\n')
+                const prompt = `${system}\n\nChunk:\n${chunk}${headingsHint}`
+                const part = await session.prompt(prompt, { responseConstraint: schema })
                 partialSummaries.push(part)
                 log(`Chunk ${i + 1} summarized (${part.length} chars)`)
                 setProgress((p) => ({ total: p.total, done: Math.min(p.total, p.done + 1) }))
@@ -159,13 +197,29 @@ export const TocPopup = () => {
                 log(`Hard-capping combined summary input from ${combined.length} to ${MAX_CHARS} chars`)
                 combined = combined.slice(0, MAX_CHARS)
             }
-            const mergeTimer = timeStart('Merge + final summarize')
-            const data = await summarizer.summarize(combined, {
-                context: 'You are merging partial extractions. Output MUST be a JSON array of unique objects with keys: title (string), anchor (CSS selector string). Use only titles/anchors that correspond to the provided headings list. Remove duplicates and ensure anchors are valid. No markdown, no commentary.'
-            })
+            const mergeTimer = timeStart('Merge + final prompt')
+            const mergeSchema = {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['title', 'anchor'],
+                    properties: {
+                        title: { type: 'string' },
+                        anchor: { type: 'string' }
+                    }
+                }
+            }
+            const mergeSystem = [
+                'Merge and deduplicate extracted sections.',
+                'Return ONLY JSON array of {title, anchor}.',
+                'Ensure each anchor exists in the provided heading list.',
+                'No duplicates; prefer higher-level headings when conflicts arise.'
+            ].join(' ')
+            const mergePrompt = `${mergeSystem}\n\nPartials (JSON arrays):\n${combined}`
+            const data = await session.prompt(mergePrompt, { responseConstraint: mergeSchema })
             timeEnd(mergeTimer)
 
-            log('Summarization complete')
+            log('Extraction complete')
             if (!data) {
                 setIsLoading(false)
                 setError(new Error('Summarization failed'))
@@ -183,7 +237,7 @@ export const TocPopup = () => {
                         .map((x) => ({ title: x.title as string, anchor: x.anchor as string }))
                 }
             } catch (_) {
-                warn('Failed to parse JSON from summarizer; falling back to headings')
+                warn('Failed to parse JSON from model; falling back to headings')
             }
 
             if (!items.length) {
@@ -195,14 +249,80 @@ export const TocPopup = () => {
             setIsLoading(false)
         } catch (error) {
             setIsLoading(false)
-            err('Summarization error', error)
+            err('Extraction error', error)
             setError(error)
         }
     }
 
     useEffect(() => {
-        fetchToc()
+        const checkAvailability = async () => {
+            const availability = await checkModelAvailability()
+            if (availability === 'available') {
+                setNotDownloaded(false)
+                fetchToc()
+            } else if (availability === 'unavailable') {
+                setError(new Error('LanguageModel is not available on this device'))
+            }
+        }
+        checkAvailability()
     }, [])
+
+    if (notDownloaded) {
+        return (
+            <div className="text-sm text-gray-500 flex flex-col items-center justify-center h-full p-4">
+                <h2 className="text-lg font-semibold mb-4">AI Model Required</h2>
+                <p className="text-center mb-4">
+                    The AI model needs to be downloaded before you can extract page sections.
+                </p>
+
+                {!downloadProgress.hidden && (
+                    <div className="w-full max-w-xs mb-4">
+                        <div className="flex justify-between text-xs mb-1">
+                            <span>Downloading model...</span>
+                            {!downloadProgress.indeterminate && (
+                                <span>{Math.round(downloadProgress.value * 100)}%</span>
+                            )}
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                                className={`h-2 rounded-full transition-all duration-300 ${downloadProgress.indeterminate
+                                        ? 'bg-blue-500 animate-pulse w-full'
+                                        : 'bg-blue-500'
+                                    }`}
+                                style={{
+                                    width: downloadProgress.indeterminate
+                                        ? '100%'
+                                        : `${downloadProgress.value * 100}%`
+                                }}
+                            />
+                        </div>
+                        {downloadProgress.indeterminate && (
+                            <p className="text-xs text-center mt-2">Extracting and loading model...</p>
+                        )}
+                    </div>
+                )}
+
+                <button
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={async () => {
+                        try {
+                            const session = await initializePromptSession()
+                            if (session) {
+                                // Model is ready, start the extraction process
+                                fetchToc()
+                            }
+                        } catch (error) {
+                            err('Failed to initialize model:', error)
+                            setError(error)
+                        }
+                    }}
+                    disabled={!downloadProgress.hidden}
+                >
+                    {downloadProgress.hidden ? 'Download Model' : 'Downloading...'}
+                </button>
+            </div>
+        )
+    }
 
     if (isLoading) {
         return <div className="text-sm text-gray-500">
