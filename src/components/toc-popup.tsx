@@ -2,9 +2,11 @@ import { useEffect, useState } from "react"
 
 export const TocPopup = () => {
     const [isOpen, setIsOpen] = useState(false)
-    const [toc, setToc] = useState<any[]>([])
+    type TocItem = { title: string; anchor: string }
+    const [toc, setToc] = useState<TocItem[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<unknown>(null)
+    const [progress, setProgress] = useState<{ total: number; done: number }>({ total: 0, done: 0 })
 
     // --- logging helpers ---
     const LOG_PREFIX = '[Erpa]'
@@ -29,7 +31,7 @@ export const TocPopup = () => {
         const options: SummarizerCreateOptions = {
             sharedContext: "You're a helpful assistant that can summarize the content of a page for visually impaired users",
             type: 'key-points',
-            format: 'markdown',
+            format: 'plain-text',
             length: 'medium',
             expectedInputLanguages: ['en'],
             outputLanguage: 'en',
@@ -43,7 +45,6 @@ export const TocPopup = () => {
         const availability = await instance.availability();
         log('Summarizer availability:', availability)
         if (availability === 'unavailable') {
-            // The Summarizer API isn't usable.
             err('Summarizer API is not available')
             return null
         }
@@ -61,7 +62,7 @@ export const TocPopup = () => {
         return tab?.id ?? null
     }
 
-    const fetchPageMainText = async (): Promise<string> => {
+    const fetchPageMainText = async (): Promise<{ text: string; headings: { text: string; selector: string }[] }> => {
         const tabId = await getActiveTabId()
         if (tabId == null) {
             throw new Error('No active tab')
@@ -70,7 +71,7 @@ export const TocPopup = () => {
         if (!response?.ok) {
             throw new Error(response?.error || 'Failed to retrieve main content')
         }
-        return response.text as string
+        return { text: response.text as string, headings: (response.headings || []) as { text: string; selector: string }[] }
     }
 
     const fetchToc = async () => {
@@ -81,19 +82,17 @@ export const TocPopup = () => {
             if (!summarizer) {
                 throw new Error('Summarizer API is not supported')
             }
-            const fetchTimer = timeStart('Fetch main text')
-            const mainText = await fetchPageMainText()
+            const fetchTimer = timeStart('Fetch main text + headings')
+            const { text: mainText, headings } = await fetchPageMainText()
             timeEnd(fetchTimer)
             log('Starting summarization (chunked)')
             setIsLoading(true)
 
-            // Paragraph-based chunking with simple character budget
             const paragraphs = mainText
                 .split(/\n\s*\n/g)
                 .map((p) => p.trim())
                 .filter((p) => p.length > 50)
 
-            // Conservative budget: ~1024 tokens ≈ ~4000 chars (very rough approx)
             const MAX_CHARS = 4000
             const chunks: string[] = []
             let current = ""
@@ -106,7 +105,6 @@ export const TocPopup = () => {
             }
 
             for (const p of paragraphs) {
-                // If a single paragraph exceeds the cap, slice it into safe pieces
                 if (p.length > MAX_CHARS) {
                     if (current) flushCurrent()
                     for (let i = 0; i < p.length; i += MAX_CHARS) {
@@ -133,6 +131,7 @@ export const TocPopup = () => {
             }
             flushCurrent()
             log('Paragraphs:', paragraphs.length, '| Chunks:', chunks.length)
+            setProgress({ total: chunks.length, done: 0 })
             if (isVerbose) {
                 log('Chunk sizes (chars):', chunks.map((c) => c.length))
             }
@@ -147,10 +146,11 @@ export const TocPopup = () => {
                 }
                 log(`Summarizing chunk ${i + 1}/${chunks.length} (${chunk.length} chars) ...`)
                 const part = await summarizer.summarize(chunk, {
-                    context: 'Summarize this chunk into concise, non-redundant key points for a visually impaired user. Prefer short bullets.'
+                    context: 'You are extracting navigable sections. Always include css selectors for the sections in the page.'
                 })
                 partialSummaries.push(part)
                 log(`Chunk ${i + 1} summarized (${part.length} chars)`)
+                setProgress((p) => ({ total: p.total, done: Math.min(p.total, p.done + 1) }))
             }
             timeEnd(sumTimer)
 
@@ -161,7 +161,7 @@ export const TocPopup = () => {
             }
             const mergeTimer = timeStart('Merge + final summarize')
             const data = await summarizer.summarize(combined, {
-                context: 'Merge these partial summaries into a single, non-redundant set of key points. Prefer short, accessible bullets.'
+                context: 'You are merging partial extractions. Output MUST be a JSON array of unique objects with keys: title (string), anchor (CSS selector string). Use only titles/anchors that correspond to the provided headings list. Remove duplicates and ensure anchors are valid. No markdown, no commentary.'
             })
             timeEnd(mergeTimer)
 
@@ -173,7 +173,25 @@ export const TocPopup = () => {
             }
             if (isVerbose) log('Final summary length (chars):', data.length)
             log('Final summary:', { data })
-            setToc(data.split('\n').map(item => item.trim()))
+
+            let items: TocItem[] = []
+            try {
+                const parsed = JSON.parse(data) as Array<{ title?: string; anchor?: string }>
+                if (Array.isArray(parsed)) {
+                    items = parsed
+                        .filter((x) => typeof x?.title === 'string' && typeof x?.anchor === 'string')
+                        .map((x) => ({ title: x.title as string, anchor: x.anchor as string }))
+                }
+            } catch (_) {
+                warn('Failed to parse JSON from summarizer; falling back to headings')
+            }
+
+            if (!items.length) {
+                const fallback = headings.slice(0, 20).map((h) => ({ title: h.text, anchor: h.selector }))
+                items = fallback
+            }
+
+            setToc(items)
             setIsLoading(false)
         } catch (error) {
             setIsLoading(false)
@@ -187,7 +205,12 @@ export const TocPopup = () => {
     }, [])
 
     if (isLoading) {
-        return <div>Loading...</div>
+        return <div className="text-sm text-gray-500">
+            <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-gray-500 rounded-full animate-pulse" />
+                <span className="text-xs text-gray-300 font-medium">Loading... {progress.done}/{progress.total}</span>
+            </div>
+        </div>
     }
     if (error) {
         return <div>Error: {error instanceof Error ? error.message : 'Unknown error'}</div>
