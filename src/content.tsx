@@ -46,3 +46,18 @@ const PlasmoOverlay = () => {
 }
 
 export default PlasmoOverlay
+
+// Handle requests from extension UI (e.g., sidepanel) to fetch the page's main content
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "GET_MAIN_CONTENT") {
+    try {
+      const mainEl = document.querySelector("main") as HTMLElement | null
+      const text = (mainEl?.innerText || document.body.innerText || "").trim()
+      sendResponse({ ok: true, text })
+    } catch (e) {
+      sendResponse({ ok: false, error: (e as Error)?.message || "Unknown error" })
+    }
+    // Indicate async response not needed; we responded synchronously
+    return true
+  }
+})

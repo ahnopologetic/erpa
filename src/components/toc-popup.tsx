@@ -39,6 +39,24 @@ export const TocPopup = () => {
         return summarizer;
     }
 
+    const getActiveTabId = async (): Promise<number | null> => {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+        const tab = tabs?.[0]
+        return tab?.id ?? null
+    }
+
+    const fetchPageMainText = async (): Promise<string> => {
+        const tabId = await getActiveTabId()
+        if (tabId == null) {
+            throw new Error('No active tab')
+        }
+        const response = await chrome.tabs.sendMessage(tabId, { type: 'GET_MAIN_CONTENT' })
+        if (!response?.ok) {
+            throw new Error(response?.error || 'Failed to retrieve main content')
+        }
+        return response.text as string
+    }
+
     const fetchToc = async () => {
         setIsLoading(true)
         setError(null)
@@ -47,13 +65,24 @@ export const TocPopup = () => {
             if (!summarizer) {
                 throw new Error('Summarizer API is not supported')
             }
-            const mainContent = document.querySelector('main')?.innerHTML
-            const data = await summarizer.summarize(mainContent, {
-                context: 'The main content will be the content of anything. Summarize the content into a list of key points.'
+            const mainText = await fetchPageMainText()
+            console.log("Fetched main text")
+            console.log("Starting summarization")
+            setIsLoading(true)
+            const data = await summarizer.summarize(mainText, {
+                context: 'Summarize the page\'s main content into concise key points for a visually impaired user. Prefer short, clear bullets.'
             })
+            console.log("Summarization complete")
+            if (!data) {
+                setIsLoading(false)
+                setError(new Error('Summarization failed'))
+                return
+            }
             console.log({ data })
             setToc(data.split('\n').map(item => item.trim()))
+            setIsLoading(false)
         } catch (error) {
+            setIsLoading(false)
             setError(error)
         }
     }
@@ -61,6 +90,13 @@ export const TocPopup = () => {
     useEffect(() => {
         fetchToc()
     }, [])
+
+    if (isLoading) {
+        return <div>Loading...</div>
+    }
+    if (error) {
+        return <div>Error: {error instanceof Error ? error.message : 'Unknown error'}</div>
+    }
 
     return (
         <div>
