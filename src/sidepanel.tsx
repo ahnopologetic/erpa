@@ -37,7 +37,7 @@ function Sidepanel() {
     }, [])
 
     return (
-        <div className="h-screen flex flex-col bg-background text-foreground">
+        <div className="dark h-screen flex flex-col bg-gray-900 text-white">
             <div className="flex-1 overflow-auto p-4">
                 <h1 className="text-xl font-semibold">Sidepanel</h1>
                 <p className="mt-2 text-sm text-muted-foreground">

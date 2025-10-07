@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react"
+import { Spinner } from "./ui/spinner";
 
 export const TocPopup = () => {
     const [isOpen, setIsOpen] = useState(false)
-    type TocItem = { title: string; anchor: string }
+    type TocItem = { title: string; cssSelector: string }
     const [toc, setToc] = useState<TocItem[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<unknown>(null)
@@ -13,6 +14,7 @@ export const TocPopup = () => {
         indeterminate: false
     })
     const [notDownloaded, setNotDownloaded] = useState(true)
+    const [useChunked, setUseChunked] = useState(false) // Toggle between chunked and single call
 
     // --- logging helpers ---
     const LOG_PREFIX = '[Erpa]'
@@ -95,6 +97,194 @@ export const TocPopup = () => {
         return { text: response.text as string, headings: (response.headings || []) as { text: string; selector: string }[] }
     }
 
+    const extractWithChunked = async (session: LanguageModelSession, mainText: string, headings: { text: string; selector: string }[]): Promise<TocItem[]> => {
+        log('Starting extraction (chunked)')
+        setIsLoading(true)
+
+        const paragraphs = mainText
+            .split(/\n\s*\n/g)
+            .map((p) => p.trim())
+            .filter((p) => p.length > 50)
+
+        const MAX_CHARS = 4000
+        const chunks: string[] = []
+        let current = ""
+
+        const flushCurrent = () => {
+            if (current && current.trim().length) {
+                chunks.push(current.trim())
+            }
+            current = ""
+        }
+
+        for (const p of paragraphs) {
+            if (p.length > MAX_CHARS) {
+                if (current) flushCurrent()
+                for (let i = 0; i < p.length; i += MAX_CHARS) {
+                    const piece = p.slice(i, i + MAX_CHARS).trim()
+                    if (piece.length) {
+                        chunks.push(piece)
+                        log(`Split oversized paragraph into piece ${(i / MAX_CHARS) + 1} (${piece.length} chars)`)
+                    }
+                }
+                continue
+            }
+
+            if (!current) {
+                current = p
+                continue
+            }
+
+            if (current.length + 2 + p.length <= MAX_CHARS) {
+                current = current + "\n\n" + p
+            } else {
+                flushCurrent()
+                current = p
+            }
+        }
+        flushCurrent()
+        log('Paragraphs:', paragraphs.length, '| Chunks:', chunks.length)
+        setProgress({ total: chunks.length, done: 0 })
+        if (isVerbose) {
+            log('Chunk sizes (chars):', chunks.map((c) => c.length))
+        }
+
+        const partialSummaries: string[] = []
+        const sumTimer = timeStart('Extract chunks')
+        for (let i = 0; i < chunks.length; i++) {
+            let chunk = chunks[i]
+            if (chunk.length > MAX_CHARS) {
+                log(`Hard-capping oversized chunk ${i + 1} from ${chunk.length} to ${MAX_CHARS} chars`)
+                chunk = chunk.slice(0, MAX_CHARS)
+            }
+            log(`Extracting chunk ${i + 1}/${chunks.length} (${chunk.length} chars) ...`)
+            const schema = {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['title', 'cssSelector'],
+                    properties: {
+                        title: { type: 'string' },
+                        cssSelector: { type: 'string' }
+                    }
+                }
+            }
+            const system = [
+                'You extract navigable sections from web page text.',
+                'Return ONLY JSON, no markdown and no prose.',
+                'Each item must map to an existing heading provided separately.',
+                'The cssSelector must be a valid CSS selector for that heading.'
+            ].join(' ')
+            const headingsHint = '\n\nHeadings (title -> selector):\n' + headings.map(h => `- ${h.text} -> ${h.selector}`).join('\n')
+            const prompt = `${system}\n\nChunk:\n${chunk}${headingsHint}`
+            const part = await session.prompt(prompt, { responseConstraint: schema })
+            partialSummaries.push(part)
+            log(`Chunk ${i + 1} extracted (${part.length} chars)`)
+            setProgress((p) => ({ total: p.total, done: Math.min(p.total, p.done + 1) }))
+        }
+        timeEnd(sumTimer)
+
+        let combined = partialSummaries.join("\n\n")
+        if (combined.length > MAX_CHARS) {
+            log(`Hard-capping combined summary input from ${combined.length} to ${MAX_CHARS} chars`)
+            combined = combined.slice(0, MAX_CHARS)
+        }
+        const mergeTimer = timeStart('Merge + final prompt')
+        const mergeSchema = {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['title', 'cssSelector'],
+                properties: {
+                    title: { type: 'string' },
+                    cssSelector: { type: 'string' }
+                }
+            }
+        }
+        const mergeSystem = [
+            'Merge and deduplicate extracted sections.',
+            'Return ONLY JSON array of {title, cssSelector}.',
+            'Ensure each cssSelector exists in the provided heading list.',
+            'No duplicates; prefer higher-level headings when conflicts arise.'
+        ].join(' ')
+        const mergePrompt = `${mergeSystem}\n\nPartials (JSON arrays):\n${combined}`
+        const data = await session.prompt(mergePrompt, { responseConstraint: mergeSchema })
+        timeEnd(mergeTimer)
+
+        return parseExtractionResult(data, headings)
+    }
+
+    const extractWithSingleCall = async (session: LanguageModelSession, mainText: string, headings: { text: string; selector: string }[]): Promise<TocItem[]> => {
+        log('Starting extraction (single call)')
+        setIsLoading(true)
+        setProgress({ total: 1, done: 0 })
+
+        const MAX_CHARS = 4000
+        let textToProcess = mainText
+        if (textToProcess.length > MAX_CHARS) {
+            log(`Truncating text from ${textToProcess.length} to ${MAX_CHARS} chars`)
+            textToProcess = textToProcess.slice(0, MAX_CHARS)
+        }
+
+        const schema = {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['title', 'cssSelector'],
+                properties: {
+                    title: { type: 'string' },
+                    cssSelector: { type: 'string' }
+                }
+            }
+        }
+
+        const system = [
+            'You extract navigable sections from web page text.',
+            'Return ONLY JSON array of {title, cssSelector}.',
+            'Each item must map to an existing heading provided separately.',
+            'The cssSelector must be a valid CSS selector for that heading.',
+            'Focus on the most important sections and headings.'
+        ].join(' ')
+
+        const headingsHint = '\n\nAvailable headings (title -> cssSelector):\n' + headings.map(h => `- ${h.text} -> ${h.selector}`).join('\n')
+        const prompt = `${system}\n\nPage content:\n${textToProcess}${headingsHint}`
+
+        const extractTimer = timeStart('Single call extraction')
+        const data = await session.prompt(prompt, { responseConstraint: schema })
+        timeEnd(extractTimer)
+        setProgress({ total: 1, done: 1 })
+
+        return parseExtractionResult(data, headings)
+    }
+
+    const parseExtractionResult = (data: string, headings: { text: string; selector: string }[]): TocItem[] => {
+        log('Extraction complete')
+        if (!data) {
+            throw new Error('Extraction failed - no data returned')
+        }
+        if (isVerbose) log('Final result length (chars):', data.length)
+        log('Final result:', { data })
+
+        let items: TocItem[] = []
+        try {
+            const parsed = JSON.parse(data) as Array<{ title?: string; cssSelector?: string }>
+            if (Array.isArray(parsed)) {
+                items = parsed
+                    .filter((x) => typeof x?.title === 'string' && typeof x?.cssSelector === 'string')
+                    .map((x) => ({ title: x.title as string, cssSelector: x.cssSelector as string }))
+            }
+        } catch (_) {
+            warn('Failed to parse JSON from model; falling back to headings')
+        }
+
+        if (!items.length) {
+            const fallback = headings.slice(0, 20).map((h) => ({ title: h.text, cssSelector: h.selector }))
+            items = fallback
+        }
+
+        return items
+    }
+
     const fetchToc = async () => {
         setIsLoading(true)
         setError(null)
@@ -106,144 +296,10 @@ export const TocPopup = () => {
             const fetchTimer = timeStart('Fetch main text + headings')
             const { text: mainText, headings } = await fetchPageMainText()
             timeEnd(fetchTimer)
-            log('Starting summarization (chunked)')
-            setIsLoading(true)
 
-            const paragraphs = mainText
-                .split(/\n\s*\n/g)
-                .map((p) => p.trim())
-                .filter((p) => p.length > 50)
-
-            const MAX_CHARS = 4000
-            const chunks: string[] = []
-            let current = ""
-
-            const flushCurrent = () => {
-                if (current && current.trim().length) {
-                    chunks.push(current.trim())
-                }
-                current = ""
-            }
-
-            for (const p of paragraphs) {
-                if (p.length > MAX_CHARS) {
-                    if (current) flushCurrent()
-                    for (let i = 0; i < p.length; i += MAX_CHARS) {
-                        const piece = p.slice(i, i + MAX_CHARS).trim()
-                        if (piece.length) {
-                            chunks.push(piece)
-                            log(`Split oversized paragraph into piece ${(i / MAX_CHARS) + 1} (${piece.length} chars)`)
-                        }
-                    }
-                    continue
-                }
-
-                if (!current) {
-                    current = p
-                    continue
-                }
-
-                if (current.length + 2 + p.length <= MAX_CHARS) {
-                    current = current + "\n\n" + p
-                } else {
-                    flushCurrent()
-                    current = p
-                }
-            }
-            flushCurrent()
-            log('Paragraphs:', paragraphs.length, '| Chunks:', chunks.length)
-            setProgress({ total: chunks.length, done: 0 })
-            if (isVerbose) {
-                log('Chunk sizes (chars):', chunks.map((c) => c.length))
-            }
-
-            const partialSummaries: string[] = []
-            const sumTimer = timeStart('Summarize chunks')
-            for (let i = 0; i < chunks.length; i++) {
-                let chunk = chunks[i]
-                if (chunk.length > MAX_CHARS) {
-                    log(`Hard-capping oversized chunk ${i + 1} from ${chunk.length} to ${MAX_CHARS} chars`)
-                    chunk = chunk.slice(0, MAX_CHARS)
-                }
-                log(`Summarizing chunk ${i + 1}/${chunks.length} (${chunk.length} chars) ...`)
-                const schema = {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        required: ['title', 'anchor'],
-                        properties: {
-                            title: { type: 'string' },
-                            anchor: { type: 'string' }
-                        }
-                    }
-                }
-                const system = [
-                    'You extract navigable sections from web page text.',
-                    'Return ONLY JSON, no markdown and no prose.',
-                    'Each item must map to an existing heading provided separately.',
-                    'The anchor must be a valid CSS selector for that heading.'
-                ].join(' ')
-                const headingsHint = '\n\nHeadings (title -> selector):\n' + headings.map(h => `- ${h.text} -> ${h.selector}`).join('\n')
-                const prompt = `${system}\n\nChunk:\n${chunk}${headingsHint}`
-                const part = await session.prompt(prompt, { responseConstraint: schema })
-                partialSummaries.push(part)
-                log(`Chunk ${i + 1} summarized (${part.length} chars)`)
-                setProgress((p) => ({ total: p.total, done: Math.min(p.total, p.done + 1) }))
-            }
-            timeEnd(sumTimer)
-
-            let combined = partialSummaries.join("\n\n")
-            if (combined.length > MAX_CHARS) {
-                log(`Hard-capping combined summary input from ${combined.length} to ${MAX_CHARS} chars`)
-                combined = combined.slice(0, MAX_CHARS)
-            }
-            const mergeTimer = timeStart('Merge + final prompt')
-            const mergeSchema = {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    required: ['title', 'anchor'],
-                    properties: {
-                        title: { type: 'string' },
-                        anchor: { type: 'string' }
-                    }
-                }
-            }
-            const mergeSystem = [
-                'Merge and deduplicate extracted sections.',
-                'Return ONLY JSON array of {title, anchor}.',
-                'Ensure each anchor exists in the provided heading list.',
-                'No duplicates; prefer higher-level headings when conflicts arise.'
-            ].join(' ')
-            const mergePrompt = `${mergeSystem}\n\nPartials (JSON arrays):\n${combined}`
-            const data = await session.prompt(mergePrompt, { responseConstraint: mergeSchema })
-            timeEnd(mergeTimer)
-
-            log('Extraction complete')
-            if (!data) {
-                setIsLoading(false)
-                setError(new Error('Summarization failed'))
-                return
-            }
-            if (isVerbose) log('Final summary length (chars):', data.length)
-            log('Final summary:', { data })
-
-            let items: TocItem[] = []
-            try {
-                const parsed = JSON.parse(data) as Array<{ title?: string; anchor?: string }>
-                if (Array.isArray(parsed)) {
-                    items = parsed
-                        .filter((x) => typeof x?.title === 'string' && typeof x?.anchor === 'string')
-                        .map((x) => ({ title: x.title as string, anchor: x.anchor as string }))
-                }
-            } catch (_) {
-                warn('Failed to parse JSON from model; falling back to headings')
-            }
-
-            if (!items.length) {
-                const fallback = headings.slice(0, 20).map((h) => ({ title: h.text, anchor: h.selector }))
-                items = fallback
-            }
+            const items = useChunked
+                ? await extractWithChunked(session, mainText, headings)
+                : await extractWithSingleCall(session, mainText, headings)
 
             setToc(items)
             setIsLoading(false)
@@ -286,8 +342,8 @@ export const TocPopup = () => {
                         <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
                                 className={`h-2 rounded-full transition-all duration-300 ${downloadProgress.indeterminate
-                                        ? 'bg-blue-500 animate-pulse w-full'
-                                        : 'bg-blue-500'
+                                    ? 'bg-blue-500 animate-pulse w-full'
+                                    : 'bg-blue-500'
                                     }`}
                                 style={{
                                     width: downloadProgress.indeterminate
@@ -325,11 +381,8 @@ export const TocPopup = () => {
     }
 
     if (isLoading) {
-        return <div className="text-sm text-gray-500">
-            <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-gray-500 rounded-full animate-pulse" />
-                <span className="text-xs text-gray-300 font-medium">Loading... {progress.done}/{progress.total}</span>
-            </div>
+        return <div className="text-sm text-gray-500 flex items-center justify-center h-full p-4 bg-gray-800">
+            <Spinner />
         </div>
     }
     if (error) {
@@ -337,8 +390,33 @@ export const TocPopup = () => {
     }
 
     return (
-        <div>
-            <h1>Toc Popup</h1>
+        <div className="p-4 text-white bg-gray-800 text-black">
+            <div className="flex items-center justify-between mb-4">
+                <h1 className="text-lg font-semibold">Page Sections</h1>
+                <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">Chunked:</label>
+                    <button
+                        onClick={() => setUseChunked(!useChunked)}
+                        className={`px-3 py-1 text-xs rounded-md transition-colors ${useChunked
+                            ? 'bg-blue-500 text-black'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }`}
+                    >
+                        {useChunked ? 'ON' : 'OFF'}
+                    </button>
+                </div>
+            </div>
+
+            {toc.length > 0 && (
+                <div className="space-y-2">
+                    {toc.map((item, index) => (
+                        <div key={index} className="p-2 bg-gray-50 rounded-md">
+                            <div className="font-medium text-sm">{item.title}</div>
+                            <div className="text-xs text-gray-500 font-mono">{item.cssSelector}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     )
 }
