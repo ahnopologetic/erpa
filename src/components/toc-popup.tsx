@@ -10,6 +10,7 @@ export const TocPopup = () => {
     const containerRef = useRef<HTMLDivElement>(null)
     const [toc, setToc] = useState<TocItem[]>([])
     const [useChunked, setUseChunked] = useState(false) // Toggle between chunked and single call
+    const [currentTabId, setCurrentTabId] = useState<number | null>(null)
 
     const {
         isLoading,
@@ -21,7 +22,9 @@ export const TocPopup = () => {
         initializePromptSession,
         fetchToc,
         navigateToSection,
-        setError
+        setError,
+        loadContextForCurrentTab,
+        getCurrentTabId
     } = usePromptAPI()
 
     const handleFetchToc = async () => {
@@ -30,6 +33,28 @@ export const TocPopup = () => {
             setToc(items)
         } catch (error) {
             // Error is already handled in the hook
+        }
+    }
+
+    const loadContextForTab = async () => {
+        try {
+            const tabId = await getCurrentTabId()
+            if (tabId !== currentTabId) {
+                setCurrentTabId(tabId)
+                const contextToc = await loadContextForCurrentTab()
+                if (contextToc.length > 0) {
+                    setToc(contextToc)
+                    console.log(`[TocPopup] Loaded context for tab ${tabId} with ${contextToc.length} items`)
+                } else {
+                    // No context found, try to fetch new TOC
+                    const availability = await checkModelAvailability()
+                    if (availability === 'available') {
+                        handleFetchToc()
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[TocPopup] Failed to load context for tab:', error)
         }
     }
 
@@ -43,16 +68,42 @@ export const TocPopup = () => {
     }
 
     useEffect(() => {
-        const checkAvailability = async () => {
-            const availability = await checkModelAvailability()
-            if (availability === 'available') {
-                handleFetchToc()
-            } else if (availability === 'unavailable') {
-                setError(new Error('LanguageModel is not available on this device'))
+        const initializeComponent = async () => {
+            // First, try to load context for current tab
+            await loadContextForTab()
+            
+            // If no context was loaded, check availability and fetch new TOC
+            if (toc.length === 0) {
+                const availability = await checkModelAvailability()
+                if (availability === 'available') {
+                    handleFetchToc()
+                } else if (availability === 'unavailable') {
+                    setError(new Error('LanguageModel is not available on this device'))
+                }
             }
         }
-        checkAvailability()
+        initializeComponent()
     }, [])
+
+    // Listen for tab changes
+    useEffect(() => {
+        const handleTabChange = () => {
+            loadContextForTab()
+        }
+
+        // Listen for tab activation changes
+        chrome.tabs.onActivated.addListener(handleTabChange)
+        chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+            if (changeInfo.status === 'complete') {
+                handleTabChange()
+            }
+        })
+
+        return () => {
+            chrome.tabs.onActivated.removeListener(handleTabChange)
+            chrome.tabs.onUpdated.removeListener(handleTabChange)
+        }
+    }, [currentTabId])
 
     // Handle click outside to close popover
     useEffect(() => {

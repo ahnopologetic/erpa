@@ -4,7 +4,27 @@ import "~style.css"
 
 function Sidepanel() {
     const [isListening, setIsListening] = React.useState(false)
+    const [contextChanged, setContextChanged] = React.useState(false)
     const streamRef = React.useRef<MediaStream | null>(null)
+
+    // Listen for messages from background script to close sidepanel
+    React.useEffect(() => {
+        const handleMessage = (message: any) => {
+            if (message.type === 'CLOSE_SIDEPANEL_ON_TAB_SWITCH' || 
+                message.type === 'CLOSE_SIDEPANEL_ON_PAGE_NAVIGATION') {
+                console.log(`[Sidepanel] Received close message: ${message.type} for tab ${message.tabId}`);
+                // Show notification that context has changed
+                setContextChanged(true);
+                console.log('[Sidepanel] Context changed - showing notification');
+            }
+        };
+
+        chrome.runtime.onMessage.addListener(handleMessage);
+
+        return () => {
+            chrome.runtime.onMessage.removeListener(handleMessage);
+        };
+    }, []);
 
     const stopStream = () => {
         if (streamRef.current) {
@@ -38,6 +58,18 @@ function Sidepanel() {
 
     return (
         <div className="dark h-screen flex flex-col bg-gray-900 text-white">
+            {contextChanged && (
+                <div className="bg-yellow-600 text-white p-3 text-center text-sm">
+                    <p className="font-medium">Context Changed</p>
+                    <p className="text-xs mt-1">Tab or page changed. Context preserved for each tab.</p>
+                    <button 
+                        onClick={() => setContextChanged(false)}
+                        className="mt-2 px-3 py-1 bg-yellow-700 hover:bg-yellow-800 rounded text-xs"
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            )}
             <div className="flex-1 overflow-auto p-4">
                 <h1 className="text-xl font-semibold">Sidepanel</h1>
                 <p className="mt-2 text-sm text-muted-foreground">

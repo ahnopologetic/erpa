@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { err, isVerbose, log, timeEnd, timeStart, warn } from '../lib/log';
+import { tabContextManager } from '../lib/tab-context';
 
 export type TocItem = { title: string; cssSelector: string }
 
@@ -21,6 +22,9 @@ export interface PromptAPIActions {
     fetchToc: (useChunked: boolean) => Promise<TocItem[]>
     navigateToSection: (cssSelector: string) => Promise<void>
     setError: (error: unknown | null) => void
+    loadContextForCurrentTab: () => Promise<TocItem[]>
+    saveContextForCurrentTab: (toc: TocItem[]) => Promise<void>
+    getCurrentTabId: () => Promise<number | null>
 }
 
 export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
@@ -290,6 +294,25 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         return items
     }, [])
 
+    const saveContextForCurrentTab = useCallback(async (toc: TocItem[]): Promise<void> => {
+        try {
+            const tabId = await getActiveTabId()
+            if (tabId == null) {
+                log('No active tab found for context saving')
+                return
+            }
+
+            // Get current URL for validation
+            const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+            const currentUrl = tabs[0]?.url || ''
+
+            await tabContextManager.setContext(tabId, currentUrl, toc)
+            log(`Saved context for tab ${tabId} with ${toc.length} items`)
+        } catch (error) {
+            err('Failed to save context for current tab', error)
+        }
+    }, [getActiveTabId])
+
     const fetchToc = useCallback(async (useChunked: boolean): Promise<TocItem[]> => {
         setIsLoading(true)
         setError(null)
@@ -306,6 +329,9 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
                 ? await extractWithChunked(session, mainText, headings)
                 : await extractWithSingleCall(session, mainText, headings)
 
+            // Save context for current tab
+            await saveContextForCurrentTab(items)
+
             setIsLoading(false)
             return items
         } catch (error) {
@@ -314,7 +340,7 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
             setError(error)
             throw error
         }
-    }, [initializePromptSession, fetchPageMainText, extractWithChunked, extractWithSingleCall])
+    }, [initializePromptSession, fetchPageMainText, extractWithChunked, extractWithSingleCall, saveContextForCurrentTab])
 
     const navigateToSection = useCallback(async (cssSelector: string): Promise<void> => {
         try {
@@ -335,6 +361,32 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         }
     }, [getActiveTabId])
 
+    const loadContextForCurrentTab = useCallback(async (): Promise<TocItem[]> => {
+        try {
+            const tabId = await getActiveTabId()
+            if (tabId == null) {
+                log('No active tab found for context loading')
+                return []
+            }
+
+            const context = await tabContextManager.getContext(tabId)
+            if (context) {
+                log(`Loaded context for tab ${tabId} with ${context.toc.length} items`)
+                return context.toc
+            }
+            
+            log(`No context found for tab ${tabId}`)
+            return []
+        } catch (error) {
+            err('Failed to load context for current tab', error)
+            return []
+        }
+    }, [getActiveTabId])
+
+    const getCurrentTabId = useCallback(async (): Promise<number | null> => {
+        return await tabContextManager.getCurrentTabId()
+    }, [])
+
     return {
         // State
         isLoading,
@@ -351,6 +403,9 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         parseExtractionResult,
         fetchToc,
         navigateToSection,
-        setError
+        setError,
+        loadContextForCurrentTab,
+        saveContextForCurrentTab,
+        getCurrentTabId
     }
 }
