@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react"
+import { TableOfContents, TableOfContentsIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "./ui/button";
 import { Spinner } from "./ui/spinner";
 
 export const TocPopup = () => {
     const [isOpen, setIsOpen] = useState(false)
+    const containerRef = useRef<HTMLDivElement>(null)
     type TocItem = { title: string; cssSelector: string }
     const [toc, setToc] = useState<TocItem[]>([])
     const [isLoading, setIsLoading] = useState(false)
@@ -310,6 +313,26 @@ export const TocPopup = () => {
         }
     }
 
+    const navigateToSection = async (cssSelector: string) => {
+        try {
+            const tabId = await getActiveTabId()
+            if (tabId == null) {
+                throw new Error('No active tab')
+            }
+
+            log('Scrolling to section', cssSelector)
+            await chrome.tabs.sendMessage(tabId, {
+                type: 'SCROLL_TO_SECTION',
+                selector: cssSelector
+            })
+
+            setIsOpen(false)
+        } catch (error) {
+            err('Navigation error', error)
+            setError(error)
+        }
+    }
+
     useEffect(() => {
         const checkAvailability = async () => {
             const availability = await checkModelAvailability()
@@ -323,98 +346,220 @@ export const TocPopup = () => {
         checkAvailability()
     }, [])
 
+    // Handle click outside to close popover
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false)
+            }
+        }
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside)
+            return () => document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [isOpen])
+
+    // Show model download state
     if (notDownloaded) {
         return (
-            <div className="text-sm text-gray-500 flex flex-col items-center justify-center h-full p-4">
-                <h2 className="text-lg font-semibold mb-4">AI Model Required</h2>
-                <p className="text-center mb-4">
-                    The AI model needs to be downloaded before you can extract page sections.
-                </p>
+            <div ref={containerRef} className="relative">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsOpen(!isOpen)}
+                >
+                    <Spinner className="w-4 h-4 mr-2" />
+                    Loading...
+                </Button>
 
-                {!downloadProgress.hidden && (
-                    <div className="w-full max-w-xs mb-4">
-                        <div className="flex justify-between text-xs mb-1">
-                            <span>Downloading model...</span>
-                            {!downloadProgress.indeterminate && (
-                                <span>{Math.round(downloadProgress.value * 100)}%</span>
+                {isOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-2 duration-200">
+                        <div className="text-sm text-gray-600 flex flex-col items-center justify-center p-4">
+                            <h2 className="text-lg font-semibold mb-4">AI Model Required</h2>
+                            <p className="text-center mb-4">
+                                The AI model needs to be downloaded before you can extract page sections.
+                            </p>
+
+                            {!downloadProgress.hidden && (
+                                <div className="w-full max-w-xs mb-4">
+                                    <div className="flex justify-between text-xs mb-1">
+                                        <span>Downloading model...</span>
+                                        {!downloadProgress.indeterminate && (
+                                            <span>{Math.round(downloadProgress.value * 100)}%</span>
+                                        )}
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div
+                                            className={`h-2 rounded-full transition-all duration-300 ${downloadProgress.indeterminate
+                                                ? 'bg-blue-500 animate-pulse w-full'
+                                                : 'bg-blue-500'
+                                                }`}
+                                            style={{
+                                                width: downloadProgress.indeterminate
+                                                    ? '100%'
+                                                    : `${downloadProgress.value * 100}%`
+                                            }}
+                                        />
+                                    </div>
+                                    {downloadProgress.indeterminate && (
+                                        <p className="text-xs text-center mt-2">Extracting and loading model...</p>
+                                    )}
+                                </div>
                             )}
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                                className={`h-2 rounded-full transition-all duration-300 ${downloadProgress.indeterminate
-                                    ? 'bg-blue-500 animate-pulse w-full'
-                                    : 'bg-blue-500'
-                                    }`}
-                                style={{
-                                    width: downloadProgress.indeterminate
-                                        ? '100%'
-                                        : `${downloadProgress.value * 100}%`
+
+                            <Button
+                                onClick={async () => {
+                                    try {
+                                        const session = await initializePromptSession()
+                                        if (session) {
+                                            // Model is ready, start the extraction process
+                                            fetchToc()
+                                        }
+                                    } catch (error) {
+                                        err('Failed to initialize model:', error)
+                                        setError(error)
+                                    }
                                 }}
-                            />
+                                disabled={!downloadProgress.hidden}
+                                size="sm"
+                            >
+                                {downloadProgress.hidden ? 'Download Model' : 'Downloading...'}
+                            </Button>
                         </div>
-                        {downloadProgress.indeterminate && (
-                            <p className="text-xs text-center mt-2">Extracting and loading model...</p>
-                        )}
                     </div>
                 )}
-
-                <button
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={async () => {
-                        try {
-                            const session = await initializePromptSession()
-                            if (session) {
-                                // Model is ready, start the extraction process
-                                fetchToc()
-                            }
-                        } catch (error) {
-                            err('Failed to initialize model:', error)
-                            setError(error)
-                        }
-                    }}
-                    disabled={!downloadProgress.hidden}
-                >
-                    {downloadProgress.hidden ? 'Download Model' : 'Downloading...'}
-                </button>
             </div>
         )
     }
 
+    // Show loading state
     if (isLoading) {
-        return <div className="text-sm text-gray-500 flex items-center justify-center h-full p-4 bg-gray-800">
-            <Spinner />
-        </div>
-    }
-    if (error) {
-        return <div>Error: {error instanceof Error ? error.message : 'Unknown error'}</div>
-    }
+        return (
+            <div ref={containerRef} className="relative">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsOpen(!isOpen)}
+                >
+                    <Spinner className="w-4 h-4 mr-2" />
+                </Button>
 
-    return (
-        <div className="p-4 text-white bg-gray-800 text-black">
-            <div className="flex items-center justify-between mb-4">
-                <h1 className="text-lg font-semibold">Page Sections</h1>
-                <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-600">Chunked:</label>
-                    <button
-                        onClick={() => setUseChunked(!useChunked)}
-                        className={`px-3 py-1 text-xs rounded-md transition-colors ${useChunked
-                            ? 'bg-blue-500 text-black'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            }`}
-                    >
-                        {useChunked ? 'ON' : 'OFF'}
-                    </button>
-                </div>
-            </div>
-
-            {toc.length > 0 && (
-                <div className="space-y-2">
-                    {toc.map((item, index) => (
-                        <div key={index} className="p-2 bg-gray-50 rounded-md">
-                            <div className="font-medium text-sm">{item.title}</div>
-                            <div className="text-xs text-gray-500 font-mono">{item.cssSelector}</div>
+                {isOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-2 duration-200">
+                        <div className="flex items-center justify-center p-4">
+                            <div className="text-center">
+                                <Spinner className="w-8 h-8 mx-auto mb-2" />
+                                <p className="text-sm text-gray-600">
+                                    {progress.total > 0
+                                        ? `Processing ${progress.done}/${progress.total} chunks...`
+                                        : 'Extracting page sections...'
+                                    }
+                                </p>
+                            </div>
                         </div>
-                    ))}
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    // Show error state
+    if (error) {
+        return (
+            <div ref={containerRef} className="relative">
+                <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setIsOpen(!isOpen)}
+                >
+                    Error
+                </Button>
+
+                {isOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-2 duration-200">
+                        <div className="p-4">
+                            <h3 className="font-semibold text-red-600 mb-2">Extraction Failed</h3>
+                            <p className="text-sm text-gray-600">
+                                {error instanceof Error ? error.message : 'Unknown error occurred'}
+                            </p>
+                            <Button
+                                onClick={fetchToc}
+                                size="sm"
+                                className="mt-3"
+                                variant="outline"
+                            >
+                                Retry
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    // Show completed state with TOC items
+    return (
+        <div ref={containerRef} className="relative">
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                <TableOfContentsIcon className="w-4 h-4 mr-1" />
+                <span className="text-xs">{toc.length}</span>
+            </Button>
+
+            {isOpen && (
+                <div className="absolute bottom-full left-0 mb-2 w-48 max-h-96 border border-gray-200 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-2 duration-200 overflow-hidden text-primary bg-background">
+                    <div className="overflow-y-auto max-h-96">
+                        <div className="space-y-3 p-4">
+                            <div className="flex items-center justify-between pb-2 border-b">
+                                <h3 className="font-semibold text-lg">Page Sections</h3>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-xs text-gray-500">Chunked:</label>
+                                    <Button
+                                        onClick={() => setUseChunked(!useChunked)}
+                                        variant={useChunked ? "default" : "outline"}
+                                        size="sm"
+                                        className="h-6 px-2 text-xs"
+                                    >
+                                        {useChunked ? 'ON' : 'OFF'}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {toc.length > 0 ? (
+                                <div className="space-y-2">
+                                    {toc.map((item, index) => (
+                                        <Button
+                                            key={index}
+                                            variant="ghost"
+                                            className="w-full justify-start h-auto p-3 text-left hover:bg-gray-400"
+                                            onClick={() => navigateToSection(item.cssSelector)}
+                                        >
+                                            <div className="flex flex-col items-start">
+                                                <div className="font-medium text-sm text-primary">{item.title}</div>
+                                                <div className="text-xs text-gray-500 font-mono mt-1 text-primary">{item.cssSelector}</div>
+                                            </div>
+                                        </Button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-4 text-gray-500">
+                                    <p className="text-sm">No sections found</p>
+                                    <Button
+                                        onClick={fetchToc}
+                                        size="sm"
+                                        variant="outline"
+                                        className="mt-2"
+                                    >
+                                        Retry Extraction
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

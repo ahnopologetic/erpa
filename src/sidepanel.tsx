@@ -46,7 +46,7 @@ function Sidepanel() {
             </div>
 
             <div className="action-panel flex">
-                <div className="toc">
+                <div className="toc h-full flex items-center justify-center">
                     {/* popup component */}
                     <TocPopup />
                 </div>

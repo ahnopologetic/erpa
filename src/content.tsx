@@ -92,4 +92,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // Indicate async response not needed; we responded synchronously
     return true
   }
+
+  if (message?.type === "SCROLL_TO_SECTION") {
+    console.log('[Erpa] Scrolling to section message received', message)
+    const section = document.querySelector(message.selector) as HTMLElement | null
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth" })
+      console.log('[Erpa] Scrolled to section', section)
+    }
+  }
 })
