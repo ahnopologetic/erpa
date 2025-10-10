@@ -1,18 +1,26 @@
 // Background script to handle keyboard shortcuts and sidepanel commands
-// Listen for commands from keyboard shortcuts
+
+import { err, log } from "~lib/log";
+
+function toggleSidepanel(options: chrome.sidePanel.OpenOptions) {
+    chrome.sidePanel.open(options)
+    chrome.runtime.sendMessage({
+        type: 'close-sidepanel',
+        tabId: options.tabId
+    })
+    log("Runtime message sent: close-sidepanel");
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
-    console.log("Command received:", command);
-    
-    if (command === "open-sidepanel") {
+    if (command === "toggle-sidepanel") {
         try {
-            // Get the current window and open the sidepanel
-            const currentWindow = await chrome.windows.getCurrent();
-            await chrome.sidePanel.open({
-                windowId: currentWindow.id
+            chrome.tabs.query({ currentWindow: true }, (tabs) => {
+                toggleSidepanel({
+                    tabId: tabs[0].id
+                })
             });
-            console.log("Sidepanel opened via keyboard shortcut");
         } catch (error) {
-            console.error("Failed to open sidepanel:", error);
+            err("Failed to open sidepanel:", error);
         }
     }
 });
@@ -26,7 +34,6 @@ chrome.sidePanel.setPanelBehavior({
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
     try {
         console.log(`[Background] Tab activated: ${activeInfo.tabId}`);
-        
         // Send message to sidepanel to close itself when switching tabs
         // Since we can't directly close the sidepanel from background script,
         // we'll send a message to the sidepanel to handle the closing
@@ -45,7 +52,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.active) {
         try {
             console.log(`[Background] Tab updated: ${tabId}`);
-            
+
             // Send message to sidepanel to close itself when navigating to new pages
             chrome.runtime.sendMessage({
                 type: 'CLOSE_SIDEPANEL_ON_PAGE_NAVIGATION',

@@ -1,5 +1,8 @@
 const LOG_PREFIX = '[Erpa]'
 const isVerbose = process.env.NODE_ENV !== 'production'
+const debug = (...args: unknown[]) => {
+    if (isVerbose) console.log(LOG_PREFIX, ...args)
+}
 const log = (...args: unknown[]) => {
     if (isVerbose) console.log(LOG_PREFIX, ...args)
 }
@@ -12,6 +15,7 @@ const timeEnd = (t: { label: string; start: number }) => {
 
 export {
     isVerbose,
+    debug,
     log,
     warn,
     err,

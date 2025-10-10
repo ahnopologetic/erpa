@@ -18,6 +18,12 @@ function Sidepanel() {
                 setContextChanged(true);
                 log('Context changed - showing notification');
             }
+            if (message.type === "close-sidepanel") {
+                log(`Received close message: ${message.type}`);
+                chrome.sidePanel.setOptions({ enabled: false });
+                chrome.sidePanel.setOptions({ enabled: true });
+                setContextChanged(true);
+            }
         };
 
         chrome.runtime.onMessage.addListener(handleMessage);

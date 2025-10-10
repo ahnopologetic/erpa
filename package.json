@@ -40,6 +40,18 @@
     ],
     "host_permissions": [
       "https://*/*"
-    ]
+    ],
+    "background": {
+      "service_worker": "background.ts"
+    }, 
+    "commands": {
+      "toggle-sidepanel": {
+        "suggested_key": {
+          "default": "Ctrl+Shift+Y",
+          "mac": "Command+Shift+Y"
+        },
+        "description": "Open the sidepanel"
+      }
+    }
   }
 }
