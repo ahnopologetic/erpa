@@ -1,5 +1,6 @@
 import React from "react"
 import { TocPopup } from "~components/toc-popup"
+import { log } from "~lib/log"
 import "~style.css"
 
 function Sidepanel() {
@@ -10,12 +11,12 @@ function Sidepanel() {
     // Listen for messages from background script to close sidepanel
     React.useEffect(() => {
         const handleMessage = (message: any) => {
-            if (message.type === 'CLOSE_SIDEPANEL_ON_TAB_SWITCH' || 
+            if (message.type === 'CLOSE_SIDEPANEL_ON_TAB_SWITCH' ||
                 message.type === 'CLOSE_SIDEPANEL_ON_PAGE_NAVIGATION') {
-                console.log(`[Sidepanel] Received close message: ${message.type} for tab ${message.tabId}`);
+                log(`Received close message: ${message.type} for tab ${message.tabId}`);
                 // Show notification that context has changed
                 setContextChanged(true);
-                console.log('[Sidepanel] Context changed - showing notification');
+                log('Context changed - showing notification');
             }
         };
 
@@ -45,7 +46,7 @@ function Sidepanel() {
             streamRef.current = stream
             setIsListening(true)
         } catch (error) {
-            console.error("Microphone access denied or unavailable", error)
+            error("Microphone access denied or unavailable", error)
             setIsListening(false)
         }
     }
@@ -62,7 +63,7 @@ function Sidepanel() {
                 <div className="bg-yellow-600 text-white p-3 text-center text-sm">
                     <p className="font-medium">Context Changed</p>
                     <p className="text-xs mt-1">Tab or page changed. Context preserved for each tab.</p>
-                    <button 
+                    <button
                         onClick={() => setContextChanged(false)}
                         className="mt-2 px-3 py-1 bg-yellow-700 hover:bg-yellow-800 rounded text-xs"
                     >
@@ -78,7 +79,7 @@ function Sidepanel() {
             </div>
 
             <div className="action-panel flex">
-                <div className="toc h-full flex items-center justify-center">
+                <div className="toc h-full flex items-center justify-center px-2">
                     {/* popup component */}
                     <TocPopup />
                 </div>

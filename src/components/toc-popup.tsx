@@ -1,9 +1,10 @@
-import { TableOfContents, TableOfContentsIcon } from "lucide-react";
+import { TableOfContentsIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { Spinner } from "./ui/spinner";
 import { usePromptAPI } from "../hooks/usePromptAPI";
 import type { TocItem } from "../hooks/usePromptAPI";
+import { err, log } from "~lib/log";
 
 export const TocPopup = () => {
     const [isOpen, setIsOpen] = useState(false)
@@ -24,15 +25,17 @@ export const TocPopup = () => {
         navigateToSection,
         setError,
         loadContextForCurrentTab,
-        getCurrentTabId
+        getCurrentTabId,
+        stopLoading
     } = usePromptAPI()
+    const abortController = useRef<AbortController | null>(new AbortController())
 
     const handleFetchToc = async () => {
         try {
             const items = await fetchToc(useChunked)
             setToc(items)
         } catch (error) {
-            // Error is already handled in the hook
+            err('Failed to fetch TOC', error)
         }
     }
 
@@ -43,10 +46,12 @@ export const TocPopup = () => {
                 setCurrentTabId(tabId)
                 const contextToc = await loadContextForCurrentTab()
                 if (contextToc.length > 0) {
+                    log('sidepanel toc before setToc', { toc, contextToc })
                     setToc(contextToc)
-                    console.log(`[TocPopup] Loaded context for tab ${tabId} with ${contextToc.length} items`)
+                    log('sidepanel toc after setToc - state will update on next render', { contextToc })
                 } else {
                     // No context found, try to fetch new TOC
+                    log('No context found, trying to fetch new TOC')
                     const availability = await checkModelAvailability()
                     if (availability === 'available') {
                         handleFetchToc()
@@ -67,12 +72,22 @@ export const TocPopup = () => {
         }
     }
 
+    // Log when toc state actually updates
+    useEffect(() => {
+        log('toc state updated', { toc: toc.length })
+        if (toc.length > 0) {
+            log('toc state updated - aborting prompt API')
+            log('toc : ', { toc })
+            abortController.current?.abort()
+            stopLoading()
+        }
+    }, [toc])
+
     useEffect(() => {
         const initializeComponent = async () => {
             // First, try to load context for current tab
             await loadContextForTab()
-            
-            // If no context was loaded, check availability and fetch new TOC
+
             if (toc.length === 0) {
                 const availability = await checkModelAvailability()
                 if (availability === 'available') {
@@ -170,7 +185,7 @@ export const TocPopup = () => {
                             <Button
                                 onClick={async () => {
                                     try {
-                                        const session = await initializePromptSession()
+                                        const session = await initializePromptSession(abortController.current)
                                         if (session) {
                                             // Model is ready, start the extraction process
                                             handleFetchToc()
@@ -192,7 +207,7 @@ export const TocPopup = () => {
     }
 
     // Show loading state
-    if (isLoading) {
+    if (!toc.length && isLoading) {
         return (
             <div ref={containerRef} className="relative">
                 <Button
@@ -269,7 +284,7 @@ export const TocPopup = () => {
             </Button>
 
             {isOpen && (
-                <div className="absolute bottom-full left-0 mb-2 w-48 max-h-96 border border-gray-200 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-2 duration-200 overflow-hidden text-primary bg-background">
+                <div className="absolute bottom-full left-0 mb-2 w-[66vw] max-h-96 border border-gray-200 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-2 duration-200 overflow-hidden text-primary bg-black">
                     <div className="overflow-y-auto max-h-96">
                         <div className="space-y-3 p-4">
                             <div className="flex items-center justify-between pb-2 border-b">
@@ -293,7 +308,7 @@ export const TocPopup = () => {
                                         <Button
                                             key={index}
                                             variant="ghost"
-                                            className="w-full justify-start h-auto p-3 text-left hover:bg-gray-400"
+                                            className="w-full justify-start h-auto p-3 text-left hover:bg-muted"
                                             onClick={() => handleNavigateToSection(item.cssSelector)}
                                         >
                                             <div className="flex flex-col items-start">

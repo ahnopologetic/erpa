@@ -14,7 +14,7 @@ export interface PromptAPIState {
 
 export interface PromptAPIActions {
     checkModelAvailability: () => Promise<LanguageModelAvailability>
-    initializePromptSession: () => Promise<LanguageModelSession | null>
+    initializePromptSession: (abortController?: AbortController) => Promise<LanguageModelSession | null>
     fetchPageMainText: () => Promise<{ text: string; headings: { text: string; selector: string }[] }>
     extractWithChunked: (session: LanguageModelSession, mainText: string, headings: { text: string; selector: string }[]) => Promise<TocItem[]>
     extractWithSingleCall: (session: LanguageModelSession, mainText: string, headings: { text: string; selector: string }[]) => Promise<TocItem[]>
@@ -25,6 +25,7 @@ export interface PromptAPIActions {
     loadContextForCurrentTab: () => Promise<TocItem[]>
     saveContextForCurrentTab: (toc: TocItem[]) => Promise<void>
     getCurrentTabId: () => Promise<number | null>
+    stopLoading: () => void
 }
 
 export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
@@ -46,10 +47,14 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         return await LanguageModel.availability()
     }, [])
 
-    const initializePromptSession = useCallback(async (): Promise<LanguageModelSession | null> => {
+    const initializePromptSession = useCallback(async (abortController?: AbortController): Promise<LanguageModelSession | null> => {
         if (!('LanguageModel' in self)) {
             err('Prompt API is not supported')
             return null
+        }
+
+        if (!abortController) {
+            abortController = new AbortController()
         }
 
         // Reset progress UI
@@ -79,7 +84,8 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
                         setDownloadProgress(prev => ({ ...prev, indeterminate: true }))
                     }
                 })
-            }
+            },
+            signal: abortController.signal
         })
         timeEnd(createTimer)
 
@@ -372,9 +378,10 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
             const context = await tabContextManager.getContext(tabId)
             if (context) {
                 log(`Loaded context for tab ${tabId} with ${context.toc.length} items`)
+                log('context', { context })
                 return context.toc
             }
-            
+
             log(`No context found for tab ${tabId}`)
             return []
         } catch (error) {
@@ -385,6 +392,12 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
 
     const getCurrentTabId = useCallback(async (): Promise<number | null> => {
         return await tabContextManager.getCurrentTabId()
+    }, [])
+
+    const stopLoading = useCallback(() => {
+        setIsLoading(false)
+        setError(null)
+        setProgress({ total: 0, done: 0 })
     }, [])
 
     return {
@@ -406,6 +419,7 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         setError,
         loadContextForCurrentTab,
         saveContextForCurrentTab,
-        getCurrentTabId
+        getCurrentTabId,
+        stopLoading
     }
 }
