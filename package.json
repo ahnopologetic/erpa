@@ -36,7 +36,10 @@
       "tabs",
       "activeTab",
       "storage",
-      "sidePanel"
+      "sidePanel",
+      "offscreen",
+      "tabCapture",
+      "scripting"
     ],
     "host_permissions": [
       "https://*/*"
@@ -52,6 +55,12 @@
         },
         "description": "Open the sidepanel"
       }
-    }
+    },
+    "web_accessible_resources": [
+      {
+        "resources": ["offscreen.html", "permission.html"],
+        "matches": ["<all_urls>"]
+      }
+    ]
   }
 }
