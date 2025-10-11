@@ -1,3 +1,4 @@
+console.log('offscreen.ts loaded')
 let recorder;
 let data = [];
 let activeStreams = [];
@@ -18,14 +19,16 @@ chrome.runtime.onMessage.addListener(async (message) => {
 });
 
 async function startRecording(streamId) {
+    console.log('[Offscreen] start recording with streamId:', streamId)
     if (recorder?.state === "recording") {
         throw new Error("Called startRecording while recording is in progress.");
     }
 
     await stopAllStreams();
+    console.log('Starting to get tab stream')
 
     try {
-        // Get tab audio stream
+        // Get tab audio stream using the modern API
         const tabStream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 mandatory: {
@@ -36,6 +39,12 @@ async function startRecording(streamId) {
             video: false,
         });
 
+        console.log('[Offscreen] tabStream obtained', { 
+            tabStream, 
+            audioTracks: tabStream.getAudioTracks().length,
+            videoTracks: tabStream.getVideoTracks().length
+        })
+
         // Get microphone stream with noise cancellation
         const micStream = await navigator.mediaDevices.getUserMedia({
             audio: {
@@ -45,6 +54,11 @@ async function startRecording(streamId) {
             },
             video: false,
         });
+
+        console.log('[Offscreen] micStream obtained', { 
+            micStream, 
+            audioTracks: micStream.getAudioTracks().length 
+        })
 
         activeStreams.push(tabStream, micStream);
 
@@ -109,15 +123,25 @@ async function startRecording(streamId) {
         });
     } catch (error) {
         console.error("Error starting recording:", error);
+        
+        // Send detailed error information
         chrome.runtime.sendMessage({
             type: "recording-error",
             target: "popup",
             error: error.message,
+            details: {
+                name: error.name,
+                stack: error.stack
+            }
         });
+        
+        // Clean up any partial streams
+        await stopAllStreams();
     }
 }
 
 async function stopRecording() {
+    console.log('[Offscreen] stopRecording')
     if (recorder && recorder.state === "recording") {
         recorder.stop();
     }

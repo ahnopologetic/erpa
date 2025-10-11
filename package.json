@@ -36,7 +36,10 @@
       "tabs",
       "activeTab",
       "storage",
-      "sidePanel"
+      "sidePanel",
+      "offscreen",
+      "tabCapture",
+      "scripting"
     ],
     "host_permissions": [
       "https://*/*"
