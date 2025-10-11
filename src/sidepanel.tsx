@@ -1,5 +1,6 @@
 import React from "react"
 import { TocPopup } from "~components/toc-popup"
+import { usePromptAPI } from "~hooks/usePromptAPI"
 import { err, log } from "~lib/log"
 import "~style.css"
 
@@ -8,10 +9,99 @@ function Sidepanel() {
     const [contextChanged, setContextChanged] = React.useState(false)
     const streamRef = React.useRef<MediaStream | null>(null)
     const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
+    const [promptSession, setPromptSession] = React.useState<LanguageModelSession | null>(null)
+    const [summarizationPromptSession, setSummarizationPromptSession] = React.useState<LanguageModelSession | null>(null)
 
+    const { initializePromptSession } = usePromptAPI()
     // Listen for messages from background script to close sidepanel
     React.useEffect(() => {
-        const handleMessage = (message: any) => {
+        const checkMicrophonePermission = async () => {
+            const permission = await navigator.permissions.query({ name: "microphone" })
+            log('Microphone permission', { permission })
+            if (!permission) {
+                chrome.tabs.create({ url: "tabs/permission.html" })
+            }
+        }
+        const checkOffscreenDocument = async () => {
+            const contexts = await chrome.runtime.getContexts({});
+            const offscreenDocument = contexts.find(
+                (c) => c.contextType === "OFFSCREEN_DOCUMENT"
+            );
+            log('Offscreen document', { offscreenDocument })
+            offscreenDocumentRef.current = offscreenDocument
+        }
+
+        checkMicrophonePermission()
+        checkOffscreenDocument()
+        const createPromptSession = async () => {
+            const session = await initializePromptSession(undefined, {
+                expectedInputs: [{ type: 'audio', languages: ['en'] }],
+                expectedOutputs: [{ type: 'text', languages: ['en'] }]
+            })
+            const clonedSession = await session.clone()
+            setSummarizationPromptSession(clonedSession)
+            await session.append(
+                [
+                    {
+                        role: 'system',
+                        content: `You're a helpful chrome extension assistant that can answer questions and help them navigate the website.
+                        Based on the user's query, you should decide which tool to use.
+
+                        There are three tools available to you:
+                        - navigate(anchor_or_css_selector: string): navigate to specific html selector
+                        - summarize(outer_html: string): summarize the content of selected html portion
+                        - ask(question: string): ask a question to the user
+
+                        ### Important rules
+                        - If you don't have enough information to answer the user's question, you should ask the user for more information.
+                        - You can use the tools to answer the user's question.
+
+                        ### Output format
+                        Case 1. Plain text response
+                        {
+                            "type": "plain_text",
+                            "text": "The response to the user's question"
+                        }
+
+                        Case 2. Tool response
+                        You should always use the tools to answer the user's question.
+                        {
+                            "type": "tool",
+                            "tool": "navigate",
+                            "tool_args": {
+                                "anchor_or_css_selector": "The anchor or css selector to navigate to"
+                            }
+                        }
+
+                        Case 3. Tool response with additional information
+                        [
+                            {
+                                "type": "tool",
+                                "tool": "navigate",
+                                "tool_args": {
+                                    "anchor_or_css_selector": "The anchor or css selector to navigate to"
+                                }
+                            },
+                            {
+                                "type": "plain_text",
+                                "text": "The additional information to the user's question"
+                            }
+                        ]
+                        `
+                    },
+                ]
+            )
+            setPromptSession(session)
+            log('Prompt session is created and set to state', { session })
+        }
+        createPromptSession()
+        return () => {
+            stopStream()
+        }
+    }, [])
+
+    React.useEffect(() => {
+        const handleMessage = async (message: any) => {
             if (message.type === 'CLOSE_SIDEPANEL_ON_TAB_SWITCH' ||
                 message.type === 'CLOSE_SIDEPANEL_ON_PAGE_NAVIGATION') {
                 log(`Received close message: ${message.type} for tab ${message.tabId}`);
@@ -31,6 +121,51 @@ function Sidepanel() {
                 stopStream();
                 alert(`Recording error: ${message.error}`);
             }
+            if (message.type === "recording-stopped" && message.target === "sidepanel") {
+                log(`Received recording data:`, {
+                    fileName: message.fileName,
+                    mimeType: message.mimeType,
+                    audioDataLength: message.audioData?.length
+                });
+
+                // Convert base64 back to blob
+                const binaryString = atob(message.audioData);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const audioBlob = new Blob([bytes], { type: message.mimeType });
+
+                // Console.log the audio file details
+                console.log("🎵 RECORDED AUDIO FILE:", {
+                    blob: audioBlob,
+                    fileName: message.fileName,
+                    mimeType: message.mimeType,
+                    size: audioBlob.size,
+                    sizeInMB: (audioBlob.size / (1024 * 1024)).toFixed(2),
+                    url: URL.createObjectURL(audioBlob) // For testing - you can open this URL in a new tab
+                });
+
+                if (promptSession) {
+                    log('Calling audio input to prompt session')
+                    const response = await promptSession.prompt([
+                        {
+                            role: 'user',
+                            content: [
+                                {
+                                    type: 'audio',
+                                    value: audioBlob
+                                }
+                            ]
+                        }
+                    ])
+                    log('Prompt session response', { response })
+                }
+
+                // Stop listening state
+                setIsListening(false);
+                stopStream();
+            }
         };
 
         chrome.runtime.onMessage.addListener(handleMessage);
@@ -38,7 +173,7 @@ function Sidepanel() {
         return () => {
             chrome.runtime.onMessage.removeListener(handleMessage);
         };
-    }, []);
+    }, [promptSession]);
 
     const stopStream = () => {
         if (streamRef.current) {
@@ -128,28 +263,10 @@ function Sidepanel() {
     }
 
     React.useEffect(() => {
-        const checkMicrophonePermission = async () => {
-            const permission = await navigator.permissions.query({ name: "microphone" })
-            log('Microphone permission', { permission })
-            if (!permission) {
-                chrome.tabs.create({ url: "tabs/permission.html" })
-            }
+        if (promptSession) {
+            log('promptSession', { promptSession })
         }
-        const checkOffscreenDocument = async () => {
-            const contexts = await chrome.runtime.getContexts({});
-            const offscreenDocument = contexts.find(
-                (c) => c.contextType === "OFFSCREEN_DOCUMENT"
-            );
-            log('Offscreen document', { offscreenDocument })
-            offscreenDocumentRef.current = offscreenDocument
-        }
-
-        checkMicrophonePermission()
-        checkOffscreenDocument()
-        return () => {
-            stopStream()
-        }
-    }, [])
+    }, [promptSession])
 
     return (
         <div className="dark h-screen flex flex-col bg-gray-900 text-white">
@@ -189,7 +306,7 @@ function Sidepanel() {
             <div className="action-panel flex z-10">
                 <div className="toc h-full flex items-center justify-center px-2">
                     {/* popup component */}
-                    <TocPopup />
+                    <TocPopup promptSession={summarizationPromptSession} />
                 </div>
                 <button
                     onClick={handleToggleMic}
@@ -201,7 +318,7 @@ function Sidepanel() {
                     <div className={`grid grid-cols-4 gap-2 items-center justify-center px-4 hover:scale-105 transition-all duration-300`}>
                         <div
                             className={`h-8 w-8 rounded-full border-4 border-transparent bg-gray-400 hover:bg-gray-500 hover:cursor-pointer hover:scale-105 transition-all duration-300 justify-self-end col-span-1
-                                ${isListening 
+                                ${isListening
                                     ? "border-4 border-gradient-to-r from-red-500 to-orange-500 p-0.5"
                                     : "border-muted-foreground"
                                 }
