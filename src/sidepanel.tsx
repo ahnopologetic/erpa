@@ -72,7 +72,7 @@ function Sidepanel() {
                 active: true,
                 currentWindow: true,
             });
-            
+
             if (!tab) {
                 throw new Error("No active tab found");
             }
@@ -98,7 +98,7 @@ function Sidepanel() {
             if (!response.success) {
                 throw new Error(response.error || "Failed to get tab stream ID");
             }
-            
+
             const streamId = response.streamId;
             log('Tab stream ID received via background script', { streamId });
 
@@ -115,7 +115,7 @@ function Sidepanel() {
             err("Recording setup failed", error)
             setIsListening(false)
             stopStream()
-            
+
             // Show user-friendly error message
             if (error.message.includes("Cannot record Chrome system pages")) {
                 alert(error.message);
@@ -165,28 +165,49 @@ function Sidepanel() {
                     </button>
                 </div>
             )}
-            <div className="flex-1 overflow-auto p-4">
+            {/* Background animated Spline */}
+            <div className="spline-container absolute top-0 left-0 w-full h-full z-0 pointer-events-none">
+                <iframe
+                    src="https://my.spline.design/glowingplanetparticles-HmCVKutonlFn3Oqqe6DI9nWi/"
+                    frameBorder="0"
+                    width="100%"
+                    height="100%"
+                    id="aura-spline"
+                    style={{ pointerEvents: "none" }}
+                    aria-hidden="true"
+                    tabIndex={-1}
+                />
+            </div>
+            {/* Foreground UI */}
+            <div className="flex-1 overflow-auto p-4 relative z-10">
                 <h1 className="text-xl font-semibold">Sidepanel</h1>
                 <p className="mt-2 text-sm text-muted-foreground">
                     {isListening ? "Listening..." : "Click the logo below to start the mic."}
                 </p>
             </div>
 
-            <div className="action-panel flex">
+            <div className="action-panel flex z-10">
                 <div className="toc h-full flex items-center justify-center px-2">
                     {/* popup component */}
                     <TocPopup />
                 </div>
                 <button
                     onClick={handleToggleMic}
-                    className="w-full p-4 bg-gray-300 text-center text-sm font-medium select-none focus:outline-none"
+                    className={`w-full p-4 bg-black text-center text-sm font-medium select-none focus:outline-none ${isListening ? "bg-gradient-to-r from-red-500 to-orange-500 transition-all duration-300" : ""}`}
                     style={{ cursor: "pointer" }}
                     aria-pressed={isListening}
                     aria-label={isListening ? "Turn microphone off" : "Turn microphone on"}
                 >
-                    <div className="flex items-center justify-center gap-2">
-                        <div className="h-8 w-8 bg-gray-400" />
-                        <span>{isListening ? "Mic On" : "Tap to Turn Mic On"}</span>
+                    <div className={`grid grid-cols-4 gap-2 items-center justify-center px-4 hover:scale-105 transition-all duration-300`}>
+                        <div
+                            className={`h-8 w-8 rounded-full border-4 border-transparent bg-gray-400 hover:bg-gray-500 hover:cursor-pointer hover:scale-105 transition-all duration-300 justify-self-end col-span-1
+                                ${isListening 
+                                    ? "border-4 border-gradient-to-r from-red-500 to-orange-500 p-0.5"
+                                    : "border-muted-foreground"
+                                }
+                            `}
+                        />
+                        <span className="col-span-3 justify-self-center">{isListening ? "Mic On" : "Tap to Turn Mic On"}</span>
                     </div>
                 </button>
             </div>
