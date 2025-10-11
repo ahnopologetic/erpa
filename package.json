@@ -52,6 +52,12 @@
         },
         "description": "Open the sidepanel"
       }
-    }
+    },
+    "web_accessible_resources": [
+      {
+        "resources": ["offscreen.html", "permission.html"],
+        "matches": ["<all_urls>"]
+      }
+    ]
   }
 }

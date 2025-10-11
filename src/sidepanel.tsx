@@ -41,6 +41,10 @@ function Sidepanel() {
     }
 
     const handleToggleMic = async () => {
+        if (!streamRef.current) {
+            chrome.tabs.create({ url: "tabs/permission.html" });
+            return
+        }
         if (isListening) {
             stopStream()
             setIsListening(false)
