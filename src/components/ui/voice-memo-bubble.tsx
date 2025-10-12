@@ -21,9 +21,24 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
     // Generate audio URL from blob if not already available
     useEffect(() => {
         if (!audioUrl && voiceMemo.audioBlob) {
-            const url = URL.createObjectURL(voiceMemo.audioBlob);
-            setAudioUrl(url);
-            return () => URL.revokeObjectURL(url);
+            try {
+                console.log('Creating audio URL from blob:', {
+                    blobSize: voiceMemo.audioBlob.size,
+                    blobType: voiceMemo.audioBlob.type,
+                    hasBlob: !!voiceMemo.audioBlob
+                });
+                
+                const url = URL.createObjectURL(voiceMemo.audioBlob);
+                setAudioUrl(url);
+                console.log('Created audio URL:', url);
+                
+                return () => {
+                    console.log('Revoking audio URL:', url);
+                    URL.revokeObjectURL(url);
+                };
+            } catch (error) {
+                console.error('Failed to create audio URL from blob:', error);
+            }
         }
     }, [voiceMemo.audioBlob, audioUrl]);
 
@@ -62,7 +77,16 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
 
     // Handle play/pause
     const handlePlayPause = async () => {
-        if (!audioRef.current || !audioUrl) return;
+        if (!audioRef.current || !audioUrl) {
+            console.error('Cannot play audio: missing audio element or URL', { 
+                audioRef: !!audioRef.current, 
+                audioUrl,
+                hasAudioBlob: !!voiceMemo.audioBlob,
+                blobSize: voiceMemo.audioBlob?.size,
+                blobType: voiceMemo.audioBlob?.type
+            });
+            return;
+        }
 
         try {
             if (isPlaying) {
@@ -74,6 +98,38 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
                 }
                 onPause?.(voiceMemo);
             } else {
+                console.log('Attempting to play audio:', {
+                    audioUrl,
+                    readyState: audioRef.current.readyState,
+                    networkState: audioRef.current.networkState,
+                    src: audioRef.current.src
+                });
+
+                // Check if audio is ready to play
+                if (audioRef.current.readyState === 0) {
+                    console.log('Audio not ready, waiting for load...');
+                    await new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => reject(new Error('Audio load timeout')), 5000);
+                        
+                        const handleCanPlay = () => {
+                            clearTimeout(timeout);
+                            audioRef.current!.removeEventListener('canplay', handleCanPlay);
+                            audioRef.current!.removeEventListener('error', handleError);
+                            resolve(void 0);
+                        };
+                        
+                        const handleError = (e: Event) => {
+                            clearTimeout(timeout);
+                            audioRef.current!.removeEventListener('canplay', handleCanPlay);
+                            audioRef.current!.removeEventListener('error', handleError);
+                            reject(e);
+                        };
+                        
+                        audioRef.current!.addEventListener('canplay', handleCanPlay);
+                        audioRef.current!.addEventListener('error', handleError);
+                    });
+                }
+
                 await audioRef.current.play();
                 setIsPlaying(true);
 
@@ -89,6 +145,21 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
         } catch (error) {
             console.error('Error playing audio:', error);
             setIsPlaying(false);
+            
+            // Provide more specific error information
+            if (error instanceof Error) {
+                if (error.message.includes('NotSupportedError')) {
+                    console.error('Audio format not supported. URL:', audioUrl);
+                    console.error('Blob info:', {
+                        size: voiceMemo.audioBlob?.size,
+                        type: voiceMemo.audioBlob?.type
+                    });
+                } else if (error.message.includes('AbortError')) {
+                    console.error('Audio playback was aborted');
+                } else if (error.message.includes('load timeout')) {
+                    console.error('Audio failed to load within timeout');
+                }
+            }
         }
     };
 
@@ -225,6 +296,17 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
                         onLoadedMetadata={handleLoadedMetadata}
                         onTimeUpdate={handleTimeUpdate}
                         onEnded={handleEnded}
+                        onError={(e) => {
+                            console.error('Audio element error:', e);
+                            console.error('Audio element details:', {
+                                src: audioRef.current?.src,
+                                networkState: audioRef.current?.networkState,
+                                readyState: audioRef.current?.readyState,
+                                error: audioRef.current?.error
+                            });
+                        }}
+                        onLoadStart={() => console.log('Audio load started')}
+                        onCanPlay={() => console.log('Audio can play')}
                         preload="metadata"
                         className="hidden"
                     />
