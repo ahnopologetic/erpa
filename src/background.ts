@@ -3,6 +3,10 @@
 import OFFSCREEN_DOCUMENT_PATH from "url:~src/offscreen.html";
 import { err, log } from "~lib/log";
 
+// Open sidepanel on action click
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+
+
 function toggleSidepanel(options: chrome.sidePanel.OpenOptions) {
     chrome.sidePanel.open(options)
     chrome.runtime.sendMessage({
@@ -82,7 +86,7 @@ async function handleTabCapture(tabId?: number, senderTabId?: number) {
     try {
         // Use the sender's tab ID if available (from sidepanel), otherwise use provided tabId
         let targetTabId = senderTabId || tabId;
-        
+
         if (!targetTabId) {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             targetTabId = tab?.id;
@@ -120,12 +124,10 @@ async function handleTabCapture(tabId?: number, senderTabId?: number) {
         return streamId;
     } catch (error) {
         console.error("Tab capture error:", error);
-        
         // If we get the activeTab error, try to provide a more helpful message
         if (error.message.includes("Extension has not been invoked")) {
             throw new Error("Extension invocation failed. Please try refreshing the page and opening the sidepanel again, or try on a different webpage.");
         }
-        
         throw error;
     }
 }

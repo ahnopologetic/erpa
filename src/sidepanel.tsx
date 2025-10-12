@@ -14,6 +14,7 @@ function Sidepanel() {
     const [streamingTranscription, setStreamingTranscription] = React.useState<string>('')
     const [useStreaming, setUseStreaming] = React.useState(true)
     const [showTranscription, setShowTranscription] = React.useState(false)
+    const [isSidepanelEnabled, setIsSidepanelEnabled] = React.useState(true)
 
     const streamRef = React.useRef<MediaStream | null>(null)
     const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
@@ -119,8 +120,7 @@ function Sidepanel() {
             }
             if (message.type === "close-sidepanel") {
                 log(`Received close message: ${message.type}`);
-                chrome.sidePanel.setOptions({ enabled: false });
-                chrome.sidePanel.setOptions({ enabled: true });
+                setIsSidepanelEnabled(false);
                 setContextChanged(true);
             }
             if (message.type === "recording-error") {
@@ -321,6 +321,19 @@ function Sidepanel() {
             log('promptSession', { promptSession })
         }
     }, [promptSession])
+
+    if (!isSidepanelEnabled) {
+        return (
+            <div className="dark h-screen flex flex-col bg-gray-900 text-white">
+                <div className="flex-1 overflow-auto p-4 relative z-10">
+                    <h1 className="text-xl font-semibold">Sidepanel is disabled</h1>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        Sidepanel is disabled. Please click the logo below to reopen it.
+                    </p>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="dark h-screen flex flex-col bg-gray-900 text-white">
