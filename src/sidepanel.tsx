@@ -1,15 +1,14 @@
+import { MicIcon, PencilIcon, SendIcon } from "lucide-react"
 import React from "react"
 import { TocPopup } from "~components/toc-popup"
-import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
+import { Button } from "~components/ui/button"
 import { ChatInterface } from "~components/ui/chat-interface"
+import { Textarea } from "~components/ui/textarea"
+import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
 import { usePromptAPI, type TocItem } from "~hooks/usePromptAPI"
 import { useVoiceMemoChat } from "~hooks/useVoiceMemoChat"
 import { err, log, warn } from "~lib/log"
 import "~style.css"
-import { MicIcon, PencilIcon, SendIcon } from "lucide-react"
-import { Button } from "~components/ui/button"
-import { Input } from "~components/ui/input"
-import { Textarea } from "~components/ui/textarea"
 
 function Sidepanel() {
     const [isListening, setIsListening] = React.useState(false)
@@ -130,8 +129,7 @@ function Sidepanel() {
                 }
                 const audioBlob = new Blob([bytes], { type: message.mimeType });
 
-                // Console.log the audio file details
-                console.log("🎵 RECORDED AUDIO FILE:", {
+                log("🎵 RECORDED AUDIO FILE:", {
                     blob: audioBlob,
                     fileName: message.fileName,
                     mimeType: message.mimeType,
@@ -505,9 +503,9 @@ function Sidepanel() {
                                     placeholder="Type your message..."
                                     disabled={isProcessingText}
                                 />
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={(e) => {
                                         e.stopPropagation()
                                         handleTextSubmit()
