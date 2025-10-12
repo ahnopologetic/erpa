@@ -1,6 +1,7 @@
 import { Brain, Trash2 } from "lucide-react"
 import React from "react"
 import { TocPopup } from "~components/toc-popup"
+import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
 import { usePromptAPI } from "~hooks/usePromptAPI"
 import { err, log } from "~lib/log"
 import "~style.css"
@@ -458,7 +459,7 @@ function Sidepanel() {
                     {/* popup component */}
                     <TocPopup promptSession={summarizationPromptSession} />
                 </div>
-                <button
+                {/* <button
                     onClick={handleToggleMic}
                     className={`w-full p-4 bg-black text-center text-sm font-medium select-none focus:outline-none ${isListening ? "bg-gradient-to-r from-red-500 to-orange-500 transition-all duration-300" : ""}`}
                     style={{ cursor: "pointer" }}
@@ -476,7 +477,14 @@ function Sidepanel() {
                         />
                         <span className="col-span-3 justify-self-center">{isListening ? "Mic On" : "Tap to Turn Mic On"}</span>
                     </div>
-                </button>
+                </button> */}
+
+                <div className="flex items-center justify-center" onClick={handleToggleMic}>
+                    <VoicePoweredOrb
+                        enableVoiceControl={isListening}
+                        className="rounded-xl overflow-hidden shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer max-h-24"
+                    />
+                </div>
             </div>
         </div>
     )

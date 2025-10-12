@@ -15,6 +15,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.544.0",
+    "ogl": "^1.0.11",
     "plasmo": "0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
@@ -46,7 +47,7 @@
     ],
     "background": {
       "service_worker": "background.ts"
-    }, 
+    },
     "commands": {
       "toggle-sidepanel": {
         "suggested_key": {
@@ -58,8 +59,14 @@
     },
     "web_accessible_resources": [
       {
-        "resources": ["offscreen.html", "permission.html", "audio-test.html"],
-        "matches": ["<all_urls>"]
+        "resources": [
+          "offscreen.html",
+          "permission.html",
+          "audio-test.html"
+        ],
+        "matches": [
+          "<all_urls>"
+        ]
       }
     ]
   }
