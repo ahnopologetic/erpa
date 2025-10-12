@@ -2,20 +2,20 @@ import { Brain, Trash2 } from "lucide-react"
 import React from "react"
 import { TocPopup } from "~components/toc-popup"
 import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
+import { ChatInterface } from "~components/ui/chat-interface"
 import { usePromptAPI } from "~hooks/usePromptAPI"
+import { useVoiceMemoChat } from "~hooks/useVoiceMemoChat"
 import { err, log } from "~lib/log"
 import "~style.css"
 
 function Sidepanel() {
     const [isListening, setIsListening] = React.useState(false)
     const [contextChanged, setContextChanged] = React.useState(false)
-    const [transcription, setTranscription] = React.useState<string>('')
     const [isTranscribing, setIsTranscribing] = React.useState(false)
-    const [transcriptionError, setTranscriptionError] = React.useState<string | null>(null)
-    const [streamingTranscription, setStreamingTranscription] = React.useState<string>('')
-    const [useStreaming, setUseStreaming] = React.useState(true)
-    const [showTranscription, setShowTranscription] = React.useState(false)
     const [isSidepanelEnabled, setIsSidepanelEnabled] = React.useState(true)
+    // Remove mode toggle - only chat mode
+    const [currentTabId, setCurrentTabId] = React.useState<number | null>(null)
+    const [currentUrl, setCurrentUrl] = React.useState<string>('')
 
     const streamRef = React.useRef<MediaStream | null>(null)
     const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
@@ -23,8 +23,34 @@ function Sidepanel() {
     const [summarizationPromptSession, setSummarizationPromptSession] = React.useState<LanguageModelSession | null>(null)
 
     const { initializePromptSession } = usePromptAPI()
+
+    // Voice memo chat functionality
+    const {
+        messages: chatMessages,
+        addUserMessage,
+        addAIMessage,
+        deleteMessage,
+        isLoading: chatLoading,
+        error: chatError
+    } = useVoiceMemoChat({
+        tabId: currentTabId || undefined,
+        url: currentUrl || undefined,
+        autoLoad: true
+    })
     // Listen for messages from background script to close sidepanel
     React.useEffect(() => {
+        const getCurrentTab = async () => {
+            try {
+                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (tab && tab.id && tab.url) {
+                    setCurrentTabId(tab.id);
+                    setCurrentUrl(tab.url);
+                }
+            } catch (error) {
+                log('Failed to get current tab', error);
+            }
+        };
+
         const checkMicrophonePermission = async () => {
             const permission = await navigator.permissions.query({ name: "microphone" })
             log('Microphone permission', { permission })
@@ -41,6 +67,8 @@ function Sidepanel() {
             offscreenDocumentRef.current = offscreenDocument
         }
 
+        getCurrentTab()
+
         checkMicrophonePermission()
         checkOffscreenDocument()
         const createPromptSession = async () => {
@@ -50,57 +78,6 @@ function Sidepanel() {
             })
             const clonedSession = await session.clone()
             setSummarizationPromptSession(clonedSession)
-            await session.append(
-                [
-                    {
-                        role: 'system',
-                        content: `You're a helpful chrome extension assistant that can answer questions and help them navigate the website.
-                        Based on the user's query, you should decide which tool to use.
-
-                        There are three tools available to you:
-                        - navigate(anchor_or_css_selector: string): navigate to specific html selector
-                        - summarize(outer_html: string): summarize the content of selected html portion
-                        - ask(question: string): ask a question to the user
-
-                        ### Important rules
-                        - If you don't have enough information to answer the user's question, you should ask the user for more information.
-                        - You can use the tools to answer the user's question.
-
-                        ### Output format
-                        Case 1. Plain text response
-                        {
-                            "type": "plain_text",
-                            "text": "The response to the user's question"
-                        }
-
-                        Case 2. Tool response
-                        You should always use the tools to answer the user's question.
-                        {
-                            "type": "tool",
-                            "tool": "navigate",
-                            "tool_args": {
-                                "anchor_or_css_selector": "The anchor or css selector to navigate to"
-                            }
-                        }
-
-                        Case 3. Tool response with additional information
-                        [
-                            {
-                                "type": "tool",
-                                "tool": "navigate",
-                                "tool_args": {
-                                    "anchor_or_css_selector": "The anchor or css selector to navigate to"
-                                }
-                            },
-                            {
-                                "type": "plain_text",
-                                "text": "The additional information to the user's question"
-                            }
-                        ]
-                        `
-                    },
-                ]
-            )
             setPromptSession(session)
             log('Prompt session is created and set to state', { session })
         }
@@ -159,53 +136,51 @@ function Sidepanel() {
                 if (promptSession) {
                     log('Calling audio input to prompt session')
                     setIsTranscribing(true)
-                    setTranscriptionError(null)
-                    setTranscription('')
-                    setStreamingTranscription('')
-                    setShowTranscription(true)
 
                     try {
-                        if (useStreaming) {
-                            // Use streaming transcription
-                            const stream = promptSession.promptStreaming([
-                                {
-                                    role: 'user',
-                                    content: [
-                                        {
-                                            type: 'audio',
-                                            value: audioBlob
-                                        }
-                                    ]
-                                }
-                            ])
-
-                            let fullText = ''
-                            for await (const chunk of stream) {
-                                fullText += chunk
-                                setStreamingTranscription(fullText)
+                        // Use standard transcription for chat mode
+                        const transcriptionResult = await promptSession.prompt([
+                            {
+                                role: 'user',
+                                content: [
+                                    {
+                                        type: 'audio',
+                                        value: audioBlob
+                                    }
+                                ]
                             }
+                        ])
+                        log('Transcription result', { transcriptionResult })
 
-                            setTranscription(fullText)
-                            setStreamingTranscription('')
-                        } else {
-                            // Use standard transcription
-                            const response = await promptSession.prompt([
-                                {
-                                    role: 'user',
-                                    content: [
-                                        {
-                                            type: 'audio',
-                                            value: audioBlob
-                                        }
-                                    ]
+                        // Add as user message and generate AI response
+                        if (transcriptionResult) {
+                            await addUserMessage(audioBlob, transcriptionResult)
+
+                            // Generate AI response
+                            try {
+                                const aiResponse = await promptSession.prompt([
+                                    {
+                                        role: 'user',
+                                        content: transcriptionResult
+                                    }
+                                ])
+
+                                if (aiResponse) {
+                                    await addAIMessage({ textResponse: aiResponse })
                                 }
-                            ])
-                            setTranscription(response)
-                            log('Prompt session response', { response })
+                            } catch (aiError) {
+                                log('AI response error', aiError)
+                                await addAIMessage({
+                                    textResponse: "I'm sorry, I couldn't process your request right now. Please try again."
+                                })
+                            }
                         }
                     } catch (error) {
                         log('Transcription error', error)
-                        setTranscriptionError('Failed to transcribe audio. Please try again.')
+                        // Add error message to chat
+                        await addAIMessage({
+                            textResponse: "I'm sorry, I couldn't transcribe your audio. Please try again."
+                        })
                     } finally {
                         setIsTranscribing(false)
                     }
@@ -222,7 +197,7 @@ function Sidepanel() {
         return () => {
             chrome.runtime.onMessage.removeListener(handleMessage);
         };
-    }, [promptSession, useStreaming]);
+    }, [promptSession]);
 
     const stopStream = () => {
         if (streamRef.current) {
@@ -231,12 +206,6 @@ function Sidepanel() {
         }
     }
 
-    const clearTranscription = () => {
-        setTranscription('')
-        setStreamingTranscription('')
-        setTranscriptionError(null)
-        setShowTranscription(false)
-    }
 
     const handleToggleMic = async () => {
         if (isListening) {
@@ -376,82 +345,30 @@ function Sidepanel() {
                     tabIndex={-1}
                 />
             </div>
-            {/* Foreground UI */}
-            <div className="flex-1 overflow-auto p-4 relative z-10">
-                <h1 className="text-xl font-semibold">Sidepanel</h1>
-                <p className="mt-2 text-sm text-muted-foreground">
-                    {isListening ? "Listening..." : "Click the logo below to start the mic."}
-                </p>
-
-                {/* Transcription Display */}
-                {showTranscription && (
-                    <div className="mt-4 bg-gray-800 rounded-lg p-4 border border-gray-700">
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-2">
-                                <Brain className="w-5 h-5 text-blue-400" />
-                                <h3 className="font-semibold text-white">Audio Transcription</h3>
-                                {isTranscribing && (
-                                    <div className="flex items-center space-x-2">
-                                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                                        <span className="text-xs text-blue-400">
-                                            {useStreaming ? 'Streaming...' : 'Processing...'}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <label className="flex items-center space-x-1">
-                                    <input
-                                        type="checkbox"
-                                        checked={useStreaming}
-                                        onChange={(e) => setUseStreaming(e.target.checked)}
-                                        className="w-3 h-3 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
-                                    />
-                                    <span className="text-xs text-gray-400">Stream</span>
-                                </label>
-                                <button
-                                    onClick={clearTranscription}
-                                    className="p-1 hover:bg-gray-700 rounded transition-colors"
-                                    title="Clear transcription"
-                                >
-                                    <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-400" />
-                                </button>
-                            </div>
+            {/* Header */}
+            <div className="relative z-10 p-4 border-b border-gray-700">
+                <div className="flex items-center justify-between">
+                    <h1 className="text-xl font-semibold">Erpa</h1>
+                    {isListening && (
+                        <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                            <span className="text-sm text-red-400">Recording...</span>
                         </div>
+                    )}
+                </div>
+                <p className="mt-2 text-sm text-gray-400">
+                    {isListening ? "Recording your message..." : "Click the voice orb below to start a conversation."}
+                </p>
+            </div>
 
-                        {transcriptionError && (
-                            <div className="mb-3 p-3 bg-red-900/20 border border-red-700 rounded text-red-400 text-sm">
-                                {transcriptionError}
-                            </div>
-                        )}
-
-                        {streamingTranscription && (
-                            <div className="mb-3 p-3 bg-blue-900/20 border border-blue-700 rounded">
-                                <div className="text-blue-400 text-sm mb-1">Live Transcription:</div>
-                                <div className="text-white text-sm leading-relaxed">
-                                    {streamingTranscription}
-                                    <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse"></span>
-                                </div>
-                            </div>
-                        )}
-
-                        {transcription && (
-                            <div className="p-3 bg-gray-700 rounded border border-gray-600">
-                                <div className="text-gray-400 text-sm mb-2">Final Result:</div>
-                                <div className="text-white text-sm leading-relaxed">
-                                    {transcription}
-                                </div>
-                            </div>
-                        )}
-
-                        {!transcription && !streamingTranscription && !transcriptionError && isTranscribing && (
-                            <div className="p-4 text-center text-gray-400 text-sm">
-                                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                                Processing audio...
-                            </div>
-                        )}
-                    </div>
-                )}
+            {/* Main Content Area */}
+            <div className="flex-1 overflow-hidden relative z-10">
+                <ChatInterface
+                    messages={chatMessages}
+                    onDeleteMessage={deleteMessage}
+                    isLoading={chatLoading || isTranscribing}
+                    className="h-full"
+                />
             </div>
 
             <div className="action-panel flex z-10">
