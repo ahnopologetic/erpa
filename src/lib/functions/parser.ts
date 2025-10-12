@@ -1,5 +1,6 @@
 import { log } from "~lib/log";
 import { functionHandlers, functionRegistry } from "./registry";
+import type { TocItem } from "~hooks/usePromptAPI";
 
 interface ParsedFunction {
     functionName: string;
@@ -7,7 +8,7 @@ interface ParsedFunction {
     confidence: number;
 }
 
-export async function parseCommand(session: LanguageModelSession, userInput: string): Promise<ParsedFunction | null> {
+export async function parseCommand(session: LanguageModelSession, userInput: string, tocContext?: TocItem[]): Promise<ParsedFunction | null> {
     try {
         const schema = {
             "$schema": "http://json-schema.org/draft-07/schema#",
@@ -31,6 +32,18 @@ export async function parseCommand(session: LanguageModelSession, userInput: str
             ]
         }
         const newSession = await session.clone()
+
+        // Build the system prompt with TOC context if available
+        let tocContextText = '';
+        if (tocContext && tocContext.length > 0) {
+            tocContextText = `
+
+TABLE OF CONTENTS CONTEXT:
+${tocContext.map(item => `- "${item.title}" (selector: ${item.cssSelector})`).join('\n')}
+
+When navigating, use the exact CSS selectors provided above.`;
+        }
+
         await newSession.append([{
             role: 'system', content: `You are a function parser that matches user commands to available functions.
       Available functions:
@@ -54,6 +67,8 @@ export async function parseCommand(session: LanguageModelSession, userInput: str
 
       If no function matches well, return:
       { "functionName": null, "parameters": {}, "confidence": 0 }
+
+      For navigation, the location should be a valid css selector. e.g., '#campus', '.div:nth-of-type(2) > div', etc.${tocContextText}
 
       DO NOT ADD ANY COMMENTS` }
         ]);

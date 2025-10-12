@@ -38,5 +38,5 @@ export const functionRegistry: FunctionDefinition[] = [
 ];
 
 export const functionHandlers: Record<string, Function> = {
-    "handleNavigation": handleNavigation
+    "navigate": handleNavigation
 }

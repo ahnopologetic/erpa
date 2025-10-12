@@ -7,7 +7,7 @@ import { Textarea } from "~components/ui/textarea"
 import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
 import { usePromptAPI, type TocItem } from "~hooks/usePromptAPI"
 import { useVoiceMemoChat } from "~hooks/useVoiceMemoChat"
-import { parseCommand } from "~lib/functions/parser"
+import { executeCommand, parseCommand } from "~lib/functions/parser"
 import { err, log, warn } from "~lib/log"
 import "~style.css"
 
@@ -28,7 +28,7 @@ function Sidepanel() {
     const [promptSession, setPromptSession] = React.useState<LanguageModelSession | null>(null)
     const [summarizationPromptSession, setSummarizationPromptSession] = React.useState<LanguageModelSession | null>(null)
 
-    const { initializePromptSession } = usePromptAPI()
+    const { initializePromptSession, loadContextForCurrentTab } = usePromptAPI()
 
     // Voice memo chat functionality
     const {
@@ -347,6 +347,15 @@ function Sidepanel() {
         try {
             await addTextMessage(userMessage)
 
+            // Load TOC context before parsing command
+            let tocContext: TocItem[] = []
+            try {
+                tocContext = await loadContextForCurrentTab()
+                log('Loaded TOC context for parseCommand', { tocContextCount: tocContext.length })
+            } catch (error) {
+                log('Failed to load TOC context, proceeding without it', error)
+            }
+
             // const aiResponse = await promptSession.prompt([
             //     {
             //         role: 'assistant',
@@ -367,11 +376,18 @@ function Sidepanel() {
             //         ]
             //     }
             // ])
-            const aiResponse = await parseCommand(promptSession, userMessage)
+            const parsedCommand = await parseCommand(promptSession, userMessage, tocContext)
 
-            if (aiResponse) {
-                log('AI response for text input', { aiResponse })
-                await addAIMessage({ textResponse: aiResponse.functionName })
+            if (parsedCommand) {
+                log('AI response for text input', { parsedCommand })
+                if (parsedCommand.confidence > 0.8) {
+                    executeCommand(parsedCommand)
+                } else {
+                    err('Low confidence for parsed command', { parsedCommand })
+                    await addAIMessage({
+                        textResponse: "I'm sorry, I couldn't process your request right now. Please try again."
+                    })
+                }
             }
         } catch (error) {
             log('Text input AI response error', error)
