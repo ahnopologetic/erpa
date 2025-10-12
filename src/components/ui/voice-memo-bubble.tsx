@@ -124,7 +124,7 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
             <div className={cn(
                 "max-w-xs lg:max-w-md rounded-2xl p-4 shadow-lg",
                 isUser
-                    ? "bg-blue-500 text-white rounded-br-md"
+                    ? "bg-gray-800 text-white rounded-br-md border border-gray-800"
                     : "bg-gray-100 text-gray-900 rounded-bl-md border"
             )}>
                 {/* Header with icon and timestamp */}
@@ -157,7 +157,7 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
                             className={cn(
                                 "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200",
                                 isUser
-                                    ? "bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400"
+                                    ? "bg-black hover:bg-gray-800 disabled:bg-gray-400"
                                     : "bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100",
                                 "disabled:cursor-not-allowed"
                             )}
@@ -212,12 +212,7 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
                         )}
 
                         {voiceMemo.transcription && (
-                            <div className={cn(
-                                "text-xs leading-relaxed",
-                                isUser ? "text-gray-100" : "text-gray-700"
-                            )}>
-                                {voiceMemo.transcription}
-                            </div>
+                            <div className={cn("text-xs leading-relaxed line-clamp-2 break-words hover:line-clamp-none", isUser ? "text-gray-100" : "text-gray-700")}>{voiceMemo.transcription}</div>
                         )}
                     </div>
                 </div>

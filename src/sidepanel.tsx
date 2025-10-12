@@ -397,7 +397,7 @@ function Sidepanel() {
                 <div className="toc h-full flex items-center justify-center px-2">
                     <TocPopup promptSession={summarizationPromptSession} />
                 </div>
-                <div className="flex items-center justify-center bg-transparent" onClick={handleToggleMic}>
+                <div className="flex items-center justify-center bg-transparent py-4" onClick={handleToggleMic}>
                     <VoicePoweredOrb
                         enableVoiceControl={isListening}
                         isRecording={isListening}
