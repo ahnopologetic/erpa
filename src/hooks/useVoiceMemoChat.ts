@@ -121,10 +121,28 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
 
     // Add user message
     const addUserMessage = useCallback(async (audioBlob: Blob, transcription: string) => {
-        if (!sessionRef.current) return;
-
         try {
             setError(null);
+
+            // Ensure we have a session - create one if it doesn't exist
+            if (!sessionRef.current) {
+                if (!tabId || !url) {
+                    throw new Error('No tab ID or URL available to create session');
+                }
+                
+                const newSession: ChatSession = {
+                    id: voiceMemoStorage.generateChatSessionId(tabId, url),
+                    tabId: tabId,
+                    url: url,
+                    messages: [],
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                };
+                
+                setCurrentSession(newSession);
+                sessionRef.current = newSession;
+                log('Created new chat session', { tabId, url });
+            }
 
             const voiceMemo: VoiceMemo = {
                 id: voiceMemoStorage.generateVoiceMemoId(),
@@ -152,7 +170,7 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
             err('Failed to add user message', error);
             setError('Failed to save your message');
         }
-    }, []);
+    }, [tabId, url]);
 
     // Generate AI response (text to speech simulation)
     const generateAIResponse = useCallback(async (textResponse: string): Promise<AIResponseResult> => {
@@ -178,10 +196,28 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
 
     // Add AI message
     const addAIMessage = useCallback(async (options: AIResponseOptions) => {
-        if (!sessionRef.current) return;
-
         try {
             setError(null);
+
+            // Ensure we have a session - create one if it doesn't exist
+            if (!sessionRef.current) {
+                if (!tabId || !url) {
+                    throw new Error('No tab ID or URL available to create session');
+                }
+                
+                const newSession: ChatSession = {
+                    id: voiceMemoStorage.generateChatSessionId(tabId, url),
+                    tabId: tabId,
+                    url: url,
+                    messages: [],
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                };
+                
+                setCurrentSession(newSession);
+                sessionRef.current = newSession;
+                log('Created new chat session for AI message', { tabId, url });
+            }
 
             const aiResponse = await generateAIResponse(options.textResponse);
 
@@ -216,7 +252,7 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
             err('Failed to add AI message', error);
             setError('Failed to generate AI response');
         }
-    }, [generateAIResponse]);
+    }, [generateAIResponse, tabId, url]);
 
     // Delete message
     const deleteMessage = useCallback(async (messageId: string) => {
@@ -240,7 +276,7 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
     }, [messages]);
 
     // Clear chat session
-    const clearChatSession = useCallback(() => {
+    const clearChatSession = useCallback(async () => {
         setMessages([]);
         if (sessionRef.current) {
             sessionRef.current.messages = [];
@@ -248,12 +284,15 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
         }
     }, []);
 
-    // Auto-load session on mount
-    useEffect(() => {
-        if (autoLoad && tabId && url) {
-            loadChatSession(tabId, url);
-        }
-    }, [autoLoad, tabId, url, loadChatSession]);
+  // Auto-load session on mount
+  useEffect(() => {
+    if (autoLoad && tabId && url) {
+      log('Auto-loading chat session', { tabId, url });
+      loadChatSession(tabId, url);
+    } else {
+      log('Not auto-loading session', { autoLoad, tabId, url });
+    }
+  }, [autoLoad, tabId, url, loadChatSession]);
 
     // Auto-save when messages change
     useEffect(() => {

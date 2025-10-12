@@ -12,6 +12,7 @@ interface VoicePoweredOrbProps {
   maxRotationSpeed?: number;
   maxHoverIntensity?: number;
   onVoiceDetected?: (detected: boolean) => void;
+  isRecording?: boolean;
 }
 
 export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
@@ -22,6 +23,7 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
   maxRotationSpeed = 1.2,
   maxHoverIntensity = 0.8,
   onVoiceDetected,
+  isRecording = false,
 }) => {
   const ctnDom = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -51,6 +53,7 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
     uniform float hover;
     uniform float rot;
     uniform float hoverIntensity;
+    uniform float isRecording;
     varying vec2 vUv;
 
     vec3 rgb2yiq(vec3 c) {
@@ -120,9 +123,15 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
       return vec4(colorIn.rgb / (a + 1e-5), a);
     }
 
+    // Default colors (purple/blue theme)
     const vec3 baseColor1 = vec3(0.611765, 0.262745, 0.996078);
     const vec3 baseColor2 = vec3(0.298039, 0.760784, 0.913725);
     const vec3 baseColor3 = vec3(0.062745, 0.078431, 0.600000);
+    
+    // Recording colors (red theme)
+    const vec3 recordingColor1 = vec3(0.996078, 0.262745, 0.262745);
+    const vec3 recordingColor2 = vec3(0.913725, 0.298039, 0.298039);
+    const vec3 recordingColor3 = vec3(0.600000, 0.062745, 0.062745);
     const float innerRadius = 0.6;
     const float noiseScale = 0.65;
 
@@ -135,9 +144,17 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
     }
 
     vec4 draw(vec2 uv) {
-      vec3 color1 = adjustHue(baseColor1, hue);
-      vec3 color2 = adjustHue(baseColor2, hue);
-      vec3 color3 = adjustHue(baseColor3, hue);
+      // Choose colors based on recording state
+      vec3 color1, color2, color3;
+      if (isRecording > 0.5) {
+        color1 = adjustHue(recordingColor1, hue);
+        color2 = adjustHue(recordingColor2, hue);
+        color3 = adjustHue(recordingColor3, hue);
+      } else {
+        color1 = adjustHue(baseColor1, hue);
+        color2 = adjustHue(baseColor2, hue);
+        color3 = adjustHue(baseColor3, hue);
+      }
 
       float ang = atan(uv.y, uv.x);
       float len = length(uv);
@@ -336,6 +353,7 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
           hover: { value: 0 },
           rot: { value: 0 },
           hoverIntensity: { value: 0 },
+          isRecording: { value: isRecording ? 1.0 : 0.0 },
         },
       });
 
@@ -389,6 +407,7 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
         lastTime = t;
         program.uniforms.iTime.value = t * 0.001;
         program.uniforms.hue.value = hue;
+        program.uniforms.isRecording.value = isRecording ? 1.0 : 0.0;
 
         // Handle voice input
         if (enableVoiceControl && isMicrophoneInitialized) {
@@ -468,6 +487,7 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
     voiceSensitivity,
     maxRotationSpeed,
     maxHoverIntensity,
+    isRecording,
     vert,
     frag
   ]);
@@ -498,7 +518,8 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
     <div
       ref={ctnDom}
       className={cn(
-        "w-full h-full relative",
+        "w-full h-full relative transition-all duration-300",
+        isRecording ? "scale-125" : "scale-100",
         className
       )}
     >

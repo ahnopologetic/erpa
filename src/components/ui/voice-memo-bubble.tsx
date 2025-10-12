@@ -213,8 +213,8 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
 
                         {voiceMemo.transcription && (
                             <div className={cn(
-                                "text-sm leading-relaxed",
-                                isUser ? "text-blue-50" : "text-gray-700"
+                                "text-xs leading-relaxed",
+                                isUser ? "text-gray-100" : "text-gray-700"
                             )}>
                                 {voiceMemo.transcription}
                             </div>

@@ -141,6 +141,15 @@ function Sidepanel() {
                         // Use standard transcription for chat mode
                         const transcriptionResult = await promptSession.prompt([
                             {
+                                role: 'assistant',
+                                content: [
+                                    {
+                                        type: 'text',
+                                        value: 'Please transcribe this audio accurately. Provide a clear, complete transcription of all spoken content.'
+                                    },
+                                ]
+                            },
+                            {
                                 role: 'user',
                                 content: [
                                     {
@@ -160,8 +169,21 @@ function Sidepanel() {
                             try {
                                 const aiResponse = await promptSession.prompt([
                                     {
+                                        role: 'assistant',
+                                        content: [
+                                            {
+                                                type: 'text',
+                                                value: 'Please generate a response to the following user message.'
+                                            },
+                                        ]
+                                    },
+                                    {
                                         role: 'user',
-                                        content: transcriptionResult
+                                        content: [
+                                            {
+                                                type: 'text', value: transcriptionResult
+                                            }
+                                        ]
                                     }
                                 ])
 
@@ -371,14 +393,15 @@ function Sidepanel() {
                 />
             </div>
 
-            <div className="action-panel flex z-10">
+            <div className="action-panel flex z-10 bg-black">
                 <div className="toc h-full flex items-center justify-center px-2">
                     <TocPopup promptSession={summarizationPromptSession} />
                 </div>
-                <div className="flex items-center justify-center" onClick={handleToggleMic}>
+                <div className="flex items-center justify-center bg-transparent" onClick={handleToggleMic}>
                     <VoicePoweredOrb
                         enableVoiceControl={isListening}
-                        className="rounded-xl overflow-hidden shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer max-h-24"
+                        isRecording={isListening}
+                        className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 cursor-pointer max-h-24"
                     />
                 </div>
             </div>
