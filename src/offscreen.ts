@@ -87,13 +87,26 @@ async function startRecording(streamId) {
         micSource.connect(micGain);
         micGain.connect(destination);
 
-        // Start recording
+        // Start recording with fallback mime types
+        let mimeType = "audio/webm;codecs=opus";
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = "audio/webm";
+        }
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = "audio/mp4";
+        }
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = "audio/wav";
+        }
+        
+        console.log('[Offscreen] Using mime type:', mimeType);
+        
         recorder = new MediaRecorder(destination.stream, {
-            mimeType: "audio/webm",
+            mimeType: mimeType,
         });
         recorder.ondataavailable = (event) => data.push(event.data);
         recorder.onstop = async () => {
-            const blob = new Blob(data, { type: "audio/webm" });
+            const blob = new Blob(data, { type: mimeType });
             
             // Convert blob to base64 to send via message
             const arrayBuffer = await blob.arrayBuffer();
@@ -104,8 +117,8 @@ async function startRecording(streamId) {
                 type: "recording-stopped",
                 target: "sidepanel",
                 audioData: base64,
-                fileName: `recording-${new Date().toISOString()}.webm`,
-                mimeType: "audio/webm"
+                fileName: `recording-${new Date().toISOString()}.${mimeType.split('/')[1]}`,
+                mimeType: mimeType
             });
 
             // Also notify service worker
