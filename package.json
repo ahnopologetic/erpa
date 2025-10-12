@@ -58,7 +58,7 @@
     },
     "web_accessible_resources": [
       {
-        "resources": ["offscreen.html", "permission.html"],
+        "resources": ["offscreen.html", "permission.html", "audio-test.html"],
         "matches": ["<all_urls>"]
       }
     ]

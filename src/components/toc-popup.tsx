@@ -6,7 +6,11 @@ import { usePromptAPI } from "../hooks/usePromptAPI";
 import type { TocItem } from "../hooks/usePromptAPI";
 import { err, log } from "~lib/log";
 
-export const TocPopup = () => {
+type TocPopupProps = {
+    promptSession: LanguageModelSession
+}
+
+export const TocPopup = ({ promptSession }: TocPopupProps) => {
     const [isOpen, setIsOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const [toc, setToc] = useState<TocItem[]>([])
@@ -20,7 +24,6 @@ export const TocPopup = () => {
         downloadProgress,
         notDownloaded,
         checkModelAvailability,
-        initializePromptSession,
         fetchToc,
         navigateToSection,
         setError,
@@ -185,7 +188,7 @@ export const TocPopup = () => {
                             <Button
                                 onClick={async () => {
                                     try {
-                                        const session = await initializePromptSession(abortController.current)
+                                        const session = promptSession
                                         if (session) {
                                             // Model is ready, start the extraction process
                                             handleFetchToc()

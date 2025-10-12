@@ -92,25 +92,31 @@ async function startRecording(streamId) {
             mimeType: "audio/webm",
         });
         recorder.ondataavailable = (event) => data.push(event.data);
-        recorder.onstop = () => {
+        recorder.onstop = async () => {
             const blob = new Blob(data, { type: "audio/webm" });
-            const url = URL.createObjectURL(blob);
+            
+            // Convert blob to base64 to send via message
+            const arrayBuffer = await blob.arrayBuffer();
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            
+            // Send the audio file to the sidepanel
+            chrome.runtime.sendMessage({
+                type: "recording-stopped",
+                target: "sidepanel",
+                audioData: base64,
+                fileName: `recording-${new Date().toISOString()}.webm`,
+                mimeType: "audio/webm"
+            });
 
-            // Create temporary link element to trigger download
-            const downloadLink = document.createElement("a");
-            downloadLink.href = url;
-            downloadLink.download = `recording-${new Date().toISOString()}.webm`;
-            downloadLink.click();
-
-            // Cleanup
-            URL.revokeObjectURL(url);
-            recorder = undefined;
-            data = [];
-
+            // Also notify service worker
             chrome.runtime.sendMessage({
                 type: "recording-stopped",
                 target: "service-worker",
             });
+
+            // Cleanup
+            recorder = undefined;
+            data = [];
         };
 
         recorder.start();

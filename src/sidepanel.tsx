@@ -1,17 +1,115 @@
+import { Brain, Trash2 } from "lucide-react"
 import React from "react"
 import { TocPopup } from "~components/toc-popup"
+import { usePromptAPI } from "~hooks/usePromptAPI"
 import { err, log } from "~lib/log"
 import "~style.css"
 
 function Sidepanel() {
     const [isListening, setIsListening] = React.useState(false)
     const [contextChanged, setContextChanged] = React.useState(false)
+    const [transcription, setTranscription] = React.useState<string>('')
+    const [isTranscribing, setIsTranscribing] = React.useState(false)
+    const [transcriptionError, setTranscriptionError] = React.useState<string | null>(null)
+    const [streamingTranscription, setStreamingTranscription] = React.useState<string>('')
+    const [useStreaming, setUseStreaming] = React.useState(true)
+    const [showTranscription, setShowTranscription] = React.useState(false)
+
     const streamRef = React.useRef<MediaStream | null>(null)
     const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
+    const [promptSession, setPromptSession] = React.useState<LanguageModelSession | null>(null)
+    const [summarizationPromptSession, setSummarizationPromptSession] = React.useState<LanguageModelSession | null>(null)
 
+    const { initializePromptSession } = usePromptAPI()
     // Listen for messages from background script to close sidepanel
     React.useEffect(() => {
-        const handleMessage = (message: any) => {
+        const checkMicrophonePermission = async () => {
+            const permission = await navigator.permissions.query({ name: "microphone" })
+            log('Microphone permission', { permission })
+            if (!permission) {
+                chrome.tabs.create({ url: "tabs/permission.html" })
+            }
+        }
+        const checkOffscreenDocument = async () => {
+            const contexts = await chrome.runtime.getContexts({});
+            const offscreenDocument = contexts.find(
+                (c) => c.contextType === "OFFSCREEN_DOCUMENT"
+            );
+            log('Offscreen document', { offscreenDocument })
+            offscreenDocumentRef.current = offscreenDocument
+        }
+
+        checkMicrophonePermission()
+        checkOffscreenDocument()
+        const createPromptSession = async () => {
+            const session = await initializePromptSession(undefined, {
+                expectedInputs: [{ type: 'audio', languages: ['en'] }],
+                expectedOutputs: [{ type: 'text', languages: ['en'] }]
+            })
+            const clonedSession = await session.clone()
+            setSummarizationPromptSession(clonedSession)
+            await session.append(
+                [
+                    {
+                        role: 'system',
+                        content: `You're a helpful chrome extension assistant that can answer questions and help them navigate the website.
+                        Based on the user's query, you should decide which tool to use.
+
+                        There are three tools available to you:
+                        - navigate(anchor_or_css_selector: string): navigate to specific html selector
+                        - summarize(outer_html: string): summarize the content of selected html portion
+                        - ask(question: string): ask a question to the user
+
+                        ### Important rules
+                        - If you don't have enough information to answer the user's question, you should ask the user for more information.
+                        - You can use the tools to answer the user's question.
+
+                        ### Output format
+                        Case 1. Plain text response
+                        {
+                            "type": "plain_text",
+                            "text": "The response to the user's question"
+                        }
+
+                        Case 2. Tool response
+                        You should always use the tools to answer the user's question.
+                        {
+                            "type": "tool",
+                            "tool": "navigate",
+                            "tool_args": {
+                                "anchor_or_css_selector": "The anchor or css selector to navigate to"
+                            }
+                        }
+
+                        Case 3. Tool response with additional information
+                        [
+                            {
+                                "type": "tool",
+                                "tool": "navigate",
+                                "tool_args": {
+                                    "anchor_or_css_selector": "The anchor or css selector to navigate to"
+                                }
+                            },
+                            {
+                                "type": "plain_text",
+                                "text": "The additional information to the user's question"
+                            }
+                        ]
+                        `
+                    },
+                ]
+            )
+            setPromptSession(session)
+            log('Prompt session is created and set to state', { session })
+        }
+        createPromptSession()
+        return () => {
+            stopStream()
+        }
+    }, [])
+
+    React.useEffect(() => {
+        const handleMessage = async (message: any) => {
             if (message.type === 'CLOSE_SIDEPANEL_ON_TAB_SWITCH' ||
                 message.type === 'CLOSE_SIDEPANEL_ON_PAGE_NAVIGATION') {
                 log(`Received close message: ${message.type} for tab ${message.tabId}`);
@@ -31,6 +129,90 @@ function Sidepanel() {
                 stopStream();
                 alert(`Recording error: ${message.error}`);
             }
+            if (message.type === "recording-stopped" && message.target === "sidepanel") {
+                log(`Received recording data:`, {
+                    fileName: message.fileName,
+                    mimeType: message.mimeType,
+                    audioDataLength: message.audioData?.length
+                });
+
+                // Convert base64 back to blob
+                const binaryString = atob(message.audioData);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const audioBlob = new Blob([bytes], { type: message.mimeType });
+
+                // Console.log the audio file details
+                console.log("🎵 RECORDED AUDIO FILE:", {
+                    blob: audioBlob,
+                    fileName: message.fileName,
+                    mimeType: message.mimeType,
+                    size: audioBlob.size,
+                    sizeInMB: (audioBlob.size / (1024 * 1024)).toFixed(2),
+                    url: URL.createObjectURL(audioBlob) // For testing - you can open this URL in a new tab
+                });
+
+                if (promptSession) {
+                    log('Calling audio input to prompt session')
+                    setIsTranscribing(true)
+                    setTranscriptionError(null)
+                    setTranscription('')
+                    setStreamingTranscription('')
+                    setShowTranscription(true)
+
+                    try {
+                        if (useStreaming) {
+                            // Use streaming transcription
+                            const stream = promptSession.promptStreaming([
+                                {
+                                    role: 'user',
+                                    content: [
+                                        {
+                                            type: 'audio',
+                                            value: audioBlob
+                                        }
+                                    ]
+                                }
+                            ])
+
+                            let fullText = ''
+                            for await (const chunk of stream) {
+                                fullText += chunk
+                                setStreamingTranscription(fullText)
+                            }
+
+                            setTranscription(fullText)
+                            setStreamingTranscription('')
+                        } else {
+                            // Use standard transcription
+                            const response = await promptSession.prompt([
+                                {
+                                    role: 'user',
+                                    content: [
+                                        {
+                                            type: 'audio',
+                                            value: audioBlob
+                                        }
+                                    ]
+                                }
+                            ])
+                            setTranscription(response)
+                            log('Prompt session response', { response })
+                        }
+                    } catch (error) {
+                        log('Transcription error', error)
+                        setTranscriptionError('Failed to transcribe audio. Please try again.')
+                    } finally {
+                        setIsTranscribing(false)
+                    }
+                }
+
+                // Stop listening state
+                setIsListening(false);
+                stopStream();
+            }
         };
 
         chrome.runtime.onMessage.addListener(handleMessage);
@@ -38,13 +220,20 @@ function Sidepanel() {
         return () => {
             chrome.runtime.onMessage.removeListener(handleMessage);
         };
-    }, []);
+    }, [promptSession, useStreaming]);
 
     const stopStream = () => {
         if (streamRef.current) {
             streamRef.current.getTracks().forEach((t) => t.stop())
             streamRef.current = null
         }
+    }
+
+    const clearTranscription = () => {
+        setTranscription('')
+        setStreamingTranscription('')
+        setTranscriptionError(null)
+        setShowTranscription(false)
     }
 
     const handleToggleMic = async () => {
@@ -128,28 +317,10 @@ function Sidepanel() {
     }
 
     React.useEffect(() => {
-        const checkMicrophonePermission = async () => {
-            const permission = await navigator.permissions.query({ name: "microphone" })
-            log('Microphone permission', { permission })
-            if (!permission) {
-                chrome.tabs.create({ url: "tabs/permission.html" })
-            }
+        if (promptSession) {
+            log('promptSession', { promptSession })
         }
-        const checkOffscreenDocument = async () => {
-            const contexts = await chrome.runtime.getContexts({});
-            const offscreenDocument = contexts.find(
-                (c) => c.contextType === "OFFSCREEN_DOCUMENT"
-            );
-            log('Offscreen document', { offscreenDocument })
-            offscreenDocumentRef.current = offscreenDocument
-        }
-
-        checkMicrophonePermission()
-        checkOffscreenDocument()
-        return () => {
-            stopStream()
-        }
-    }, [])
+    }, [promptSession])
 
     return (
         <div className="dark h-screen flex flex-col bg-gray-900 text-white">
@@ -184,12 +355,82 @@ function Sidepanel() {
                 <p className="mt-2 text-sm text-muted-foreground">
                     {isListening ? "Listening..." : "Click the logo below to start the mic."}
                 </p>
+
+                {/* Transcription Display */}
+                {showTranscription && (
+                    <div className="mt-4 bg-gray-800 rounded-lg p-4 border border-gray-700">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-2">
+                                <Brain className="w-5 h-5 text-blue-400" />
+                                <h3 className="font-semibold text-white">Audio Transcription</h3>
+                                {isTranscribing && (
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                        <span className="text-xs text-blue-400">
+                                            {useStreaming ? 'Streaming...' : 'Processing...'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <label className="flex items-center space-x-1">
+                                    <input
+                                        type="checkbox"
+                                        checked={useStreaming}
+                                        onChange={(e) => setUseStreaming(e.target.checked)}
+                                        className="w-3 h-3 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-xs text-gray-400">Stream</span>
+                                </label>
+                                <button
+                                    onClick={clearTranscription}
+                                    className="p-1 hover:bg-gray-700 rounded transition-colors"
+                                    title="Clear transcription"
+                                >
+                                    <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-400" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {transcriptionError && (
+                            <div className="mb-3 p-3 bg-red-900/20 border border-red-700 rounded text-red-400 text-sm">
+                                {transcriptionError}
+                            </div>
+                        )}
+
+                        {streamingTranscription && (
+                            <div className="mb-3 p-3 bg-blue-900/20 border border-blue-700 rounded">
+                                <div className="text-blue-400 text-sm mb-1">Live Transcription:</div>
+                                <div className="text-white text-sm leading-relaxed">
+                                    {streamingTranscription}
+                                    <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse"></span>
+                                </div>
+                            </div>
+                        )}
+
+                        {transcription && (
+                            <div className="p-3 bg-gray-700 rounded border border-gray-600">
+                                <div className="text-gray-400 text-sm mb-2">Final Result:</div>
+                                <div className="text-white text-sm leading-relaxed">
+                                    {transcription}
+                                </div>
+                            </div>
+                        )}
+
+                        {!transcription && !streamingTranscription && !transcriptionError && isTranscribing && (
+                            <div className="p-4 text-center text-gray-400 text-sm">
+                                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                                Processing audio...
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="action-panel flex z-10">
                 <div className="toc h-full flex items-center justify-center px-2">
                     {/* popup component */}
-                    <TocPopup />
+                    <TocPopup promptSession={summarizationPromptSession} />
                 </div>
                 <button
                     onClick={handleToggleMic}
@@ -201,7 +442,7 @@ function Sidepanel() {
                     <div className={`grid grid-cols-4 gap-2 items-center justify-center px-4 hover:scale-105 transition-all duration-300`}>
                         <div
                             className={`h-8 w-8 rounded-full border-4 border-transparent bg-gray-400 hover:bg-gray-500 hover:cursor-pointer hover:scale-105 transition-all duration-300 justify-self-end col-span-1
-                                ${isListening 
+                                ${isListening
                                     ? "border-4 border-gradient-to-r from-red-500 to-orange-500 p-0.5"
                                     : "border-muted-foreground"
                                 }

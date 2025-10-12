@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { err, isVerbose, log, timeEnd, timeStart, warn } from '../lib/log';
 import { tabContextManager } from '../lib/tab-context';
 
@@ -10,11 +10,12 @@ export interface PromptAPIState {
     progress: { total: number; done: number }
     downloadProgress: { hidden: boolean; value: number; indeterminate: boolean }
     notDownloaded: boolean
+    session: LanguageModelSession | null
 }
 
 export interface PromptAPIActions {
     checkModelAvailability: () => Promise<LanguageModelAvailability>
-    initializePromptSession: (abortController?: AbortController) => Promise<LanguageModelSession | null>
+    initializePromptSession: (abortController?: AbortController, options?: any) => Promise<LanguageModelSession | null>
     fetchPageMainText: () => Promise<{ text: string; headings: { text: string; selector: string }[] }>
     extractWithChunked: (session: LanguageModelSession, mainText: string, headings: { text: string; selector: string }[]) => Promise<TocItem[]>
     extractWithSingleCall: (session: LanguageModelSession, mainText: string, headings: { text: string; selector: string }[]) => Promise<TocItem[]>
@@ -26,9 +27,18 @@ export interface PromptAPIActions {
     saveContextForCurrentTab: (toc: TocItem[]) => Promise<void>
     getCurrentTabId: () => Promise<number | null>
     stopLoading: () => void
+    getSession: () => LanguageModelSession | null
+    setSession: (session: LanguageModelSession | null) => void
 }
 
-export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
+interface UsePromptAPIOptions {
+    injectedSession?: LanguageModelSession | null
+    autoInitialize?: boolean
+}
+
+export const usePromptAPI = (options: UsePromptAPIOptions = {}): PromptAPIState & PromptAPIActions => {
+    const { injectedSession, autoInitialize = true } = options;
+
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<unknown>(null)
     const [progress, setProgress] = useState<{ total: number; done: number }>({ total: 0, done: 0 })
@@ -38,6 +48,17 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         indeterminate: false
     })
     const [notDownloaded, setNotDownloaded] = useState(true)
+    const [session, setSession] = useState<LanguageModelSession | null>(injectedSession || null)
+    const abortControllerRef = useRef<AbortController | null>(null)
+
+    // Cleanup abort controller on unmount
+    useEffect(() => {
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort()
+            }
+        }
+    }, [])
 
     const checkModelAvailability = useCallback(async (): Promise<LanguageModelAvailability> => {
         if (!('LanguageModel' in self)) {
@@ -47,14 +68,20 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         return await LanguageModel.availability()
     }, [])
 
-    const initializePromptSession = useCallback(async (abortController?: AbortController): Promise<LanguageModelSession | null> => {
+    const initializePromptSession = useCallback(async (abortController?: AbortController, options?: any): Promise<LanguageModelSession | null> => {
         if (!('LanguageModel' in self)) {
             err('Prompt API is not supported')
             return null
         }
 
+        // If we already have a session and it's not injected, return it
+        if (session && !injectedSession) {
+            return session
+        }
+
         if (!abortController) {
             abortController = new AbortController()
+            abortControllerRef.current = abortController
         }
 
         // Reset progress UI
@@ -74,7 +101,7 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         }
 
         const createTimer = timeStart('Create LanguageModel session')
-        const session = await LanguageModel.create({
+        const newSession = await LanguageModel.create({
             monitor(m) {
                 m.addEventListener('downloadprogress', (e) => {
                     console.log(`Downloaded ${e.loaded * 100}%`);
@@ -85,14 +112,30 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
                     }
                 })
             },
-            signal: abortController.signal
+            signal: abortController.signal,
+            ...options
         })
         timeEnd(createTimer)
 
         setDownloadProgress({ hidden: true, value: 0, indeterminate: false })
         setNotDownloaded(false)
-        return session
-    }, [])
+
+        // Update session state if not injected
+        if (!injectedSession) {
+            setSession(newSession)
+        }
+
+        return newSession
+    }, [session, injectedSession])
+
+    // Auto-initialize session if not injected and autoInitialize is true
+    useEffect(() => {
+        if (!injectedSession && autoInitialize && !session) {
+            initializePromptSession().catch(error => {
+                log('Auto-initialization failed:', error)
+            })
+        }
+    }, [injectedSession, autoInitialize, session, initializePromptSession])
 
     const getActiveTabId = useCallback(async (): Promise<number | null> => {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
@@ -323,17 +366,22 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         setIsLoading(true)
         setError(null)
         try {
-            const session = await initializePromptSession()
-            if (!session) {
-                throw new Error('Prompt API is not supported')
+            // Use existing session if available, otherwise initialize a new one
+            let currentSession = session || injectedSession
+            if (!currentSession) {
+                currentSession = await initializePromptSession()
+                if (!currentSession) {
+                    throw new Error('Prompt API is not supported')
+                }
             }
+
             const fetchTimer = timeStart('Fetch main text + headings')
             const { text: mainText, headings } = await fetchPageMainText()
             timeEnd(fetchTimer)
 
             const items = useChunked
-                ? await extractWithChunked(session, mainText, headings)
-                : await extractWithSingleCall(session, mainText, headings)
+                ? await extractWithChunked(currentSession, mainText, headings)
+                : await extractWithSingleCall(currentSession, mainText, headings)
 
             // Save context for current tab
             await saveContextForCurrentTab(items)
@@ -346,7 +394,7 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
             setError(error)
             throw error
         }
-    }, [initializePromptSession, fetchPageMainText, extractWithChunked, extractWithSingleCall, saveContextForCurrentTab])
+    }, [session, injectedSession, initializePromptSession, fetchPageMainText, extractWithChunked, extractWithSingleCall, saveContextForCurrentTab])
 
     const navigateToSection = useCallback(async (cssSelector: string): Promise<void> => {
         try {
@@ -400,6 +448,18 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         setProgress({ total: 0, done: 0 })
     }, [])
 
+    const getSession = useCallback((): LanguageModelSession | null => {
+        return session || injectedSession || null
+    }, [session, injectedSession])
+
+    const setSessionState = useCallback((newSession: LanguageModelSession | null) => {
+        if (!injectedSession) {
+            setSession(newSession)
+        } else {
+            log('Cannot set session when using injected session')
+        }
+    }, [injectedSession])
+
     return {
         // State
         isLoading,
@@ -407,6 +467,7 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         progress,
         downloadProgress,
         notDownloaded,
+        session: session || injectedSession,
         // Actions
         checkModelAvailability,
         initializePromptSession,
@@ -420,6 +481,8 @@ export const usePromptAPI = (): PromptAPIState & PromptAPIActions => {
         loadContextForCurrentTab,
         saveContextForCurrentTab,
         getCurrentTabId,
-        stopLoading
+        stopLoading,
+        getSession,
+        setSession: setSessionState
     }
 }
