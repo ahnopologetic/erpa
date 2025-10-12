@@ -17,9 +17,14 @@ declare global {
     omitResponseConstraintInput?: boolean
   }
 
+  interface PromptInput {
+    role: string
+    content: string | { type: string; value: string | Blob }[]
+  }
+
   interface LanguageModelSession {
-    prompt(input: string, options?: PromptOptions): Promise<string>
-    promptStreaming(input: string, options?: PromptOptions): ReadableStream<string>
+    prompt(input: string | PromptInput[], options?: PromptOptions): Promise<string>
+    promptStreaming(input: string | PromptInput[], options?: PromptOptions): ReadableStream<string>
     destroy(): void
     clone(options?: { signal?: AbortSignal }): Promise<LanguageModelSession>
     readonly inputUsage?: number
@@ -39,6 +44,6 @@ declare global {
   }
 }
 
-export {}
+export { }
 
 
