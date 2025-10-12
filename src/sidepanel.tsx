@@ -1,4 +1,3 @@
-import { Brain, Trash2 } from "lucide-react"
 import React from "react"
 import { TocPopup } from "~components/toc-popup"
 import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
@@ -7,6 +6,10 @@ import { usePromptAPI, type TocItem } from "~hooks/usePromptAPI"
 import { useVoiceMemoChat } from "~hooks/useVoiceMemoChat"
 import { err, log, warn } from "~lib/log"
 import "~style.css"
+import { MicIcon, PencilIcon, SendIcon } from "lucide-react"
+import { Button } from "~components/ui/button"
+import { Input } from "~components/ui/input"
+import { Textarea } from "~components/ui/textarea"
 
 function Sidepanel() {
     const [isListening, setIsListening] = React.useState(false)
@@ -16,6 +19,9 @@ function Sidepanel() {
     // Remove mode toggle - only chat mode
     const [currentTabId, setCurrentTabId] = React.useState<number | null>(null)
     const [currentUrl, setCurrentUrl] = React.useState<string>('')
+    const [mode, setMode] = React.useState<"voice" | "text">("voice")
+    const [textInput, setTextInput] = React.useState("")
+    const [isProcessingText, setIsProcessingText] = React.useState(false)
 
     const streamRef = React.useRef<MediaStream | null>(null)
     const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
@@ -28,6 +34,7 @@ function Sidepanel() {
     const {
         messages: chatMessages,
         addUserMessage,
+        addTextMessage,
         addAIMessage,
         deleteMessage,
         isLoading: chatLoading,
@@ -145,7 +152,7 @@ function Sidepanel() {
                                 content: [
                                     {
                                         type: 'text',
-                                        value: 'Please transcribe this audio accurately. Provide a clear, complete transcription of all spoken content.'
+                                        value: 'Please transcribe this audio accurately. Provide a clear, complete transcription of all spoken content. Do not include any other text in your response.'
                                     },
                                 ]
                             },
@@ -188,6 +195,7 @@ function Sidepanel() {
                                 ])
 
                                 if (aiResponse) {
+                                    log('AI response', { aiResponse })
                                     await addAIMessage({ textResponse: aiResponse })
                                 }
                             } catch (aiError) {
@@ -328,6 +336,60 @@ function Sidepanel() {
         )
     }
 
+    const handleTextSubmit = async () => {
+        if (!textInput.trim() || !promptSession || isProcessingText) {
+            return
+        }
+
+        const userMessage = textInput.trim()
+        setTextInput("")
+        setIsProcessingText(true)
+
+        try {
+            await addTextMessage(userMessage)
+
+            const aiResponse = await promptSession.prompt([
+                {
+                    role: 'assistant',
+                    content: [
+                        {
+                            type: 'text',
+                            value: 'Please generate a helpful response to the following user message.'
+                        },
+                    ]
+                },
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'text',
+                            value: userMessage
+                        }
+                    ]
+                }
+            ])
+
+            if (aiResponse) {
+                log('AI response for text input', { aiResponse })
+                await addAIMessage({ textResponse: aiResponse })
+            }
+        } catch (error) {
+            log('Text input AI response error', error)
+            await addAIMessage({
+                textResponse: "I'm sorry, I couldn't process your request right now. Please try again."
+            })
+        } finally {
+            setIsProcessingText(false)
+        }
+    }
+
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault()
+            handleTextSubmit()
+        }
+    }
+
     if (!isSidepanelEnabled) {
         return (
             <div className="dark h-screen flex flex-col bg-gray-900 text-white">
@@ -392,7 +454,10 @@ function Sidepanel() {
                     )}
                 </div>
                 <p className="mt-2 text-sm text-gray-400">
-                    {isListening ? "Recording your message..." : "Click the voice orb below to start a conversation."}
+                    {isListening ? "Recording your message..." :
+                        isProcessingText ? "Processing your message..." :
+                            mode === "voice" ? "Click the voice orb below to start a conversation." :
+                                "Type your message below to start a conversation."}
                 </p>
             </div>
 
@@ -401,7 +466,7 @@ function Sidepanel() {
                 <ChatInterface
                     messages={chatMessages}
                     onDeleteMessage={deleteMessage}
-                    isLoading={chatLoading || isTranscribing}
+                    isLoading={chatLoading || isTranscribing || isProcessingText}
                     className="h-full"
                 />
             </div>
@@ -409,13 +474,56 @@ function Sidepanel() {
             <div className="action-panel flex z-10 bg-black">
                 <div className="toc h-full flex items-center justify-center px-2">
                     <TocPopup promptSession={summarizationPromptSession} onTocGenerated={handleTocGenerated} />
+                    <Button variant="ghost" size="sm" onClick={() => setMode(mode === "voice" ? "text" : "voice")}>
+                        {
+                            mode === "voice" ? (
+                                <PencilIcon className="w-4 h-4" />
+                            ) : (
+                                <MicIcon className="w-4 h-4" />
+                            )
+                        }
+                    </Button>
                 </div>
-                <div className="flex items-center justify-center bg-transparent py-4" onClick={handleToggleMic}>
-                    <VoicePoweredOrb
-                        enableVoiceControl={isListening}
-                        isRecording={isListening}
-                        className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 cursor-pointer max-h-24"
-                    />
+                <div className="flex items-center justify-center bg-transparent py-4">
+                    {
+                        mode === "voice" ? (
+                            <div onClick={handleToggleMic} className="cursor-pointer">
+                                <VoicePoweredOrb
+                                    enableVoiceControl={isListening}
+                                    isRecording={isListening}
+                                    className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 max-h-24"
+                                />
+                            </div>
+                        ) : (
+                            <div className="w-full px-2 flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                                <Textarea
+                                    value={textInput}
+                                    onChange={(e) => setTextInput(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 max-h-24 w-full px-4 text-sm resize-none"
+                                    placeholder="Type your message..."
+                                    disabled={isProcessingText}
+                                />
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleTextSubmit()
+                                    }}
+                                    disabled={!textInput.trim() || isProcessingText}
+                                    className="flex-shrink-0"
+                                >
+                                    {isProcessingText ? (
+                                        <div className="w-4 h-4 border-2 border-gray-300 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <SendIcon className="w-4 h-4" />
+                                    )}
+                                </Button>
+                            </div>
+                        )
+                    }
                 </div>
             </div>
         </div>

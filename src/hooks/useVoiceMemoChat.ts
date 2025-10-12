@@ -19,6 +19,7 @@ interface UseVoiceMemoChatReturn {
 
     // Actions
     addUserMessage: (audioBlob: Blob, transcription: string) => Promise<void>;
+    addTextMessage: (text: string) => Promise<void>;
     addAIMessage: (options: AIResponseOptions) => Promise<void>;
     deleteMessage: (messageId: string) => Promise<void>;
     loadChatSession: (tabId: number, url: string) => Promise<void>;
@@ -118,6 +119,62 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
             setIsSaving(false);
         }
     }, [messages]);
+
+    // Add text-only user message (for text input mode)
+    const addTextMessage = useCallback(async (text: string) => {
+        try {
+            setError(null);
+
+            // Ensure we have a session - create one if it doesn't exist
+            if (!sessionRef.current) {
+                if (!tabId || !url) {
+                    throw new Error('No tab ID or URL available to create session');
+                }
+
+                const newSession: ChatSession = {
+                    id: voiceMemoStorage.generateChatSessionId(tabId, url),
+                    tabId: tabId,
+                    url: url,
+                    messages: [],
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                };
+
+                setCurrentSession(newSession);
+                sessionRef.current = newSession;
+                log('Created new chat session', { tabId, url });
+            }
+
+            // Create a minimal audio blob for text messages (empty blob)
+            const emptyAudioBlob = new Blob([''], { type: 'audio/wav' });
+
+            const voiceMemo: VoiceMemo = {
+                id: voiceMemoStorage.generateVoiceMemoId(),
+                type: 'user',
+                audioBlob: emptyAudioBlob,
+                transcription: text,
+                timestamp: Date.now(),
+                isTranscribing: false
+            };
+
+            const message: ChatMessage = {
+                id: `message_${voiceMemo.id}`,
+                voiceMemo,
+                createdAt: Date.now()
+            };
+
+            // Save voice memo to storage
+            await voiceMemoStorage.saveVoiceMemo(voiceMemo);
+
+            // Add to current messages
+            setMessages(prev => [...prev, message]);
+
+            log('Text message added', { messageId: message.id, text: text.substring(0, 50) });
+        } catch (error) {
+            err('Failed to add text message', error);
+            setError('Failed to save your message');
+        }
+    }, [tabId, url]);
 
     // Add user message
     const addUserMessage = useCallback(async (audioBlob: Blob, transcription: string) => {
@@ -316,6 +373,7 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
 
         // Actions
         addUserMessage,
+        addTextMessage,
         addAIMessage,
         deleteMessage,
         loadChatSession,
@@ -385,9 +443,6 @@ async function textToSpeechBlob(text: string): Promise<Blob> {
                     duration: estimatedDuration,
                     textLength: text.length
                 });
-
-                // Also play the actual TTS for user feedback
-                speechSynthesis.speak(utterance);
 
                 resolve(blob);
             };

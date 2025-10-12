@@ -407,7 +407,6 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
         lastTime = t;
         program.uniforms.iTime.value = t * 0.001;
         program.uniforms.hue.value = hue;
-        program.uniforms.isRecording.value = isRecording ? 1.0 : 0.0;
 
         // Handle voice input
         if (enableVoiceControl && isMicrophoneInitialized) {
@@ -487,7 +486,6 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
     voiceSensitivity,
     maxRotationSpeed,
     maxHoverIntensity,
-    isRecording,
     vert,
     frag
   ]);
@@ -518,8 +516,7 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
     <div
       ref={ctnDom}
       className={cn(
-        "w-full h-full relative transition-all duration-300",
-        isRecording ? "scale-125" : "scale-100",
+        "w-full h-full relative",
         className
       )}
     >
