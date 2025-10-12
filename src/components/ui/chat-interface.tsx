@@ -1,8 +1,8 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScrollArea } from '~components/ui/scroll-area';
 import { VoiceMemoBubble } from '~components/ui/voice-memo-bubble';
-import { ChatInterfaceProps, ChatMessage } from '~types/voice-memo';
 import { cn } from '~lib/utils';
+import type { ChatInterfaceProps } from '~types/voice-memo';
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     messages,
@@ -88,15 +88,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 </ScrollArea>
             </div>
 
-      {/* Loading indicator */}
-      {isLoading && (
-        <div className="p-4 border-t bg-gray-900">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-sm text-gray-300">Processing your message...</span>
-          </div>
-        </div>
-      )}
+            {/* Loading indicator */}
+            {isLoading && (
+                <div className="p-4 border-t bg-gray-900">
+                    <div className="flex items-center justify-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-sm text-gray-300">Processing your message...</span>
+                    </div>
+                </div>
+            )}
 
             {/* Footer with instructions */}
             {messages.length > 0 && (

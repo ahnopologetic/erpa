@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2, Trash2, Clock, User, Bot } from 'lucide-react';
-import { VoiceMemoBubbleProps } from '~types/voice-memo';
+import type { VoiceMemoBubbleProps } from '~types/voice-memo';
 import { cn } from '~lib/utils';
 
 export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
@@ -153,7 +153,7 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
                     <div className="flex items-center space-x-3">
                         <button
                             onClick={handlePlayPause}
-                            disabled={!audioUrl || hasError}
+                            disabled={!audioUrl || !!hasError || !audioUrl.startsWith('blob:')}
                             className={cn(
                                 "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200",
                                 isUser

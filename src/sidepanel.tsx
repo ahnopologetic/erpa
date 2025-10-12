@@ -373,29 +373,8 @@ function Sidepanel() {
 
             <div className="action-panel flex z-10">
                 <div className="toc h-full flex items-center justify-center px-2">
-                    {/* popup component */}
                     <TocPopup promptSession={summarizationPromptSession} />
                 </div>
-                {/* <button
-                    onClick={handleToggleMic}
-                    className={`w-full p-4 bg-black text-center text-sm font-medium select-none focus:outline-none ${isListening ? "bg-gradient-to-r from-red-500 to-orange-500 transition-all duration-300" : ""}`}
-                    style={{ cursor: "pointer" }}
-                    aria-pressed={isListening}
-                    aria-label={isListening ? "Turn microphone off" : "Turn microphone on"}
-                >
-                    <div className={`grid grid-cols-4 gap-2 items-center justify-center px-4 hover:scale-105 transition-all duration-300`}>
-                        <div
-                            className={`h-8 w-8 rounded-full border-4 border-transparent bg-gray-400 hover:bg-gray-500 hover:cursor-pointer hover:scale-105 transition-all duration-300 justify-self-end col-span-1
-                                ${isListening
-                                    ? "border-4 border-gradient-to-r from-red-500 to-orange-500 p-0.5"
-                                    : "border-muted-foreground"
-                                }
-                            `}
-                        />
-                        <span className="col-span-3 justify-self-center">{isListening ? "Mic On" : "Tap to Turn Mic On"}</span>
-                    </div>
-                </button> */}
-
                 <div className="flex items-center justify-center" onClick={handleToggleMic}>
                     <VoicePoweredOrb
                         enableVoiceControl={isListening}
