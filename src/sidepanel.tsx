@@ -7,6 +7,7 @@ import { Textarea } from "~components/ui/textarea"
 import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
 import { usePromptAPI, type TocItem } from "~hooks/usePromptAPI"
 import { useVoiceMemoChat } from "~hooks/useVoiceMemoChat"
+import { parseCommand } from "~lib/functions/parser"
 import { err, log, warn } from "~lib/log"
 import "~style.css"
 
@@ -346,30 +347,31 @@ function Sidepanel() {
         try {
             await addTextMessage(userMessage)
 
-            const aiResponse = await promptSession.prompt([
-                {
-                    role: 'assistant',
-                    content: [
-                        {
-                            type: 'text',
-                            value: 'Please generate a helpful response to the following user message.'
-                        },
-                    ]
-                },
-                {
-                    role: 'user',
-                    content: [
-                        {
-                            type: 'text',
-                            value: userMessage
-                        }
-                    ]
-                }
-            ])
+            // const aiResponse = await promptSession.prompt([
+            //     {
+            //         role: 'assistant',
+            //         content: [
+            //             {
+            //                 type: 'text',
+            //                 value: 'Please generate a helpful response to the following user message.'
+            //             },
+            //         ]
+            //     },
+            //     {
+            //         role: 'user',
+            //         content: [
+            //             {
+            //                 type: 'text',
+            //                 value: userMessage
+            //             }
+            //         ]
+            //     }
+            // ])
+            const aiResponse = await parseCommand(promptSession, userMessage)
 
             if (aiResponse) {
                 log('AI response for text input', { aiResponse })
-                await addAIMessage({ textResponse: aiResponse })
+                await addAIMessage({ textResponse: aiResponse.functionName })
             }
         } catch (error) {
             log('Text input AI response error', error)
