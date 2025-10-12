@@ -119,18 +119,12 @@ When navigating, use the exact CSS selectors provided above.`;
 }
 
 
-// Executor function to actually run the matched function
 export async function executeCommand(parsed: ParsedFunction): Promise<string> {
     try {
-        // Find the function in registry
-        console.log(parsed)
         const funcDef = functionRegistry.find(f => f.name === parsed.functionName);
         if (!funcDef) {
             throw new Error(`Function ${parsed.functionName} not found`);
         }
-
-        console.log("func def is here: ")
-        console.log(funcDef)
 
         // Get the handler from our map instead of window scope
         const handler = functionHandlers[funcDef.name];
@@ -141,8 +135,6 @@ export async function executeCommand(parsed: ParsedFunction): Promise<string> {
         // Execute the function with parsed parameters
         const result = await handler(...Object.values(parsed.parameters));
 
-        console.log("result is here")
-        console.log(result)
         if (result === true) {
             if (funcDef.name === "handleNavigation") {
                 return "Navigated to the location!";
