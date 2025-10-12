@@ -3,9 +3,9 @@ import React from "react"
 import { TocPopup } from "~components/toc-popup"
 import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
 import { ChatInterface } from "~components/ui/chat-interface"
-import { usePromptAPI } from "~hooks/usePromptAPI"
+import { usePromptAPI, type TocItem } from "~hooks/usePromptAPI"
 import { useVoiceMemoChat } from "~hooks/useVoiceMemoChat"
-import { err, log } from "~lib/log"
+import { err, log, warn } from "~lib/log"
 import "~style.css"
 
 function Sidepanel() {
@@ -73,7 +73,7 @@ function Sidepanel() {
         checkOffscreenDocument()
         const createPromptSession = async () => {
             const session = await initializePromptSession(undefined, {
-                expectedInputs: [{ type: 'audio', languages: ['en'] }],
+                expectedInputs: [{ type: 'audio', languages: ['en'] }, { type: 'text', languages: ['en'] }],
                 expectedOutputs: [{ type: 'text', languages: ['en'] }]
             })
             const clonedSession = await session.clone()
@@ -309,11 +309,24 @@ function Sidepanel() {
         }
     }
 
-    React.useEffect(() => {
-        if (promptSession) {
-            log('promptSession', { promptSession })
+    const handleTocGenerated = async (toc: TocItem[]) => {
+        if (!promptSession) {
+            warn('No prompt session found')
+            return
         }
-    }, [promptSession])
+        log('Appending table of contents to prompt session', { toc })
+        promptSession.append(
+            [{
+                role: 'assistant',
+                content: [
+                    {
+                        type: 'text',
+                        value: 'Here is the table of contents for the page: ' + toc.map(t => t.title).join(', ')
+                    },
+                ]
+            }]
+        )
+    }
 
     if (!isSidepanelEnabled) {
         return (
@@ -395,7 +408,7 @@ function Sidepanel() {
 
             <div className="action-panel flex z-10 bg-black">
                 <div className="toc h-full flex items-center justify-center px-2">
-                    <TocPopup promptSession={summarizationPromptSession} />
+                    <TocPopup promptSession={summarizationPromptSession} onTocGenerated={handleTocGenerated} />
                 </div>
                 <div className="flex items-center justify-center bg-transparent py-4" onClick={handleToggleMic}>
                     <VoicePoweredOrb

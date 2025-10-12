@@ -23,6 +23,7 @@ declare global {
   }
 
   interface LanguageModelSession {
+    append(input: string | PromptInput[]): void
     prompt(input: string | PromptInput[], options?: PromptOptions): Promise<string>
     promptStreaming(input: string | PromptInput[], options?: PromptOptions): ReadableStream<string>
     destroy(): void

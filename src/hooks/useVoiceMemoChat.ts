@@ -56,7 +56,7 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
                                 ...message,
                                 voiceMemo: {
                                     ...voiceMemo,
-                                    audioUrl: voiceMemo.audioUrl || URL.createObjectURL(voiceMemo.audioBlob)
+                                    audioUrl: voiceMemo.audioUrl ?? URL.createObjectURL(voiceMemo.audioBlob)
                                 }
                             };
                         }
@@ -129,7 +129,7 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
                 if (!tabId || !url) {
                     throw new Error('No tab ID or URL available to create session');
                 }
-                
+
                 const newSession: ChatSession = {
                     id: voiceMemoStorage.generateChatSessionId(tabId, url),
                     tabId: tabId,
@@ -138,7 +138,7 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
                     createdAt: Date.now(),
                     updatedAt: Date.now()
                 };
-                
+
                 setCurrentSession(newSession);
                 sessionRef.current = newSession;
                 log('Created new chat session', { tabId, url });
@@ -178,6 +178,7 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
             // For now, we'll create a simple audio blob from text
             // In a real implementation, you'd use a TTS service
             const audioBlob = await textToSpeechBlob(textResponse);
+            console.log('audioBlob', audioBlob.size);
 
             return {
                 text: textResponse,
@@ -204,7 +205,7 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
                 if (!tabId || !url) {
                     throw new Error('No tab ID or URL available to create session');
                 }
-                
+
                 const newSession: ChatSession = {
                     id: voiceMemoStorage.generateChatSessionId(tabId, url),
                     tabId: tabId,
@@ -213,7 +214,7 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
                     createdAt: Date.now(),
                     updatedAt: Date.now()
                 };
-                
+
                 setCurrentSession(newSession);
                 sessionRef.current = newSession;
                 log('Created new chat session for AI message', { tabId, url });
@@ -284,15 +285,15 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
         }
     }, []);
 
-  // Auto-load session on mount
-  useEffect(() => {
-    if (autoLoad && tabId && url) {
-      log('Auto-loading chat session', { tabId, url });
-      loadChatSession(tabId, url);
-    } else {
-      log('Not auto-loading session', { autoLoad, tabId, url });
-    }
-  }, [autoLoad, tabId, url, loadChatSession]);
+    // Auto-load session on mount
+    useEffect(() => {
+        if (autoLoad && tabId && url) {
+            log('Auto-loading chat session', { tabId, url });
+            loadChatSession(tabId, url);
+        } else {
+            log('Not auto-loading session', { autoLoad, tabId, url });
+        }
+    }, [autoLoad, tabId, url, loadChatSession]);
 
     // Auto-save when messages change
     useEffect(() => {
@@ -325,25 +326,50 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
 };
 
 // Helper function to create audio blob from text (placeholder implementation)
+// Use SpeechSynthesis to generate an audio Blob from text
 async function textToSpeechBlob(text: string): Promise<Blob> {
-    // This is a placeholder implementation
-    // In a real app, you'd use Web Speech API or a TTS service
-
-    // Create a simple tone for demonstration
+    // Create an audio context and a MediaStreamDestination
     const audioContext = new AudioContext();
-    const sampleRate = audioContext.sampleRate;
-    const duration = Math.max(text.length * 0.1, 1.0); // Rough duration estimate
-    const length = sampleRate * duration;
+    const destination = audioContext.createMediaStreamDestination();
 
-    const buffer = audioContext.createBuffer(1, length, sampleRate);
-    const data = buffer.getChannelData(0);
+    // Prepare the utterance
+    const utterance = new SpeechSynthesisUtterance(text);
 
-    // Generate a simple tone
-    for (let i = 0; i < length; i++) {
-        data[i] = Math.sin(2 * Math.PI * 440 * i / sampleRate) * 0.1;
-    }
+    // Select an English voice if available
+    const voices = speechSynthesis.getVoices();
+    utterance.voice = voices.find(v => v.lang && v.lang.startsWith('en')) || null;
 
-    // Convert to blob (simplified)
-    const arrayBuffer = buffer.getChannelData(0).buffer.slice(0);
-    return new Blob([arrayBuffer], { type: 'audio/wav' });
+    // We'll record the speech output using a MediaRecorder on the destination stream
+    const mediaRecorder = new MediaRecorder(destination.stream);
+    const chunks: BlobPart[] = [];
+
+    // Connect the destination to our context's destination so sound is still output
+    // (Optional: comment out if you want the TTS muted)
+    destination.connect(audioContext.destination);
+
+    // There is no official way to hook SpeechSynthesisUtterance output into an AudioContext
+    // We'll play TTS as usual; to *truly* record, more advanced routing or browser support is needed
+    // This is a best-effort workaround
+
+    return new Promise<Blob>((resolve) => {
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) chunks.push(e.data);
+        };
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'audio/webm' });
+            resolve(blob);
+        };
+
+        // Start recording
+        mediaRecorder.start();
+
+        // When speech ends, stop the recording
+        utterance.onend = () => {
+            mediaRecorder.stop();
+            audioContext.close();
+        };
+
+        // Start speech synthesis
+        speechSynthesis.speak(utterance);
+    });
 }

@@ -8,9 +8,10 @@ import { err, log } from "~lib/log";
 
 type TocPopupProps = {
     promptSession: LanguageModelSession
+    onTocGenerated: (toc: TocItem[]) => void
 }
 
-export const TocPopup = ({ promptSession }: TocPopupProps) => {
+export const TocPopup = ({ promptSession, onTocGenerated }: TocPopupProps) => {
     const [isOpen, setIsOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const [toc, setToc] = useState<TocItem[]>([])
@@ -83,6 +84,7 @@ export const TocPopup = ({ promptSession }: TocPopupProps) => {
             log('toc : ', { toc })
             abortController.current?.abort()
             stopLoading()
+            onTocGenerated(toc) // NOTE: propagate TOC to parent component
         }
     }, [toc])
 
