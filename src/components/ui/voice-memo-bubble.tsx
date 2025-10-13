@@ -2,9 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2, Trash2, Clock, User, Bot } from 'lucide-react';
 import type { VoiceMemoBubbleProps } from '~types/voice-memo';
 import { cn } from '~lib/utils';
+import FunctionCallBubble from './function-call-bubble';
 
 export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
     voiceMemo,
+    functionCall,
     onPlay,
     onPause,
     onDelete,
@@ -20,18 +22,18 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
 
     // Generate audio URL from blob if not already available
     useEffect(() => {
-        if (!audioUrl && voiceMemo.audioBlob) {
+        if (!audioUrl && voiceMemo?.audioBlob) {
             try {
                 console.log('Creating audio URL from blob:', {
                     blobSize: voiceMemo.audioBlob.size,
                     blobType: voiceMemo.audioBlob.type,
                     hasBlob: !!voiceMemo.audioBlob
                 });
-                
+
                 const url = URL.createObjectURL(voiceMemo.audioBlob);
                 setAudioUrl(url);
                 console.log('Created audio URL:', url);
-                
+
                 return () => {
                     console.log('Revoking audio URL:', url);
                     URL.revokeObjectURL(url);
@@ -78,8 +80,8 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
     // Handle play/pause
     const handlePlayPause = async () => {
         if (!audioRef.current || !audioUrl) {
-            console.error('Cannot play audio: missing audio element or URL', { 
-                audioRef: !!audioRef.current, 
+            console.error('Cannot play audio: missing audio element or URL', {
+                audioRef: !!audioRef.current,
                 audioUrl,
                 hasAudioBlob: !!voiceMemo.audioBlob,
                 blobSize: voiceMemo.audioBlob?.size,
@@ -110,21 +112,21 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
                     console.log('Audio not ready, waiting for load...');
                     await new Promise((resolve, reject) => {
                         const timeout = setTimeout(() => reject(new Error('Audio load timeout')), 5000);
-                        
+
                         const handleCanPlay = () => {
                             clearTimeout(timeout);
                             audioRef.current!.removeEventListener('canplay', handleCanPlay);
                             audioRef.current!.removeEventListener('error', handleError);
                             resolve(void 0);
                         };
-                        
+
                         const handleError = (e: Event) => {
                             clearTimeout(timeout);
                             audioRef.current!.removeEventListener('canplay', handleCanPlay);
                             audioRef.current!.removeEventListener('error', handleError);
                             reject(e);
                         };
-                        
+
                         audioRef.current!.addEventListener('canplay', handleCanPlay);
                         audioRef.current!.addEventListener('error', handleError);
                     });
@@ -145,7 +147,7 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
         } catch (error) {
             console.error('Error playing audio:', error);
             setIsPlaying(false);
-            
+
             // Provide more specific error information
             if (error instanceof Error) {
                 if (error.message.includes('NotSupportedError')) {
@@ -186,6 +188,16 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
     const isTranscribing = voiceMemo.isTranscribing;
     const hasError = voiceMemo.error;
 
+    // Check if this is a text-only message (no meaningful audio)
+    const hasValidAudio = voiceMemo.audioBlob && voiceMemo.audioBlob.size > 0;
+    const isTextOnly = !hasValidAudio;
+
+    if (functionCall) {
+        return (
+            <FunctionCallBubble functionCall={functionCall} timestamp={voiceMemo.timestamp} className={className} />
+        )
+    }
+
     return (
         <div className={cn(
             "flex w-full mb-4",
@@ -206,9 +218,11 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
                         ) : (
                             <Bot className="w-4 h-4" />
                         )}
-                        <span className="text-xs opacity-75">
-                            {formatTime(currentTime)} / {formatTime(duration)}
-                        </span>
+                        {!isTextOnly && (
+                            <span className="text-xs opacity-75">
+                                {formatTime(currentTime)} / {formatTime(duration)}
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center space-x-2">
                         <Clock className="w-3 h-3 opacity-75" />
@@ -218,56 +232,9 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
                     </div>
                 </div>
 
-                {/* Audio controls and progress */}
-                <div className="space-y-3">
-                    {/* Play/Pause button and progress bar */}
-                    <div className="flex items-center space-x-3">
-                        <button
-                            onClick={handlePlayPause}
-                            disabled={!audioUrl || !!hasError || !audioUrl.startsWith('blob:')}
-                            className={cn(
-                                "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200",
-                                isUser
-                                    ? "bg-black hover:bg-gray-800 disabled:bg-gray-400"
-                                    : "bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100",
-                                "disabled:cursor-not-allowed"
-                            )}
-                        >
-                            {isPlaying ? (
-                                <Pause className="w-5 h-5" />
-                            ) : (
-                                <Play className="w-5 h-5 ml-0.5" />
-                            )}
-                        </button>
-
-                        <div className="flex-1">
-                            {/* Progress bar */}
-                            <div className={cn(
-                                "w-full h-2 rounded-full overflow-hidden",
-                                isUser ? "bg-blue-400" : "bg-gray-300"
-                            )}>
-                                <div
-                                    className={cn(
-                                        "h-full transition-all duration-100",
-                                        isUser ? "bg-blue-200" : "bg-gray-500"
-                                    )}
-                                    style={{ width: `${progressPercentage}%` }}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Delete button */}
-                        {onDelete && (
-                            <button
-                                onClick={handleDelete}
-                                className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center opacity-50 hover:opacity-100 transition-opacity"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Transcription */}
+                {/* Content area - different layouts for text vs audio */}
+                {isTextOnly ? (
+                    /* Text-only layout */
                     <div className="space-y-2">
                         {isTranscribing && (
                             <div className="flex items-center space-x-2">
@@ -283,13 +250,97 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
                         )}
 
                         {voiceMemo.transcription && (
-                            <div className={cn("text-xs leading-relaxed line-clamp-2 break-words hover:line-clamp-none", isUser ? "text-gray-100" : "text-gray-700")}>{voiceMemo.transcription}</div>
+                            <div className={cn("text-sm leading-relaxed break-words", isUser ? "text-gray-100" : "text-gray-700")}>
+                                {voiceMemo.transcription}
+                            </div>
+                        )}
+
+                        {/* Delete button for text messages */}
+                        {onDelete && (
+                            <div className="flex justify-end mt-2">
+                                <button
+                                    onClick={handleDelete}
+                                    className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center opacity-50 hover:opacity-100 transition-opacity"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
                         )}
                     </div>
-                </div>
+                ) : (
+                    /* Audio layout with controls */
+                    <div className="space-y-3">
+                        {/* Play/Pause button and progress bar */}
+                        <div className="flex items-center space-x-3">
+                            <button
+                                onClick={handlePlayPause}
+                                disabled={!audioUrl || !!hasError || !audioUrl.startsWith('blob:')}
+                                className={cn(
+                                    "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200",
+                                    isUser
+                                        ? "bg-black hover:bg-gray-800 disabled:bg-gray-400"
+                                        : "bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100",
+                                    "disabled:cursor-not-allowed"
+                                )}
+                            >
+                                {isPlaying ? (
+                                    <Pause className="w-5 h-5" />
+                                ) : (
+                                    <Play className="w-5 h-5 ml-0.5" />
+                                )}
+                            </button>
 
-                {/* Hidden audio element */}
-                {audioUrl && (
+                            <div className="flex-1">
+                                {/* Progress bar */}
+                                <div className={cn(
+                                    "w-full h-2 rounded-full overflow-hidden",
+                                    isUser ? "bg-blue-400" : "bg-gray-300"
+                                )}>
+                                    <div
+                                        className={cn(
+                                            "h-full transition-all duration-100",
+                                            isUser ? "bg-blue-200" : "bg-gray-500"
+                                        )}
+                                        style={{ width: `${progressPercentage}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Delete button */}
+                            {onDelete && (
+                                <button
+                                    onClick={handleDelete}
+                                    className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center opacity-50 hover:opacity-100 transition-opacity"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Transcription */}
+                        <div className="space-y-2">
+                            {isTranscribing && (
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                    <span className="text-xs opacity-75">Transcribing...</span>
+                                </div>
+                            )}
+
+                            {hasError && (
+                                <div className="text-xs text-red-500 bg-red-50 p-2 rounded">
+                                    Error: {voiceMemo.error}
+                                </div>
+                            )}
+
+                            {voiceMemo.transcription && (
+                                <div className={cn("text-xs leading-relaxed line-clamp-2 break-words hover:line-clamp-none", isUser ? "text-gray-100" : "text-gray-700")}>{voiceMemo.transcription}</div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Hidden audio element - only for audio messages */}
+                {audioUrl && !isTextOnly && (
                     <audio
                         ref={audioRef}
                         src={audioUrl}
