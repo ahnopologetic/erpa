@@ -166,7 +166,7 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
                  disabled={validSections.length <= 1}
             >
                 <ChevronUp
-                    className={`w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors ${sections.length <= 1 ? 'opacity-30' : ''
+                    className={`w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors ${validSections.length <= 1 ? 'opacity-30' : ''
                         }`}
                 />
             </button>
@@ -175,10 +175,10 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
             <div className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-center">
                 <div className="text-xs text-gray-500 mb-1">Section</div>
                 <div className="text-sm font-medium text-gray-800">
-                    {currentSectionIndex + 1} / {sections.length}
+                    {currentSectionIndex + 1} / {validSections.length}
                 </div>
-                <div className="text-xs text-gray-600 max-w-[120px] truncate" title={sections[currentSectionIndex]?.title}>
-                    {sections[currentSectionIndex]?.title}
+                <div className="text-xs text-gray-600 max-w-[120px] truncate" title={validSections[currentSectionIndex]?.title}>
+                    {validSections[currentSectionIndex]?.title}
                 </div>
             </div>
 
@@ -186,11 +186,11 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
             <button
                 onClick={navigateDown}
                 className="w-10 h-10 bg-white/90 backdrop-blur-sm border border-gray-200 rounded shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
-                title={`Next section (${currentSectionIndex < sections.length - 1 ? sections[currentSectionIndex + 1]?.title : sections[0]?.title})`}
-                disabled={sections.length <= 1}
+                 title={`Next section (${currentSectionIndex < validSections.length - 1 ? validSections[currentSectionIndex + 1]?.title : validSections[0]?.title})`}
+                 disabled={validSections.length <= 1}
             >
                 <ChevronDown
-                    className={`w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors ${sections.length <= 1 ? 'opacity-30' : ''
+                    className={`w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors ${validSections.length <= 1 ? 'opacity-30' : ''
                         }`}
                 />
             </button>
