@@ -5,9 +5,9 @@ import { Button } from "~components/ui/button"
 import { ChatInterface } from "~components/ui/chat-interface"
 import { Textarea } from "~components/ui/textarea"
 import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
+import { useFunctionCalls } from "~hooks/useFunctionCalls"
 import { usePromptAPI, type TocItem } from "~hooks/usePromptAPI"
 import { useVoiceMemoChat } from "~hooks/useVoiceMemoChat"
-import { executeCommand, parseCommand } from "~lib/functions/parser"
 import { err, log, warn } from "~lib/log"
 import "~style.css"
 
@@ -43,6 +43,13 @@ function Sidepanel() {
         tabId: currentTabId || undefined,
         url: currentUrl || undefined,
         autoLoad: true
+    })
+
+    // Function call hook (shared for text and voice)
+    const { isProcessing: isProcessingFunctionCall, processUserInput } = useFunctionCalls({
+        promptSession,
+        loadContextForCurrentTab,
+        addAIMessage
     })
     // Listen for messages from background script to close sidepanel
     React.useEffect(() => {
@@ -167,42 +174,10 @@ function Sidepanel() {
                         ])
                         log('Transcription result', { transcriptionResult })
 
-                        // Add as user message and generate AI response
+                        // Add as user message then run function-call pipeline on the transcription
                         if (transcriptionResult) {
                             await addUserMessage(audioBlob, transcriptionResult)
-
-                            // Generate AI response
-                            try {
-                                const aiResponse = await promptSession.prompt([
-                                    {
-                                        role: 'assistant',
-                                        content: [
-                                            {
-                                                type: 'text',
-                                                value: 'Please generate a response to the following user message.'
-                                            },
-                                        ]
-                                    },
-                                    {
-                                        role: 'user',
-                                        content: [
-                                            {
-                                                type: 'text', value: transcriptionResult
-                                            }
-                                        ]
-                                    }
-                                ])
-
-                                if (aiResponse) {
-                                    log('AI response', { aiResponse })
-                                    await addAIMessage({ textResponse: aiResponse })
-                                }
-                            } catch (aiError) {
-                                log('AI response error', aiError)
-                                await addAIMessage({
-                                    textResponse: "I'm sorry, I couldn't process your request right now. Please try again."
-                                })
-                            }
+                            await processUserInput(transcriptionResult)
                         }
                     } catch (error) {
                         log('Transcription error', error)
@@ -346,70 +321,7 @@ function Sidepanel() {
 
         try {
             await addTextMessage(userMessage)
-
-            // Load TOC context before parsing command
-            let tocContext: TocItem[] = []
-            try {
-                tocContext = await loadContextForCurrentTab()
-                log('Loaded TOC context for parseCommand', { tocContextCount: tocContext.length })
-            } catch (error) {
-                log('Failed to load TOC context, proceeding without it', error)
-            }
-
-            const answer = await promptSession.prompt([
-                {
-                    role: 'assistant',
-                    content: [
-                        {
-                            type: 'text',
-                            value: `Decide whether it is a command or a question. If it is a command, leave it as a blank. If it is a question, answer it.
-                            Example 1: "How many nobel prize affiliates does harvard have" is a question ==> "There are 160 nobel prize affiliates at harvard".
-                            Example 2: "Navigate to the about page" is a command ==> "<blank>".`
-                        },
-                    ]
-                },
-                {
-                    role: 'user',
-                    content: [
-                        {
-                            type: 'text',
-                            value: userMessage
-                        }
-                    ]
-                }
-            ])
-            if (answer !== '<blank>') {
-                await addAIMessage({
-                    textResponse: answer
-                })
-                return
-            }
-            const parsedCommand = await parseCommand(promptSession, userMessage, tocContext)
-
-            if (parsedCommand) {
-                log('AI response for text input', { parsedCommand })
-                if (parsedCommand.confidence > 0.8) {
-                    const result = await executeCommand(parsedCommand)
-                    log('Result of parsed command', { result })
-                    await addAIMessage({
-                        functionCallResponse: {
-                            ...parsedCommand,
-                            result: result.result
-                        },
-                        textResponse: ""
-                    })
-                } else {
-                    err('Low confidence for parsed command', { parsedCommand })
-                    await addAIMessage({
-                        textResponse: "I'm sorry, I couldn't process your request right now. Please try again."
-                    })
-                }
-            }
-        } catch (error) {
-            log('Text input AI response error', error)
-            await addAIMessage({
-                textResponse: "I'm sorry, I couldn't process your request right now. Please try again."
-            })
+            await processUserInput(userMessage)
         } finally {
             setIsProcessingText(false)
         }
@@ -487,7 +399,7 @@ function Sidepanel() {
                 </div>
                 <p className="mt-2 text-sm text-gray-400">
                     {isListening ? "Recording your message..." :
-                        isProcessingText ? "Processing your message..." :
+                        (isProcessingText || isProcessingFunctionCall) ? "Processing your message..." :
                             mode === "voice" ? "Click the voice orb below to start a conversation." :
                                 "Type your message below to start a conversation."}
                 </p>
