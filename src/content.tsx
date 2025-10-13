@@ -1,8 +1,8 @@
 import cssText from "data-text:~style.css"
 import type { PlasmoCSConfig } from "plasmo"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
-import { CountButton } from "~features/count-button"
+import { SectionHighlight } from "~components/ui/section-highlight"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -39,6 +39,8 @@ export const getStyle = (): HTMLStyleElement => {
 }
 
 const PlasmoOverlay = () => {
+  const [sections, setSections] = useState<Array<{ title: string; cssSelector: string }>>([])
+
   useEffect(() => {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message?.type === "GET_MAIN_CONTENT") {
@@ -77,6 +79,9 @@ const PlasmoOverlay = () => {
             selector: toCssSelector(h)
           })).filter(h => h.text.length > 0)
 
+          // Update sections state for the highlight component
+          setSections(headings.map(h => ({ title: h.text, cssSelector: h.selector })))
+
           sendResponse({ ok: true, text, headings })
         } catch (e) {
           sendResponse({ ok: false, error: (e as Error)?.message || "Unknown error" })
@@ -93,10 +98,27 @@ const PlasmoOverlay = () => {
           console.log('[Erpa] Scrolled to section', section)
         }
       }
+
+      if (message?.type === "SET_SECTIONS") {
+        console.log('[Erpa] Setting sections for highlight', message.sections)
+        setSections(message.sections || [])
+      }
     })
   }, [])
+
+  const handleNavigateToSection = (selector: string) => {
+    const section = document.querySelector(selector) as HTMLElement | null
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth" })
+    }
+  }
+
   return (
-    <div className="z-50 flex fixed top-32 right-8">
+    <div className="flex fixed fixed top-0 left-0 w-full h-full" id="erpa-overlay">
+      <SectionHighlight
+        sections={sections}
+        onNavigateToSection={handleNavigateToSection}
+      />
     </div>
   )
 }
