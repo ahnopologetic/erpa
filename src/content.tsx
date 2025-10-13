@@ -40,6 +40,7 @@ export const getStyle = (): HTMLStyleElement => {
 }
 
 const PlasmoOverlay = () => {
+  const [isVisible, setIsVisible] = useState(false)
   const [sections, setSections] = useState<Array<{ title: string; cssSelector: string }>>([])
 
   useEffect(() => {
@@ -60,7 +61,7 @@ const PlasmoOverlay = () => {
                 console.warn('[Erpa] Failed to escape ID, falling back to position selector:', el.id, error)
               }
             }
-            
+
             const parts: string[] = []
             let cur: Element | null = el
             let guard = 0
@@ -135,8 +136,14 @@ const PlasmoOverlay = () => {
     }
   }
 
+  useEffect(() => {
+    if (sections.length > 0) {
+      setIsVisible(true)
+    }
+  }, [sections])
+
   return (
-    <div className="flex fixed top-0 left-0 w-full h-full" id="erpa-overlay">
+    <div className={`z-[-9999] flex fixed top-0 right-0 w-[300px] h-full transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 hidden'}`} id="erpa-overlay">
       <SectionHighlight
         sections={sections}
         onNavigateToSection={handleNavigateToSection}
