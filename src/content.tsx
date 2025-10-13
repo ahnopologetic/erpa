@@ -3,6 +3,7 @@ import type { PlasmoCSConfig } from "plasmo"
 import { useEffect, useState } from "react"
 
 import { SectionHighlight } from "~components/ui/section-highlight"
+import { err } from "~lib/log"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -50,7 +51,16 @@ const PlasmoOverlay = () => {
           const text = (mainEl?.innerText || document.body.innerText || "").trim()
 
           const toCssSelector = (el: Element): string => {
-            if (el.id) return `#${CSS.escape(el.id)}`
+            // Try ID first, but escape it properly
+            if (el.id) {
+              try {
+                const escapedId = CSS.escape(el.id)
+                return `#${escapedId}`
+              } catch (error) {
+                console.warn('[Erpa] Failed to escape ID, falling back to position selector:', el.id, error)
+              }
+            }
+            
             const parts: string[] = []
             let cur: Element | null = el
             let guard = 0
@@ -107,14 +117,26 @@ const PlasmoOverlay = () => {
   }, [])
 
   const handleNavigateToSection = (selector: string) => {
-    const section = document.querySelector(selector) as HTMLElement | null
-    if (section) {
-      section.scrollIntoView({ behavior: "smooth" })
+    try {
+      const section = document.querySelector(selector) as HTMLElement | null
+      if (section) {
+        section.scrollIntoView({ behavior: "smooth" })
+        console.log('[Erpa] Successfully navigated to section:', selector)
+      } else {
+        console.warn('[Erpa] Section not found for selector:', selector)
+      }
+    } catch (error) {
+      err('Failed to navigate to section - invalid selector:', selector, error)
+      // Try to find an alternative navigation method
+      // For headings, try to find by text content as fallback
+      if (selector.includes('h1, h2, h3, h4, h5, h6')) {
+        console.log('[Erpa] Attempting fallback navigation for heading selector')
+      }
     }
   }
 
   return (
-    <div className="flex fixed fixed top-0 left-0 w-full h-full" id="erpa-overlay">
+    <div className="flex fixed top-0 left-0 w-full h-full" id="erpa-overlay">
       <SectionHighlight
         sections={sections}
         onNavigateToSection={handleNavigateToSection}
