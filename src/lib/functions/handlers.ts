@@ -5,6 +5,7 @@ const handleNavigation = async (location: string) => {
     const tab = tabs?.[0]
     log('[AI] Tab ID', { tabId: tab?.id })
     await chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'SCROLL_TO_SECTION', selector: location })
+    return true
 }
 
 export { handleNavigation }

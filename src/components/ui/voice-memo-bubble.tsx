@@ -2,9 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2, Trash2, Clock, User, Bot } from 'lucide-react';
 import type { VoiceMemoBubbleProps } from '~types/voice-memo';
 import { cn } from '~lib/utils';
+import FunctionCallBubble from './function-call-bubble';
 
 export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
     voiceMemo,
+    functionCall,
     onPlay,
     onPause,
     onDelete,
@@ -20,18 +22,18 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
 
     // Generate audio URL from blob if not already available
     useEffect(() => {
-        if (!audioUrl && voiceMemo.audioBlob) {
+        if (!audioUrl && voiceMemo?.audioBlob) {
             try {
                 console.log('Creating audio URL from blob:', {
                     blobSize: voiceMemo.audioBlob.size,
                     blobType: voiceMemo.audioBlob.type,
                     hasBlob: !!voiceMemo.audioBlob
                 });
-                
+
                 const url = URL.createObjectURL(voiceMemo.audioBlob);
                 setAudioUrl(url);
                 console.log('Created audio URL:', url);
-                
+
                 return () => {
                     console.log('Revoking audio URL:', url);
                     URL.revokeObjectURL(url);
@@ -78,8 +80,8 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
     // Handle play/pause
     const handlePlayPause = async () => {
         if (!audioRef.current || !audioUrl) {
-            console.error('Cannot play audio: missing audio element or URL', { 
-                audioRef: !!audioRef.current, 
+            console.error('Cannot play audio: missing audio element or URL', {
+                audioRef: !!audioRef.current,
                 audioUrl,
                 hasAudioBlob: !!voiceMemo.audioBlob,
                 blobSize: voiceMemo.audioBlob?.size,
@@ -110,21 +112,21 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
                     console.log('Audio not ready, waiting for load...');
                     await new Promise((resolve, reject) => {
                         const timeout = setTimeout(() => reject(new Error('Audio load timeout')), 5000);
-                        
+
                         const handleCanPlay = () => {
                             clearTimeout(timeout);
                             audioRef.current!.removeEventListener('canplay', handleCanPlay);
                             audioRef.current!.removeEventListener('error', handleError);
                             resolve(void 0);
                         };
-                        
+
                         const handleError = (e: Event) => {
                             clearTimeout(timeout);
                             audioRef.current!.removeEventListener('canplay', handleCanPlay);
                             audioRef.current!.removeEventListener('error', handleError);
                             reject(e);
                         };
-                        
+
                         audioRef.current!.addEventListener('canplay', handleCanPlay);
                         audioRef.current!.addEventListener('error', handleError);
                     });
@@ -145,7 +147,7 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
         } catch (error) {
             console.error('Error playing audio:', error);
             setIsPlaying(false);
-            
+
             // Provide more specific error information
             if (error instanceof Error) {
                 if (error.message.includes('NotSupportedError')) {
@@ -185,10 +187,16 @@ export const VoiceMemoBubble: React.FC<VoiceMemoBubbleProps> = ({
     const isUser = voiceMemo.type === 'user';
     const isTranscribing = voiceMemo.isTranscribing;
     const hasError = voiceMemo.error;
-    
+
     // Check if this is a text-only message (no meaningful audio)
     const hasValidAudio = voiceMemo.audioBlob && voiceMemo.audioBlob.size > 0;
     const isTextOnly = !hasValidAudio;
+
+    if (functionCall) {
+        return (
+            <FunctionCallBubble functionCall={functionCall} timestamp={voiceMemo.timestamp} className={className} />
+        )
+    }
 
     return (
         <div className={cn(

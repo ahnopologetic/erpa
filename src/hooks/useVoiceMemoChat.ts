@@ -254,6 +254,23 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
 
     // Add AI message
     const addAIMessage = useCallback(async (options: AIResponseOptions) => {
+        if (options.functionCallResponse) {
+            const message: ChatMessage = {
+                id: `message_function_call_${Date.now()}__${Math.random().toString(36).substr(2, 9)}`,
+                functionCallResponse: options.functionCallResponse,
+                createdAt: Date.now(),
+                voiceMemo: {
+                    id: voiceMemoStorage.generateVoiceMemoId(),
+                    type: 'ai',
+                    audioBlob: new Blob(),
+                    transcription: options.textResponse,
+                    timestamp: Date.now()
+                }
+            };
+
+            setMessages(prev => [...prev, message]);
+            return;
+        }
         try {
             setError(null);
 

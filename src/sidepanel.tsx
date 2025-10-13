@@ -356,32 +356,48 @@ function Sidepanel() {
                 log('Failed to load TOC context, proceeding without it', error)
             }
 
-            // const aiResponse = await promptSession.prompt([
-            //     {
-            //         role: 'assistant',
-            //         content: [
-            //             {
-            //                 type: 'text',
-            //                 value: 'Please generate a helpful response to the following user message.'
-            //             },
-            //         ]
-            //     },
-            //     {
-            //         role: 'user',
-            //         content: [
-            //             {
-            //                 type: 'text',
-            //                 value: userMessage
-            //             }
-            //         ]
-            //     }
-            // ])
+            const answer = await promptSession.prompt([
+                {
+                    role: 'assistant',
+                    content: [
+                        {
+                            type: 'text',
+                            value: `Decide whether it is a command or a question. If it is a command, leave it as a blank. If it is a question, answer it.
+                            Example 1: "How many nobel prize affiliates does harvard have" is a question ==> "There are 160 nobel prize affiliates at harvard".
+                            Example 2: "Navigate to the about page" is a command ==> "<blank>".`
+                        },
+                    ]
+                },
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'text',
+                            value: userMessage
+                        }
+                    ]
+                }
+            ])
+            if (answer !== '<blank>') {
+                await addAIMessage({
+                    textResponse: answer
+                })
+                return
+            }
             const parsedCommand = await parseCommand(promptSession, userMessage, tocContext)
 
             if (parsedCommand) {
                 log('AI response for text input', { parsedCommand })
                 if (parsedCommand.confidence > 0.8) {
-                    executeCommand(parsedCommand)
+                    const result = await executeCommand(parsedCommand)
+                    log('Result of parsed command', { result })
+                    await addAIMessage({
+                        functionCallResponse: {
+                            ...parsedCommand,
+                            result: result.result
+                        },
+                        textResponse: ""
+                    })
                 } else {
                     err('Low confidence for parsed command', { parsedCommand })
                     await addAIMessage({

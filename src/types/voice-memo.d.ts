@@ -15,7 +15,8 @@ export interface VoiceMemo {
 
 export interface ChatMessage {
     id: string;
-    voiceMemo: VoiceMemo;
+    voiceMemo?: VoiceMemo;
+    functionCallResponse?: ParsedFunctionWithResult;
     createdAt: number;
     updatedAt?: number;
 }
@@ -30,7 +31,8 @@ export interface ChatSession {
 }
 
 export interface VoiceMemoBubbleProps {
-    voiceMemo: VoiceMemo;
+    voiceMemo?: VoiceMemo;
+    functionCall?: ParsedFunctionWithResult;
     onPlay?: (voiceMemo: VoiceMemo) => void;
     onPause?: (voiceMemo: VoiceMemo) => void;
     onDelete?: (voiceMemoId: string) => void;
@@ -72,6 +74,7 @@ export interface AIResponseOptions {
         speed?: number;
         pitch?: number;
     };
+    functionCallResponse?: ParsedFunctionWithResult;
 }
 
 export interface AIResponseResult {

@@ -7,6 +7,12 @@ interface ParsedFunction {
     parameters: Record<string, any>;
     confidence: number;
 }
+interface ParsedFunctionWithResult {
+    functionName: string;
+    parameters: Record<string, any>;
+    confidence: number;
+    result: string | object | null;
+}
 
 export async function parseCommand(session: LanguageModelSession, userInput: string, tocContext?: TocItem[]): Promise<ParsedFunction | null> {
     try {
@@ -119,7 +125,7 @@ When navigating, use the exact CSS selectors provided above.`;
 }
 
 
-export async function executeCommand(parsed: ParsedFunction): Promise<string> {
+export async function executeCommand(parsed: ParsedFunction): Promise<ParsedFunctionWithResult> {
     try {
         const funcDef = functionRegistry.find(f => f.name === parsed.functionName);
         if (!funcDef) {
@@ -137,12 +143,27 @@ export async function executeCommand(parsed: ParsedFunction): Promise<string> {
 
         if (result === true) {
             if (funcDef.name === "handleNavigation") {
-                return "Navigated to the location!";
+                return {
+                    functionName: parsed.functionName,
+                    parameters: parsed.parameters,
+                    confidence: parsed.confidence,
+                    result: "Navigated to the location!"
+                }
             }
-            return "done!";
+            return {
+                functionName: parsed.functionName,
+                parameters: parsed.parameters,
+                confidence: parsed.confidence,
+                result: "done!"
+            }
         }
 
-        return result
+        return {
+            functionName: parsed.functionName,
+            parameters: parsed.parameters,
+            confidence: parsed.confidence,
+            result: result
+        }
 
     } catch (error) {
         console.error('Error executing command:', error);

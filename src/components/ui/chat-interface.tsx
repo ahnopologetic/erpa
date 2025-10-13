@@ -76,6 +76,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                             ...message.voiceMemo,
                                             isPlaying: currentlyPlayingId === message.voiceMemo.id
                                         }}
+                                        functionCall={message.functionCallResponse}
                                         onPlay={handlePlayMessage}
                                         onPause={handlePauseMessage}
                                         onDelete={onDeleteMessage ? handleDeleteMessage : undefined}
