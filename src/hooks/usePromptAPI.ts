@@ -277,7 +277,7 @@ export const usePromptAPI = (options: UsePromptAPIOptions = {}): PromptAPIState 
         setIsLoading(true)
         setProgress({ total: 1, done: 0 })
 
-        const MAX_CHARS = 4000
+        const MAX_CHARS = 10000
         let textToProcess = mainText
         if (textToProcess.length > MAX_CHARS) {
             log(`Truncating text from ${textToProcess.length} to ${MAX_CHARS} chars`)
@@ -316,12 +316,10 @@ export const usePromptAPI = (options: UsePromptAPIOptions = {}): PromptAPIState 
     }, [])
 
     const parseExtractionResult = useCallback((data: string, headings: { text: string; selector: string }[]): TocItem[] => {
-        log('Extraction complete')
         if (!data) {
             throw new Error('Extraction failed - no data returned')
         }
         if (isVerbose) log('Final result length (chars):', data.length)
-        log('Final result:', { data })
 
         let items: TocItem[] = []
         try {
