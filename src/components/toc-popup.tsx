@@ -44,26 +44,27 @@ export const TocPopup = ({ promptSession, onTocGenerated }: TocPopupProps) => {
     }
 
     const loadContextForTab = async () => {
+        const tabId = await getCurrentTabId()
+        if (tabId == null) {
+            log('No active tab found for context loading')
+            return
+        }
+        setCurrentTabId(tabId)
+
         try {
-            const tabId = await getCurrentTabId()
-            if (tabId !== currentTabId) {
-                setCurrentTabId(tabId)
-                const contextToc = await loadContextForCurrentTab()
-                if (contextToc.length > 0) {
-                    log('sidepanel toc before setToc', { toc, contextToc })
-                    setToc(contextToc)
-                    log('sidepanel toc after setToc - state will update on next render', { contextToc })
-                } else {
-                    // No context found, try to fetch new TOC
-                    log('No context found, trying to fetch new TOC')
-                    const availability = await checkModelAvailability()
-                    if (availability === 'available') {
-                        handleFetchToc()
-                    }
+            const contextToc = await loadContextForCurrentTab()
+            if (contextToc.length > 0) {
+                log('Context found, setting TOC', { contextToc })
+                setToc(contextToc)
+            } else {
+                log('No context found, trying to fetch new TOC')
+                const availability = await checkModelAvailability()
+                if (availability === 'available') {
+                    handleFetchToc()
                 }
             }
         } catch (error) {
-            console.error('[TocPopup] Failed to load context for tab:', error)
+            err('Failed to load context for tab', error)
         }
     }
 
@@ -72,37 +73,13 @@ export const TocPopup = ({ promptSession, onTocGenerated }: TocPopupProps) => {
             await navigateToSection(cssSelector)
             setIsOpen(false)
         } catch (error) {
-            // Error is already handled in the hook
+            err('Failed to navigate to section', error)
         }
     }
 
-    // Log when toc state actually updates
-    useEffect(() => {
-        log('toc state updated', { toc: toc.length })
-        if (toc.length > 0) {
-            log('toc state updated - aborting prompt API')
-            log('toc : ', { toc })
-            abortController.current?.abort()
-            stopLoading()
-            onTocGenerated(toc) // NOTE: propagate TOC to parent component
-        }
-    }, [toc])
 
     useEffect(() => {
-        const initializeComponent = async () => {
-            // First, try to load context for current tab
-            await loadContextForTab()
-
-            if (toc.length === 0) {
-                const availability = await checkModelAvailability()
-                if (availability === 'available') {
-                    handleFetchToc()
-                } else if (availability === 'unavailable') {
-                    setError(new Error('LanguageModel is not available on this device'))
-                }
-            }
-        }
-        initializeComponent()
+        loadContextForTab()
     }, [])
 
     // Listen for tab changes

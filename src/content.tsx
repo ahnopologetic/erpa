@@ -1,8 +1,9 @@
 import cssText from "data-text:~style.css"
 import type { PlasmoCSConfig } from "plasmo"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
-import { CountButton } from "~features/count-button"
+import { SectionHighlight } from "~components/ui/section-highlight"
+import { err } from "~lib/log"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -39,6 +40,9 @@ export const getStyle = (): HTMLStyleElement => {
 }
 
 const PlasmoOverlay = () => {
+  const [isVisible, setIsVisible] = useState(false)
+  const [sections, setSections] = useState<Array<{ title: string; cssSelector: string }>>([])
+
   useEffect(() => {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message?.type === "GET_MAIN_CONTENT") {
@@ -48,7 +52,16 @@ const PlasmoOverlay = () => {
           const text = (mainEl?.innerText || document.body.innerText || "").trim()
 
           const toCssSelector = (el: Element): string => {
-            if (el.id) return `#${CSS.escape(el.id)}`
+            // Try ID first, but escape it properly
+            if (el.id) {
+              try {
+                const escapedId = CSS.escape(el.id)
+                return `#${escapedId}`
+              } catch (error) {
+                console.warn('[Erpa] Failed to escape ID, falling back to position selector:', el.id, error)
+              }
+            }
+
             const parts: string[] = []
             let cur: Element | null = el
             let guard = 0
@@ -77,6 +90,9 @@ const PlasmoOverlay = () => {
             selector: toCssSelector(h)
           })).filter(h => h.text.length > 0)
 
+          // Update sections state for the highlight component
+          setSections(headings.map(h => ({ title: h.text, cssSelector: h.selector })))
+
           sendResponse({ ok: true, text, headings })
         } catch (e) {
           sendResponse({ ok: false, error: (e as Error)?.message || "Unknown error" })
@@ -93,10 +109,45 @@ const PlasmoOverlay = () => {
           console.log('[Erpa] Scrolled to section', section)
         }
       }
+
+      if (message?.type === "SET_SECTIONS") {
+        console.log('[Erpa] Setting sections for highlight', message.sections)
+        setSections(message.sections || [])
+      }
     })
   }, [])
+
+  const handleNavigateToSection = (selector: string) => {
+    try {
+      const section = document.querySelector(selector) as HTMLElement | null
+      if (section) {
+        section.scrollIntoView({ behavior: "smooth" })
+        console.log('[Erpa] Successfully navigated to section:', selector)
+      } else {
+        console.warn('[Erpa] Section not found for selector:', selector)
+      }
+    } catch (error) {
+      err('Failed to navigate to section - invalid selector:', selector, error)
+      // Try to find an alternative navigation method
+      // For headings, try to find by text content as fallback
+      if (selector.includes('h1, h2, h3, h4, h5, h6')) {
+        console.log('[Erpa] Attempting fallback navigation for heading selector')
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (sections.length > 0) {
+      setIsVisible(true)
+    }
+  }, [sections])
+
   return (
-    <div className="z-50 flex fixed top-32 right-8">
+    <div className={`z-[-9999] flex fixed top-0 right-0 w-[300px] h-full transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 hidden'}`} id="erpa-overlay">
+      <SectionHighlight
+        sections={sections}
+        onNavigateToSection={handleNavigateToSection}
+      />
     </div>
   )
 }

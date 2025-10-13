@@ -277,7 +277,7 @@ export const usePromptAPI = (options: UsePromptAPIOptions = {}): PromptAPIState 
         setIsLoading(true)
         setProgress({ total: 1, done: 0 })
 
-        const MAX_CHARS = 4000
+        const MAX_CHARS = 10000
         let textToProcess = mainText
         if (textToProcess.length > MAX_CHARS) {
             log(`Truncating text from ${textToProcess.length} to ${MAX_CHARS} chars`)
@@ -316,12 +316,10 @@ export const usePromptAPI = (options: UsePromptAPIOptions = {}): PromptAPIState 
     }, [])
 
     const parseExtractionResult = useCallback((data: string, headings: { text: string; selector: string }[]): TocItem[] => {
-        log('Extraction complete')
         if (!data) {
             throw new Error('Extraction failed - no data returned')
         }
         if (isVerbose) log('Final result length (chars):', data.length)
-        log('Final result:', { data })
 
         let items: TocItem[] = []
         try {
@@ -357,6 +355,18 @@ export const usePromptAPI = (options: UsePromptAPIOptions = {}): PromptAPIState 
 
             await tabContextManager.setContext(tabId, currentUrl, toc)
             log(`Saved context for tab ${tabId} with ${toc.length} items`)
+
+            // Send sections to content script for highlighting
+            try {
+                await chrome.tabs.sendMessage(tabId, {
+                    type: 'SET_SECTIONS',
+                    sections: toc
+                })
+                log('Sent sections to content script for highlighting')
+            } catch (contentScriptError) {
+                // Content script might not be loaded yet, this is not critical
+                log('Could not send sections to content script (content script may not be loaded)', contentScriptError)
+            }
         } catch (error) {
             err('Failed to save context for current tab', error)
         }
@@ -427,6 +437,19 @@ export const usePromptAPI = (options: UsePromptAPIOptions = {}): PromptAPIState 
             if (context) {
                 log(`Loaded context for tab ${tabId} with ${context.toc.length} items`)
                 log('context', { context })
+
+                // Send sections to content script for highlighting
+                try {
+                    await chrome.tabs.sendMessage(tabId, {
+                        type: 'SET_SECTIONS',
+                        sections: context.toc
+                    })
+                    log('Sent loaded sections to content script for highlighting')
+                } catch (contentScriptError) {
+                    // Content script might not be loaded yet, this is not critical
+                    log('Could not send sections to content script (content script may not be loaded)', contentScriptError)
+                }
+
                 return context.toc
             }
 
