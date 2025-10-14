@@ -3,7 +3,8 @@ import type { PlasmoCSConfig } from "plasmo"
 import { useEffect, useState } from "react"
 
 import { SectionHighlight } from "~components/ui/section-highlight"
-import { err } from "~lib/log"
+import { detectSections } from "~hooks/useDetectSections"
+import { err, log } from "~lib/log"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -58,7 +59,7 @@ const PlasmoOverlay = () => {
                 const escapedId = CSS.escape(el.id)
                 return `#${escapedId}`
               } catch (error) {
-                console.warn('[Erpa] Failed to escape ID, falling back to position selector:', el.id, error)
+                err('[Erpa] Failed to escape ID, falling back to position selector:', el.id, error)
               }
             }
 
@@ -102,17 +103,30 @@ const PlasmoOverlay = () => {
       }
 
       if (message?.type === "SCROLL_TO_SECTION") {
-        console.log('[Erpa] Scrolling to section message received', message)
+        log('[Erpa] Scrolling to section message received', message)
         const section = document.querySelector(message.selector) as HTMLElement | null
         if (section) {
           section.scrollIntoView({ behavior: "smooth" })
-          console.log('[Erpa] Scrolled to section', section)
+          log('[Erpa] Scrolled to section', section)
         }
       }
 
       if (message?.type === "SET_SECTIONS") {
-        console.log('[Erpa] Setting sections for highlight', message.sections)
+        log('[Erpa] Setting sections for highlight', message.sections)
         setSections(message.sections || [])
+      }
+
+      if (message?.type === "DETECT_SECTIONS") {
+        try {
+          log('[Erpa] Detecting sections from DOM')
+          const detectedSections = detectSections()
+          log('[Erpa] Detected sections:', detectedSections)
+          sendResponse({ ok: true, sections: detectedSections })
+        } catch (e) {
+          err('[Erpa] Failed to detect sections:', e)
+          sendResponse({ ok: false, error: (e as Error)?.message || "Unknown error" })
+        }
+        return true
       }
     })
   }, [])
@@ -122,16 +136,16 @@ const PlasmoOverlay = () => {
       const section = document.querySelector(selector) as HTMLElement | null
       if (section) {
         section.scrollIntoView({ behavior: "smooth" })
-        console.log('[Erpa] Successfully navigated to section:', selector)
+        log('[Erpa] Successfully navigated to section:', selector)
       } else {
-        console.warn('[Erpa] Section not found for selector:', selector)
+        err('[Erpa] Section not found for selector:', selector)
       }
     } catch (error) {
       err('Failed to navigate to section - invalid selector:', selector, error)
       // Try to find an alternative navigation method
       // For headings, try to find by text content as fallback
       if (selector.includes('h1, h2, h3, h4, h5, h6')) {
-        console.log('[Erpa] Attempting fallback navigation for heading selector')
+        log('[Erpa] Attempting fallback navigation for heading selector')
       }
     }
   }
