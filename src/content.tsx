@@ -44,6 +44,8 @@ const PlasmoOverlay = () => {
   const [isVisible, setIsVisible] = useState(false)
   const [sections, setSections] = useState<Array<{ title: string; cssSelector: string }>>([])
 
+  const [currentCursor, setCurrentCursor] = useState<HTMLElement | null>(null)
+
   useEffect(() => {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message?.type === "GET_MAIN_CONTENT") {
@@ -137,6 +139,7 @@ const PlasmoOverlay = () => {
       if (section) {
         section.scrollIntoView({ behavior: "smooth" })
         log('[Erpa] Successfully navigated to section:', selector)
+        setCurrentCursor(section)
       } else {
         err('[Erpa] Section not found for selector:', selector)
       }
@@ -155,6 +158,7 @@ const PlasmoOverlay = () => {
       setIsVisible(true)
     }
   }, [sections])
+
 
   return (
     <div className={`z-[-9999] flex fixed top-0 right-0 w-[300px] h-full transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 hidden'}`} id="erpa-overlay">

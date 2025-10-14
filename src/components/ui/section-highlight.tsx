@@ -13,6 +13,7 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
 }) => {
     const [currentSectionIndex, setCurrentSectionIndex] = useState(0)
     const [highlightedSection, setHighlightedSection] = useState<HTMLElement | null>(null)
+    const [isNavigating, setIsNavigating] = useState(false)
 
     // Filter out sections with invalid selectors
     const validSections = sections.filter(section => {
@@ -21,7 +22,6 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
             document.querySelector(section.cssSelector)
             return true
         } catch {
-            log('[SectionHighlight] Filtering out invalid selector:', section.cssSelector)
             return false
         }
     })
@@ -41,17 +41,17 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
         let closestIndex = 0
         let closestDistance = Infinity
 
-         validSections.forEach((section, index) => {
-             const element = document.querySelector(section.cssSelector) as HTMLElement
-             if (element) {
-                 const elementTop = element.offsetTop
-                 const distance = Math.abs(scrollPosition - elementTop)
-                 if (distance < closestDistance) {
-                     closestDistance = distance
-                     closestIndex = index
-                 }
-             }
-         })
+        validSections.forEach((section, index) => {
+            const element = document.querySelector(section.cssSelector) as HTMLElement
+            if (element) {
+                const elementTop = element.offsetTop
+                const distance = Math.abs(scrollPosition - elementTop)
+                if (distance < closestDistance) {
+                    closestDistance = distance
+                    closestIndex = index
+                }
+            }
+        })
 
         return closestIndex
     }, [validSections])
@@ -59,6 +59,9 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
     // Update current section on scroll
     useEffect(() => {
         const handleScroll = () => {
+            // Don't update section index if we're currently navigating programmatically
+            if (isNavigating) return
+            
             const newIndex = getCurrentSection()
             if (newIndex !== currentSectionIndex) {
                 setCurrentSectionIndex(newIndex)
@@ -67,7 +70,7 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
 
         window.addEventListener('scroll', handleScroll, { passive: true })
         return () => window.removeEventListener('scroll', handleScroll)
-    }, [getCurrentSection, currentSectionIndex])
+    }, [getCurrentSection, currentSectionIndex, isNavigating])
 
     // Highlight the current section
     useEffect(() => {
@@ -77,19 +80,19 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
             highlightedSection.style.outlineOffset = ''
         }
 
-         // Add new highlight
-         if (validSections[currentSectionIndex]) {
-             const element = document.querySelector(validSections[currentSectionIndex].cssSelector) as HTMLElement
-             if (element) {
-                 element.style.outline = '3px solid transparent'
-                 element.style.outlineOffset = '4px'
-                 element.style.backgroundImage = 'linear-gradient(white, white), linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                 element.style.backgroundOrigin = 'border-box'
-                 element.style.backgroundClip = 'content-box, border-box'
-                 element.style.borderRadius = '8px'
-                 setHighlightedSection(element)
-             }
-         }
+        // Add new highlight
+        if (validSections[currentSectionIndex]) {
+            const element = document.querySelector(validSections[currentSectionIndex].cssSelector) as HTMLElement
+            if (element) {
+                element.style.outline = '3px solid transparent'
+                element.style.outlineOffset = '4px'
+                element.style.backgroundImage = 'linear-gradient(white, white), linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                element.style.backgroundOrigin = 'border-box'
+                element.style.backgroundClip = 'content-box, border-box'
+                element.style.borderRadius = '8px'
+                setHighlightedSection(element)
+            }
+        }
 
         // Cleanup function
         return () => {
@@ -104,29 +107,41 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
         }
     }, [currentSectionIndex, sections, highlightedSection])
 
-     // Navigate to previous section
-     const navigateUp = useCallback(() => {
-         if (validSections.length === 0) return
+    // Navigate to previous section
+    const navigateUp = useCallback(() => {
+        if (validSections.length === 0) return
 
-         const prevIndex = currentSectionIndex > 0 ? currentSectionIndex - 1 : validSections.length - 1
-         const section = validSections[prevIndex]
-         if (section) {
-             onNavigateToSection(section.cssSelector)
-             setCurrentSectionIndex(prevIndex)
-         }
-     }, [currentSectionIndex, validSections, onNavigateToSection])
+        const prevIndex = currentSectionIndex > 0 ? currentSectionIndex - 1 : validSections.length - 1
+        const section = validSections[prevIndex]
+        if (section) {
+            setIsNavigating(true)
+            onNavigateToSection(section.cssSelector)
+            setCurrentSectionIndex(prevIndex)
+            
+            // Re-enable scroll listener after animation completes (typical smooth scroll is ~500-1000ms)
+            setTimeout(() => {
+                setIsNavigating(false)
+            }, 1000)
+        }
+    }, [currentSectionIndex, validSections, onNavigateToSection])
 
-     // Navigate to next section
-     const navigateDown = useCallback(() => {
-         if (validSections.length === 0) return
+    // Navigate to next section
+    const navigateDown = useCallback(() => {
+        if (validSections.length === 0) return
 
-         const nextIndex = currentSectionIndex < validSections.length - 1 ? currentSectionIndex + 1 : 0
-         const section = validSections[nextIndex]
-         if (section) {
-             onNavigateToSection(section.cssSelector)
-             setCurrentSectionIndex(nextIndex)
-         }
-     }, [currentSectionIndex, validSections, onNavigateToSection])
+        const nextIndex = currentSectionIndex < validSections.length - 1 ? currentSectionIndex + 1 : 0
+        const section = validSections[nextIndex]
+        if (section) {
+            setIsNavigating(true)
+            onNavigateToSection(section.cssSelector)
+            setCurrentSectionIndex(nextIndex)
+            
+            // Re-enable scroll listener after animation completes (typical smooth scroll is ~500-1000ms)
+            setTimeout(() => {
+                setIsNavigating(false)
+            }, 1000)
+        }
+    }, [currentSectionIndex, validSections, onNavigateToSection])
 
     // Keyboard navigation
     useEffect(() => {
@@ -151,10 +166,10 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
         return () => document.removeEventListener('keydown', handleKeyDown)
     }, [navigateUp, navigateDown])
 
-     // Don't render if no valid sections
-     if (validSections.length === 0) {
-         return null
-     }
+    // Don't render if no valid sections
+    if (validSections.length === 0) {
+        return null
+    }
 
     return (
         <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-[9999] flex flex-col gap-2 items-end justify-end">
@@ -162,8 +177,8 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
             <button
                 onClick={navigateUp}
                 className="w-10 h-10 bg-white/90 backdrop-blur-sm border border-gray-200 rounded shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
-                 title={`Previous section (${currentSectionIndex > 0 ? validSections[currentSectionIndex - 1]?.title : validSections[validSections.length - 1]?.title})`}
-                 disabled={validSections.length <= 1}
+                title={`Previous section (${currentSectionIndex > 0 ? validSections[currentSectionIndex - 1]?.title : validSections[validSections.length - 1]?.title})`}
+                disabled={validSections.length <= 1}
             >
                 <ChevronUp
                     className={`w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors ${validSections.length <= 1 ? 'opacity-30' : ''
@@ -186,8 +201,8 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
             <button
                 onClick={navigateDown}
                 className="w-10 h-10 bg-white/90 backdrop-blur-sm border border-gray-200 rounded shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
-                 title={`Next section (${currentSectionIndex < validSections.length - 1 ? validSections[currentSectionIndex + 1]?.title : validSections[0]?.title})`}
-                 disabled={validSections.length <= 1}
+                title={`Next section (${currentSectionIndex < validSections.length - 1 ? validSections[currentSectionIndex + 1]?.title : validSections[0]?.title})`}
+                disabled={validSections.length <= 1}
             >
                 <ChevronDown
                     className={`w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors ${validSections.length <= 1 ? 'opacity-30' : ''
