@@ -291,19 +291,19 @@ function Sidepanel() {
         }
     }
 
-    const handleTocGenerated = async (toc: TocItem[]) => {
+    const handleTocGenerated = async (sections: Array<{ title: string; cssSelector: string }>) => {
         if (!promptSession) {
             warn('No prompt session found')
             return
         }
-        log('Appending table of contents to prompt session', { toc })
+        log('Appending table of contents to prompt session', { sections })
         promptSession.append(
             [{
                 role: 'assistant',
                 content: [
                     {
                         type: 'text',
-                        value: 'Here is the table of contents for the page: ' + toc.map(t => t.title).join(', ')
+                        value: 'Here is the table of contents for the page: ' + sections.map(s => s.title).join(', ')
                     },
                 ]
             }]
