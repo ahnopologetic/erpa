@@ -7,6 +7,7 @@ import { detectSections } from "~hooks/useDetectSections"
 import { err, log } from "~lib/log"
 import { findReadableNodesUntilNextSection } from "~lib/debugging/readable"
 import { highlightCursorPosition, highlightNode } from "~lib/utils"
+import TtsPlayback from "~components/tts-playback"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -203,18 +204,10 @@ const PlasmoOverlay = () => {
         const readableNode = queue.shift()
         if (readableNode) {
           setCurrentCursor(readableNode)
-          // TODO: read out the text of the readable node using tts
-          log('Reading out the text of the readable node:', readableNode.textContent)
-          const cleanup = highlightNode(readableNode, {
-            color: 'red',
-            ringWidth: '2px',
-            backgroundColor: 'rgba(255, 0, 0, 0.1)',
-            textDecoration: true
-          })
+          const cleanup = highlightNode(readableNode)
           setTimeout(() => {
             cleanup()
-          }, 1000)
-
+          }, 3000)
         }
       }
     }
@@ -227,11 +220,18 @@ const PlasmoOverlay = () => {
 
 
   return (
-    <div className={`z-[-9999] flex fixed top-0 right-0 w-[300px] h-full transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 hidden'}`} id="erpa-overlay">
+    <div
+      className={`pointer-events-none z-[-9999] flex fixed top-0 right-0 w-full h-full transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 hidden'}`}
+      id="erpa-overlay"
+    >
       <SectionHighlight
         sections={sections}
         onNavigateToSection={handleNavigateToSection}
       />
+
+      <div className="pointer-events-auto z-10 absolute bottom-2 left-1/2 transform -translate-x-1/2 w-48 h-12 flex justify-center items-end">
+        <TtsPlayback isPlaying={true} className="w-full h-full border-2 border-white backdrop-blur-xl bg-black/20 rounded-lg py-2 px-4 flex items-center justify-center" />
+      </div>
     </div>
   )
 }
