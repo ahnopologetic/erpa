@@ -418,32 +418,66 @@ export function findReadableNodesUntilNextSection(startNode: HTMLElement, docume
         nodeType: chunks[currentIndex].node.nodeType,
         range: chunks[currentIndex].range
     } : null)
-    
+
     if (currentIndex === null) {
         log('No chunk found for the current node')
         return []
     }
-    
+
     const range = chunks[currentIndex].range
-    
-    // Collect actual DOM nodes from the range instead of cloning
-    const nodes: Node[] = []
+
+    // Collect meaningful block-level elements (paragraphs, list items, etc.)
+    const meaningfulElements: HTMLElement[] = []
+    const seenElements = new Set<Element>()
+
+    // Block-level semantic elements we want to capture
+    const blockSelectors = [
+        'p',           // Paragraphs
+        'li',          // List items
+        'blockquote',  // Quotes
+        'pre',         // Code blocks
+        'figure',      // Figures with captions
+        'article',     // Article sections
+        'section',     // Generic sections
+        'div[role="paragraph"]',  // ARIA paragraphs
+        'div[class*="paragraph"]', // Common paragraph classes
+        'div[class*="content"]',   // Content divs
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6'  // Headings
+    ]
+
     const walker = document.createTreeWalker(
         range.commonAncestorContainer,
-        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+        NodeFilter.SHOW_ELEMENT,
         {
             acceptNode: (node) => {
+                if (!isElement(node)) return NodeFilter.FILTER_SKIP
+
+                // Check if this element matches our block selectors
+                const matchesBlockSelector = blockSelectors.some(selector => {
+                    try {
+                        return (node as Element).matches(selector)
+                    } catch {
+                        return false
+                    }
+                })
+
+                if (!matchesBlockSelector) return NodeFilter.FILTER_SKIP
+
                 // Check if the node is within the range
                 try {
                     const nodeRange = document.createRange()
                     nodeRange.selectNodeContents(node)
-                    
+
                     // Check if this node intersects with our chunk range
                     const startsBeforeOrAt = range.compareBoundaryPoints(Range.START_TO_START, nodeRange) <= 0
                     const endsAfterOrAt = range.compareBoundaryPoints(Range.END_TO_END, nodeRange) >= 0
-                    
+
                     if (startsBeforeOrAt && endsAfterOrAt) {
-                        return NodeFilter.FILTER_ACCEPT
+                        // Check if element has meaningful text content
+                        const text = (node.textContent || '').trim()
+                        if (text.length > 0) {
+                            return NodeFilter.FILTER_ACCEPT
+                        }
                     }
                 } catch {
                     // If comparison fails, skip this node
@@ -452,18 +486,40 @@ export function findReadableNodesUntilNextSection(startNode: HTMLElement, docume
             }
         }
     )
-    
+
     let node: Node | null
     while ((node = walker.nextNode())) {
-        nodes.push(node)
+        if (isElement(node) && !seenElements.has(node)) {
+            // Avoid nested elements (e.g., if we have a <div> containing <p>, only take <p>)
+            const hasBlockChild = blockSelectors.some(selector => {
+                try {
+                    return (node as Element).querySelector(selector) !== null
+                } catch {
+                    return false
+                }
+            })
+
+            // If this element has block children, skip it and let children be collected instead
+            // Unless it's a list item or heading (always include these)
+            const tagName = (node as Element).tagName.toLowerCase()
+            if (!hasBlockChild || tagName === 'li' || /^h[1-6]$/.test(tagName)) {
+                seenElements.add(node)
+                meaningfulElements.push(node as HTMLElement)
+            }
+        }
     }
-    
-    log('Collected actual DOM nodes:', nodes)
-    
-    return nodes
-        .map(node => node as HTMLElement)
-        .filter(node => 
-            node.nodeType === Node.ELEMENT_NODE || 
-            node.nodeType === Node.TEXT_NODE
-        )
+
+    // If we didn't find any meaningful elements, fall back to the range's common ancestor
+    if (meaningfulElements.length === 0) {
+        const commonAncestor = range.commonAncestorContainer
+        if (isElement(commonAncestor)) {
+            meaningfulElements.push(commonAncestor as HTMLElement)
+        } else if (commonAncestor.parentElement) {
+            meaningfulElements.push(commonAncestor.parentElement)
+        }
+    }
+
+    log('Collected meaningful block elements:', meaningfulElements)
+
+    return meaningfulElements
 }

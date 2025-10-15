@@ -275,7 +275,7 @@ const PlasmoOverlay = () => {
             const cleanup = highlightNode(readableNode)
             setTimeout(() => {
               cleanup()
-            }, 5000)
+            }, 7000)
           }
           
           return newQueue
