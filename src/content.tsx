@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { SectionHighlight } from "~components/ui/section-highlight"
 import { detectSections } from "~hooks/useDetectSections"
 import { err, log } from "~lib/log"
+import { findReadableTextUntilNextSection } from "~lib/debugging/readable"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -130,6 +131,15 @@ const PlasmoOverlay = () => {
         }
         return true
       }
+
+      if (message?.type === "FIND_READABLE_TEXT_UNTIL_NEXT_SECTION") {
+        try {
+          const text = findReadableTextUntilNextSection(currentCursor, sections, document)
+          sendResponse({ ok: true, text })
+        } catch (e) {
+          sendResponse({ ok: false, error: (e as Error)?.message || "Unknown error" })
+        }
+      }
     })
   }, [])
 
@@ -158,6 +168,45 @@ const PlasmoOverlay = () => {
       setIsVisible(true)
     }
   }, [sections])
+
+  useEffect(() => {
+    if (currentCursor) {
+      log('Current cursor:', currentCursor)
+    }
+  }, [currentCursor])
+
+  // Tab key listener for testing findReadableTextUntilNextSection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        log('[Erpa] Tab pressed - testing findReadableTextUntilNextSection')
+        
+        if (!currentCursor) {
+          log('[Erpa] No current cursor set. Please navigate to a section first.')
+          return
+        }
+        
+        if (sections.length === 0) {
+          log('[Erpa] No sections available. Please detect sections first.')
+          return
+        }
+        
+        try {
+          const text = findReadableTextUntilNextSection(currentCursor, sections, document)
+          log('[Erpa] Readable text until next section:', text)
+          log('[Erpa] Text array length:', text.length)
+        } catch (error) {
+          err('[Erpa] Error calling findReadableTextUntilNextSection:', error)
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [currentCursor, sections])
 
 
   return (
