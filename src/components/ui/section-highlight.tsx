@@ -176,12 +176,12 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
             {/* Up arrow */}
             <button
                 onClick={navigateUp}
-                className="w-10 h-10 bg-white/90 backdrop-blur-md border border-gray-300 rounded shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+                className="w-10 h-10 bg-black/20 backdrop-blur-xl border border-gray-300 rounded shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
                 title={`Previous section (${currentSectionIndex > 0 ? validSections[currentSectionIndex - 1]?.title : validSections[validSections.length - 1]?.title})`}
                 disabled={validSections.length <= 1}
             >
                 <ChevronUp
-                    className={`w-5 h-5 text-gray-700 group-hover:text-gray-900 transition-colors ${validSections.length <= 1 ? 'opacity-30' : ''
+                    className={`w-5 h-5 text-white group-hover:text-gray-900 transition-colors ${validSections.length <= 1 ? 'opacity-30' : ''
                         }`}
                 />
             </button>
@@ -200,12 +200,12 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
             {/* Down arrow */}
             <button
                 onClick={navigateDown}
-                className="w-10 h-10 bg-white/90 backdrop-blur-md border border-gray-300 rounded shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+                className="w-10 h-10 bg-black/20 backdrop-blur-xl border border-gray-300 rounded shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
                 title={`Next section (${currentSectionIndex < validSections.length - 1 ? validSections[currentSectionIndex + 1]?.title : validSections[0]?.title})`}
                 disabled={validSections.length <= 1}
             >
                 <ChevronDown
-                    className={`w-5 h-5 text-gray-700 group-hover:text-gray-900 transition-colors ${validSections.length <= 1 ? 'opacity-30' : ''
+                    className={`w-5 h-5 text-white group-hover:text-gray-900 transition-colors ${validSections.length <= 1 ? 'opacity-30' : ''
                         }`}
                 />
             </button>

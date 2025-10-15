@@ -418,7 +418,52 @@ export function findReadableNodesUntilNextSection(startNode: HTMLElement, docume
         nodeType: chunks[currentIndex].node.nodeType,
         range: chunks[currentIndex].range
     } : null)
+    
+    if (currentIndex === null) {
+        log('No chunk found for the current node')
+        return []
+    }
+    
     const range = chunks[currentIndex].range
-    const nodes = range.cloneContents().childNodes
-    return Array.from(nodes).map(node => node as HTMLElement).filter(node => node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE || node.nodeType === Node.COMMENT_NODE || node.nodeType === Node.PROCESSING_INSTRUCTION_NODE || node.nodeType === Node.DOCUMENT_TYPE_NODE)
+    
+    // Collect actual DOM nodes from the range instead of cloning
+    const nodes: Node[] = []
+    const walker = document.createTreeWalker(
+        range.commonAncestorContainer,
+        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+        {
+            acceptNode: (node) => {
+                // Check if the node is within the range
+                try {
+                    const nodeRange = document.createRange()
+                    nodeRange.selectNodeContents(node)
+                    
+                    // Check if this node intersects with our chunk range
+                    const startsBeforeOrAt = range.compareBoundaryPoints(Range.START_TO_START, nodeRange) <= 0
+                    const endsAfterOrAt = range.compareBoundaryPoints(Range.END_TO_END, nodeRange) >= 0
+                    
+                    if (startsBeforeOrAt && endsAfterOrAt) {
+                        return NodeFilter.FILTER_ACCEPT
+                    }
+                } catch {
+                    // If comparison fails, skip this node
+                }
+                return NodeFilter.FILTER_SKIP
+            }
+        }
+    )
+    
+    let node: Node | null
+    while ((node = walker.nextNode())) {
+        nodes.push(node)
+    }
+    
+    log('Collected actual DOM nodes:', nodes)
+    
+    return nodes
+        .map(node => node as HTMLElement)
+        .filter(node => 
+            node.nodeType === Node.ELEMENT_NODE || 
+            node.nodeType === Node.TEXT_NODE
+        )
 }

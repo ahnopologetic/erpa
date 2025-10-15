@@ -178,17 +178,17 @@ const PlasmoOverlay = () => {
     
     utterance.onstart = () => {
       setIsPlaying(true)
-      log('[Erpa] TTS started:', text.substring(0, 50) + '...')
+      log('[TTS] TTS started:', text.substring(0, 50) + '...')
     }
     
     utterance.onend = () => {
       setIsPlaying(false)
       setCurrentUtterance(null)
-      log('[Erpa] TTS ended')
+      log('[TTS] TTS ended')
     }
     
     utterance.onerror = (event) => {
-      err('[Erpa] TTS error:', event)
+      err('[TTS] TTS error:', event)
       setIsPlaying(false)
       setCurrentUtterance(null)
     }
@@ -201,11 +201,11 @@ const PlasmoOverlay = () => {
     if (isPlaying) {
       window.speechSynthesis.pause()
       setIsPlaying(false)
-      log('[Erpa] TTS paused')
+      log('[TTS] TTS paused')
     } else if (window.speechSynthesis.paused) {
       window.speechSynthesis.resume()
       setIsPlaying(true)
-      log('[Erpa] TTS resumed')
+      log('[TTS] TTS resumed')
     }
   }, [isPlaying])
 
@@ -213,7 +213,7 @@ const PlasmoOverlay = () => {
     window.speechSynthesis.cancel()
     setIsPlaying(false)
     setCurrentUtterance(null)
-    log('[Erpa] TTS stopped')
+    log('[TTS] TTS stopped')
   }, [])
 
   useEffect(() => {

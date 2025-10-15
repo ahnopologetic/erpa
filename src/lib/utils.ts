@@ -81,7 +81,6 @@ export function highlightNode(node: Node | null): () => void {
         }
     }
 
-    log("highlightNode: unknown node type", node.nodeType)
     return () => { }
 }
 
