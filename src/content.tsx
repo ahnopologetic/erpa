@@ -1,10 +1,13 @@
 import cssText from "data-text:~style.css"
 import type { PlasmoCSConfig } from "plasmo"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { SectionHighlight } from "~components/ui/section-highlight"
 import { detectSections } from "~hooks/useDetectSections"
 import { err, log } from "~lib/log"
+import { findReadableNodesUntilNextSection } from "~lib/debugging/readable"
+import { highlightCursorPosition, highlightNode } from "~lib/utils"
+import TtsPlayback from "~components/tts-playback"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -43,6 +46,13 @@ export const getStyle = (): HTMLStyleElement => {
 const PlasmoOverlay = () => {
   const [isVisible, setIsVisible] = useState(false)
   const [sections, setSections] = useState<Array<{ title: string; cssSelector: string }>>([])
+
+  const [currentCursor, setCurrentCursor] = useState<HTMLElement | null>(null)
+  const [queue, setQueue] = useState<HTMLElement[]>([])
+  
+  // TTS state
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentUtterance, setCurrentUtterance] = useState<SpeechSynthesisUtterance | null>(null)
 
   useEffect(() => {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -128,6 +138,15 @@ const PlasmoOverlay = () => {
         }
         return true
       }
+
+      if (message?.type === "FIND_READABLE_TEXT_UNTIL_NEXT_SECTION") {
+        try {
+          const nodes = findReadableNodesUntilNextSection(currentCursor, document)
+          sendResponse({ ok: true, nodes: nodes })
+        } catch (e) {
+          sendResponse({ ok: false, error: (e as Error)?.message || "Unknown error" })
+        }
+      }
     })
   }, [])
 
@@ -137,6 +156,7 @@ const PlasmoOverlay = () => {
       if (section) {
         section.scrollIntoView({ behavior: "smooth" })
         log('[Erpa] Successfully navigated to section:', selector)
+        setCurrentCursor(section)
       } else {
         err('[Erpa] Section not found for selector:', selector)
       }
@@ -150,18 +170,144 @@ const PlasmoOverlay = () => {
     }
   }
 
+  const speakText = useCallback((text: string) => {
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel()
+    
+    const utterance = new SpeechSynthesisUtterance(text)
+    
+    utterance.onstart = () => {
+      setIsPlaying(true)
+      log('[TTS] TTS started:', text.substring(0, 50) + '...')
+    }
+    
+    utterance.onend = () => {
+      setIsPlaying(false)
+      setCurrentUtterance(null)
+      log('[TTS] TTS ended')
+    }
+    
+    utterance.onerror = (event) => {
+      err('[TTS] TTS error:', event)
+      setIsPlaying(false)
+      setCurrentUtterance(null)
+    }
+    
+    setCurrentUtterance(utterance)
+    window.speechSynthesis.speak(utterance)
+  }, [])
+
+  const handlePlayPause = useCallback(() => {
+    if (isPlaying) {
+      window.speechSynthesis.pause()
+      setIsPlaying(false)
+      log('[TTS] TTS paused')
+    } else if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume()
+      setIsPlaying(true)
+      log('[TTS] TTS resumed')
+    }
+  }, [isPlaying])
+
+  const handleStop = useCallback(() => {
+    window.speechSynthesis.cancel()
+    setIsPlaying(false)
+    setCurrentUtterance(null)
+    log('[TTS] TTS stopped')
+  }, [])
+
   useEffect(() => {
     if (sections.length > 0) {
       setIsVisible(true)
     }
   }, [sections])
 
+  useEffect(() => {
+    if (currentCursor) {
+      log('Current cursor:', currentCursor)
+    }
+  }, [currentCursor])
+
+  // Cleanup TTS on unmount
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel()
+    }
+  }, [])
+
+  // Tab key listener for testing findReadableTextUntilNextSection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        e.preventDefault()
+
+        if (!currentCursor) {
+          log('No current cursor set. Please navigate to a section first.')
+          return
+        }
+
+        if (sections.length === 0) {
+          log('No sections available. Please detect sections first.')
+          return
+        }
+
+        if (queue.length === 0) {
+          const nodes = findReadableNodesUntilNextSection(currentCursor, document)
+          log('Found readable nodes:', nodes)
+          setQueue((prevQueue) => [...prevQueue, ...nodes])
+          return
+        }
+
+        setQueue((prevQueue) => {
+          const newQueue = [...prevQueue]
+          const readableNode = newQueue.shift()
+          
+          if (readableNode) {
+            setCurrentCursor(readableNode)
+            
+            // Read out loud with TTS
+            const text = (readableNode.textContent || '').trim()
+            if (text) {
+              speakText(text)
+            }
+            
+            // Highlight the node while speaking
+            const cleanup = highlightNode(readableNode)
+            setTimeout(() => {
+              cleanup()
+            }, 7000)
+          }
+          
+          return newQueue
+        })
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [currentCursor, sections, queue, speakText])
+
+
   return (
-    <div className={`z-[-9999] flex fixed top-0 right-0 w-[300px] h-full transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 hidden'}`} id="erpa-overlay">
+    <div
+      className={`pointer-events-none z-[-9999] flex fixed top-0 right-0 w-full h-full transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 hidden'}`}
+      id="erpa-overlay"
+    >
       <SectionHighlight
         sections={sections}
         onNavigateToSection={handleNavigateToSection}
       />
+
+      <div className="pointer-events-auto z-10 absolute bottom-2 left-1/2 transform -translate-x-1/2 w-48 h-12 flex justify-center items-end">
+        <TtsPlayback 
+          isPlaying={isPlaying}
+          onPlayPause={handlePlayPause}
+          onStop={handleStop}
+          className="w-full h-full border-2 border-white backdrop-blur-xl bg-black/20 rounded-lg py-2 px-4 flex items-center justify-center" 
+        />
+      </div>
     </div>
   )
 }
