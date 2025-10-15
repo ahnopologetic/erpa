@@ -6,6 +6,7 @@ import { SectionHighlight } from "~components/ui/section-highlight"
 import { detectSections } from "~hooks/useDetectSections"
 import { err, log } from "~lib/log"
 import { findReadableNodesUntilNextSection } from "~lib/debugging/readable"
+import { highlightCursorPosition, highlightNode } from "~lib/utils"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -201,10 +202,19 @@ const PlasmoOverlay = () => {
 
         const readableNode = queue.shift()
         if (readableNode) {
-          log('Readable node:', readableNode)
           setCurrentCursor(readableNode)
           // TODO: read out the text of the readable node using tts
           log('Reading out the text of the readable node:', readableNode.textContent)
+          const cleanup = highlightNode(readableNode, {
+            color: 'red',
+            ringWidth: '2px',
+            backgroundColor: 'rgba(255, 0, 0, 0.1)',
+            textDecoration: true
+          })
+          setTimeout(() => {
+            cleanup()
+          }, 1000)
+
         }
       }
     }
