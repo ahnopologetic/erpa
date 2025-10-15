@@ -1,6 +1,6 @@
 import cssText from "data-text:~style.css"
 import type { PlasmoCSConfig } from "plasmo"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { SectionHighlight } from "~components/ui/section-highlight"
 import { detectSections } from "~hooks/useDetectSections"
@@ -49,6 +49,10 @@ const PlasmoOverlay = () => {
 
   const [currentCursor, setCurrentCursor] = useState<HTMLElement | null>(null)
   const [queue, setQueue] = useState<HTMLElement[]>([])
+  
+  // TTS state
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentUtterance, setCurrentUtterance] = useState<SpeechSynthesisUtterance | null>(null)
 
   useEffect(() => {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -166,6 +170,52 @@ const PlasmoOverlay = () => {
     }
   }
 
+  const speakText = useCallback((text: string) => {
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel()
+    
+    const utterance = new SpeechSynthesisUtterance(text)
+    
+    utterance.onstart = () => {
+      setIsPlaying(true)
+      log('[Erpa] TTS started:', text.substring(0, 50) + '...')
+    }
+    
+    utterance.onend = () => {
+      setIsPlaying(false)
+      setCurrentUtterance(null)
+      log('[Erpa] TTS ended')
+    }
+    
+    utterance.onerror = (event) => {
+      err('[Erpa] TTS error:', event)
+      setIsPlaying(false)
+      setCurrentUtterance(null)
+    }
+    
+    setCurrentUtterance(utterance)
+    window.speechSynthesis.speak(utterance)
+  }, [])
+
+  const handlePlayPause = useCallback(() => {
+    if (isPlaying) {
+      window.speechSynthesis.pause()
+      setIsPlaying(false)
+      log('[Erpa] TTS paused')
+    } else if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume()
+      setIsPlaying(true)
+      log('[Erpa] TTS resumed')
+    }
+  }, [isPlaying])
+
+  const handleStop = useCallback(() => {
+    window.speechSynthesis.cancel()
+    setIsPlaying(false)
+    setCurrentUtterance(null)
+    log('[Erpa] TTS stopped')
+  }, [])
+
   useEffect(() => {
     if (sections.length > 0) {
       setIsVisible(true)
@@ -177,6 +227,13 @@ const PlasmoOverlay = () => {
       log('Current cursor:', currentCursor)
     }
   }, [currentCursor])
+
+  // Cleanup TTS on unmount
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel()
+    }
+  }, [])
 
   // Tab key listener for testing findReadableTextUntilNextSection
   useEffect(() => {
@@ -197,18 +254,32 @@ const PlasmoOverlay = () => {
         if (queue.length === 0) {
           const nodes = findReadableNodesUntilNextSection(currentCursor, document)
           log('Found readable nodes:', nodes)
-          setQueue([...queue, ...nodes])
+          setQueue((prevQueue) => [...prevQueue, ...nodes])
           return
         }
 
-        const readableNode = queue.shift()
-        if (readableNode) {
-          setCurrentCursor(readableNode)
-          const cleanup = highlightNode(readableNode)
-          setTimeout(() => {
-            cleanup()
-          }, 3000)
-        }
+        setQueue((prevQueue) => {
+          const newQueue = [...prevQueue]
+          const readableNode = newQueue.shift()
+          
+          if (readableNode) {
+            setCurrentCursor(readableNode)
+            
+            // Read out loud with TTS
+            const text = (readableNode.textContent || '').trim()
+            if (text) {
+              speakText(text)
+            }
+            
+            // Highlight the node while speaking
+            const cleanup = highlightNode(readableNode)
+            setTimeout(() => {
+              cleanup()
+            }, 5000)
+          }
+          
+          return newQueue
+        })
       }
     }
 
@@ -216,7 +287,7 @@ const PlasmoOverlay = () => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [currentCursor, sections, queue])
+  }, [currentCursor, sections, queue, speakText])
 
 
   return (
@@ -230,7 +301,12 @@ const PlasmoOverlay = () => {
       />
 
       <div className="pointer-events-auto z-10 absolute bottom-2 left-1/2 transform -translate-x-1/2 w-48 h-12 flex justify-center items-end">
-        <TtsPlayback isPlaying={true} className="w-full h-full border-2 border-white backdrop-blur-xl bg-black/20 rounded-lg py-2 px-4 flex items-center justify-center" />
+        <TtsPlayback 
+          isPlaying={isPlaying}
+          onPlayPause={handlePlayPause}
+          onStop={handleStop}
+          className="w-full h-full border-2 border-white backdrop-blur-xl bg-black/20 rounded-lg py-2 px-4 flex items-center justify-center" 
+        />
       </div>
     </div>
   )
