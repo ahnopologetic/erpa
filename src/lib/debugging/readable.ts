@@ -393,9 +393,7 @@ function chunkIndexForNode(cursor: Node, chunks: ReadableChunk[], idx: ChunkInde
     return null;
 }
 
-export function findReadableTextUntilNextSection(startNode: HTMLElement, sections: Section[], document: Document): string[] {
-    // find the section that contains the startNode
-
+export function findReadableNodesUntilNextSection(startNode: HTMLElement, document: Document): HTMLElement[] {
     const chunks = [...readableChunks(document.body)]
     log('Total chunks generated:', chunks.length)
     log('Heading chunks:', chunks.filter(c => c.type === 'heading').map(c => ({
@@ -420,9 +418,7 @@ export function findReadableTextUntilNextSection(startNode: HTMLElement, section
         nodeType: chunks[currentIndex].node.nodeType,
         range: chunks[currentIndex].range
     } : null)
-    const text = chunks[currentIndex].range.toString()
-    log('Extracted Text:', { text })
-
-    // find the text between the startNode and the nextSection
-    return text.split("\n").map(line => line.trim());
+    const range = chunks[currentIndex].range
+    const nodes = range.cloneContents().childNodes
+    return Array.from(nodes).map(node => node as HTMLElement).filter(node => node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE || node.nodeType === Node.COMMENT_NODE || node.nodeType === Node.PROCESSING_INSTRUCTION_NODE || node.nodeType === Node.DOCUMENT_TYPE_NODE)
 }

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { SectionHighlight } from "~components/ui/section-highlight"
 import { detectSections } from "~hooks/useDetectSections"
 import { err, log } from "~lib/log"
-import { findReadableTextUntilNextSection } from "~lib/debugging/readable"
+import { findReadableNodesUntilNextSection } from "~lib/debugging/readable"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -46,6 +46,7 @@ const PlasmoOverlay = () => {
   const [sections, setSections] = useState<Array<{ title: string; cssSelector: string }>>([])
 
   const [currentCursor, setCurrentCursor] = useState<HTMLElement | null>(null)
+  const [queue, setQueue] = useState<HTMLElement[]>([])
 
   useEffect(() => {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -134,8 +135,8 @@ const PlasmoOverlay = () => {
 
       if (message?.type === "FIND_READABLE_TEXT_UNTIL_NEXT_SECTION") {
         try {
-          const text = findReadableTextUntilNextSection(currentCursor, sections, document)
-          sendResponse({ ok: true, text })
+          const nodes = findReadableNodesUntilNextSection(currentCursor, document)
+          sendResponse({ ok: true, nodes: nodes })
         } catch (e) {
           sendResponse({ ok: false, error: (e as Error)?.message || "Unknown error" })
         }
@@ -180,24 +181,30 @@ const PlasmoOverlay = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Tab') {
         e.preventDefault()
-        log('[Erpa] Tab pressed - testing findReadableTextUntilNextSection')
-        
+
         if (!currentCursor) {
-          log('[Erpa] No current cursor set. Please navigate to a section first.')
+          log('No current cursor set. Please navigate to a section first.')
           return
         }
-        
+
         if (sections.length === 0) {
-          log('[Erpa] No sections available. Please detect sections first.')
+          log('No sections available. Please detect sections first.')
           return
         }
-        
-        try {
-          const text = findReadableTextUntilNextSection(currentCursor, sections, document)
-          log('[Erpa] Readable text until next section:', text)
-          log('[Erpa] Text array length:', text.length)
-        } catch (error) {
-          err('[Erpa] Error calling findReadableTextUntilNextSection:', error)
+
+        if (queue.length === 0) {
+          const nodes = findReadableNodesUntilNextSection(currentCursor, document)
+          log('Found readable nodes:', nodes)
+          setQueue([...queue, ...nodes])
+          return
+        }
+
+        const readableNode = queue.shift()
+        if (readableNode) {
+          log('Readable node:', readableNode)
+          setCurrentCursor(readableNode)
+          // TODO: read out the text of the readable node using tts
+          log('Reading out the text of the readable node:', readableNode.textContent)
         }
       }
     }
@@ -206,7 +213,7 @@ const PlasmoOverlay = () => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [currentCursor, sections])
+  }, [currentCursor, sections, queue])
 
 
   return (
