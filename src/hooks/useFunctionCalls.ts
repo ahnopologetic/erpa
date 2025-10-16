@@ -52,12 +52,15 @@ export function useFunctionCalls(options: UseFunctionCallsOptions): UseFunctionC
 
                             We have this commands/functions available:
                             ${functionRegistry.map(func => `- ${func.name}: ${func.description}`).join('\n')}
-                            When a user asks a question, you should answer it. When a user asks a command, you should leave it as a blank.
+                            When a user asks a question, you should answer it. 
+                            When a user asks a command (that matches one of the available functions), you MUST respond with EXACTLY the text: <blank>
+                            Do not add any extra text, just the exact string: <blank>
 
                             Example 1: "How many nobel prize affiliates does harvard have?" is a question ==> "There are 160 nobel prize affiliates at harvard".
-                            Example 2: "Navigate to the about page" is a command ==> "<blank>". 
+                            Example 2: "Navigate to the about page" is a command ==> <blank>
                             Example 3: "What is the weather in boston" is a question ==> "The weather in boston is sunny".
-                            Example 4: "Go to the about page" is a command ==> "<blank>".
+                            Example 4: "Go to the about page" is a command ==> <blank>
+                            Example 5: "Read out this section" is a command ==> <blank>
                             `
                             },
                         ]
@@ -70,9 +73,11 @@ export function useFunctionCalls(options: UseFunctionCallsOptions): UseFunctionC
                     }
                 ]);
 
-                log('Determined answer', { answer });
+                log('Determined answer', { answer, trimmed: answer.trim(), isBlank: answer.trim() === '<blank>' });
 
-                if (answer !== '<blank>' && !!answer) {
+                // Normalize the answer by trimming whitespace and checking for <blank>
+                const normalizedAnswer = answer.trim();
+                if (normalizedAnswer !== '<blank>' && normalizedAnswer.length > 0) {
                     await addAIMessage({ textResponse: answer });
                     setIsProcessing(false);
                     return;

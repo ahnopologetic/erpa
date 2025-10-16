@@ -291,24 +291,39 @@ function Sidepanel() {
         }
     }
 
-    const handleTocGenerated = async (sections: Array<{ title: string; cssSelector: string }>) => {
+    const handleTocGenerated = React.useCallback(async (sections: Array<{ title: string; cssSelector: string }>) => {
         if (!promptSession) {
-            warn('No prompt session found')
+            warn('No prompt session found when trying to append TOC')
             return
         }
-        log('Appending table of contents to prompt session', { sections })
-        promptSession.append(
-            [{
-                role: 'assistant',
-                content: [
-                    {
-                        type: 'text',
-                        value: 'Here is the table of contents for the page: ' + sections.map(s => s.title).join(', ')
-                    },
-                ]
-            }]
-        )
-    }
+        
+        if (!sections || sections.length === 0) {
+            warn('No sections provided to handleTocGenerated')
+            return
+        }
+
+        log('Appending table of contents to prompt session', { 
+            sectionsCount: sections.length,
+            sections: sections.map(s => s.title)
+        })
+        
+        try {
+            await promptSession.append(
+                [{
+                    role: 'assistant',
+                    content: [
+                        {
+                            type: 'text',
+                            value: 'Here is the table of contents for the page: ' + sections.map(s => s.title).join(', ')
+                        },
+                    ]
+                }]
+            )
+            log('Successfully appended TOC to prompt session')
+        } catch (error) {
+            err('Failed to append TOC to prompt session', error)
+        }
+    }, [promptSession])
 
     const handleTextSubmit = async () => {
         if (!textInput.trim() || !promptSession || isProcessingText) {
