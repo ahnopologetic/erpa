@@ -1,6 +1,6 @@
 // src/utils/functions/registry.ts
 
-import { handleNavigation } from "./handlers";
+import { handleNavigation, handleReadOut } from "./handlers";
 
 interface FunctionParameter {
     name: string;
@@ -35,8 +35,32 @@ export const functionRegistry: FunctionDefinition[] = [
         ],
         handler: "handleNavigation"
     },
+    {
+        name: "readOut",
+        description: "Read out a specific section or node",
+        parameters: [
+            {
+                name: "targetType",
+                type: "string",
+                description: "Type of target to read out. Should be 'SECTION' or 'NODE'",
+                required: true
+            },
+            {
+                name: "target",
+                type: "string",
+                description: "Target to read out. For section, it should be the section name. For node, it should be the node id or selector.",
+                required: true
+            }
+        ],
+        examples: [
+            "read out the Campus section => readOut('SECTION', 'Campus')",
+            "read out the Allston section => readOut('SECTION', 'Allston')"
+        ],
+        handler: "handleReadOut"
+    }
 ];
 
 export const functionHandlers: Record<string, Function> = {
-    "navigate": handleNavigation
+    "navigate": handleNavigation,
+    "readOut": handleReadOut
 }

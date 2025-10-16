@@ -8,4 +8,12 @@ const handleNavigation = async (location: string) => {
     return true
 }
 
-export { handleNavigation }
+
+const handleReadOut = async (targetType: string | 'SECTION' | 'NODE', target: string) => {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+    const tab = tabs?.[0]
+    await chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'READ_OUT', targetType: targetType, target: target })
+    return true
+}
+
+export { handleNavigation, handleReadOut }

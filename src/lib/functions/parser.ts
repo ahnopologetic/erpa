@@ -55,7 +55,7 @@ When navigating, use the exact CSS selectors provided above.`;
       Available functions:
       ${functionRegistry.map(func => `
         ${func.name}: ${func.description}
-        Parameters: ${func.parameters.map(p => `${p.name} (${p.type}${p.required ? ', required' : ''})`).join(', ')}
+        Parameters: ${func.parameters.map(p => `${p.name} (${p.type}${p.required ? ', required' : ''}) // ${p.description}`).join(', ')}
         Examples: ${func.examples.join(', ')}
       `).join('\n')}
 

@@ -49,10 +49,79 @@ const PlasmoOverlay = () => {
 
   const [currentCursor, setCurrentCursor] = useState<HTMLElement | null>(null)
   const [queue, setQueue] = useState<HTMLElement[]>([])
-  
+
   // TTS state
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentUtterance, setCurrentUtterance] = useState<SpeechSynthesisUtterance | null>(null)
+
+  const speakText = useCallback((text: string) => {
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel()
+
+    const utterance = new SpeechSynthesisUtterance(text)
+
+    utterance.onstart = () => {
+      setIsPlaying(true)
+      log('[TTS] TTS started:', text.substring(0, 50) + '...')
+    }
+
+    utterance.onend = () => {
+      setIsPlaying(false)
+      setCurrentUtterance(null)
+      log('[TTS] TTS ended')
+    }
+
+    utterance.onerror = (event) => {
+      err('[TTS] TTS error:', event)
+      setIsPlaying(false)
+      setCurrentUtterance(null)
+    }
+
+    setCurrentUtterance(utterance)
+    window.speechSynthesis.speak(utterance)
+  }, [])
+
+  const handleQueueTTS = useCallback(() => {
+    if (!currentCursor) {
+      log('No current cursor set. Please navigate to a section first.')
+      return
+    }
+
+    if (sections.length === 0) {
+      log('No sections available. Please detect sections first.')
+      return
+    }
+
+    if (queue.length === 0) {
+      const nodes = findReadableNodesUntilNextSection(currentCursor, document)
+      log('Found readable nodes:', nodes)
+      setQueue((prevQueue) => [...prevQueue, ...nodes])
+      return
+    }
+
+    setQueue((prevQueue) => {
+      const newQueue = [...prevQueue]
+      const readableNode = newQueue.shift()
+
+      if (readableNode) {
+        setCurrentCursor(readableNode)
+
+        // Read out loud with TTS
+        const text = (readableNode.textContent || '').trim()
+        if (text) {
+          speakText(text)
+        }
+
+        // Highlight the node while speaking
+        const cleanup = highlightNode(readableNode)
+        setTimeout(() => {
+          cleanup()
+        }, 7000)
+      }
+
+      return newQueue
+    })
+  }, [currentCursor, sections, queue, speakText])
 
   useEffect(() => {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -118,6 +187,8 @@ const PlasmoOverlay = () => {
         if (section) {
           section.scrollIntoView({ behavior: "smooth" })
           log('[Erpa] Scrolled to section', section)
+          setCurrentCursor(section)
+          log('[Erpa] Current cursor set to:', section)
         }
       }
 
@@ -147,8 +218,22 @@ const PlasmoOverlay = () => {
           sendResponse({ ok: false, error: (e as Error)?.message || "Unknown error" })
         }
       }
+
+      if (message?.type === "READ_OUT") {
+        log('[READ_OUT] Reading out:', message.targetType, message.target)
+        log('[READ_OUT] Queue length:', queue.length)
+
+        const nodes = findReadableNodesUntilNextSection(currentCursor, document)
+        log('[READ_OUT] Found readable nodes:', nodes)
+        setQueue((prevQueue) => [...prevQueue, ...nodes])
+
+        while (queue.length > 0) {
+          log('[READ_OUT] Reading out next node')
+          handleQueueTTS()
+        }
+      }
     })
-  }, [])
+  }, [currentCursor, queue, handleQueueTTS])
 
   const handleNavigateToSection = (selector: string) => {
     try {
@@ -162,40 +247,11 @@ const PlasmoOverlay = () => {
       }
     } catch (error) {
       err('Failed to navigate to section - invalid selector:', selector, error)
-      // Try to find an alternative navigation method
-      // For headings, try to find by text content as fallback
       if (selector.includes('h1, h2, h3, h4, h5, h6')) {
         log('[Erpa] Attempting fallback navigation for heading selector')
       }
     }
   }
-
-  const speakText = useCallback((text: string) => {
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel()
-    
-    const utterance = new SpeechSynthesisUtterance(text)
-    
-    utterance.onstart = () => {
-      setIsPlaying(true)
-      log('[TTS] TTS started:', text.substring(0, 50) + '...')
-    }
-    
-    utterance.onend = () => {
-      setIsPlaying(false)
-      setCurrentUtterance(null)
-      log('[TTS] TTS ended')
-    }
-    
-    utterance.onerror = (event) => {
-      err('[TTS] TTS error:', event)
-      setIsPlaying(false)
-      setCurrentUtterance(null)
-    }
-    
-    setCurrentUtterance(utterance)
-    window.speechSynthesis.speak(utterance)
-  }, [])
 
   const handlePlayPause = useCallback(() => {
     if (isPlaying) {
@@ -222,12 +278,6 @@ const PlasmoOverlay = () => {
     }
   }, [sections])
 
-  useEffect(() => {
-    if (currentCursor) {
-      log('Current cursor:', currentCursor)
-    }
-  }, [currentCursor])
-
   // Cleanup TTS on unmount
   useEffect(() => {
     return () => {
@@ -240,46 +290,7 @@ const PlasmoOverlay = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Tab') {
         e.preventDefault()
-
-        if (!currentCursor) {
-          log('No current cursor set. Please navigate to a section first.')
-          return
-        }
-
-        if (sections.length === 0) {
-          log('No sections available. Please detect sections first.')
-          return
-        }
-
-        if (queue.length === 0) {
-          const nodes = findReadableNodesUntilNextSection(currentCursor, document)
-          log('Found readable nodes:', nodes)
-          setQueue((prevQueue) => [...prevQueue, ...nodes])
-          return
-        }
-
-        setQueue((prevQueue) => {
-          const newQueue = [...prevQueue]
-          const readableNode = newQueue.shift()
-          
-          if (readableNode) {
-            setCurrentCursor(readableNode)
-            
-            // Read out loud with TTS
-            const text = (readableNode.textContent || '').trim()
-            if (text) {
-              speakText(text)
-            }
-            
-            // Highlight the node while speaking
-            const cleanup = highlightNode(readableNode)
-            setTimeout(() => {
-              cleanup()
-            }, 7000)
-          }
-          
-          return newQueue
-        })
+        handleQueueTTS()
       }
     }
 
@@ -301,11 +312,11 @@ const PlasmoOverlay = () => {
       />
 
       <div className="pointer-events-auto z-10 absolute bottom-2 left-1/2 transform -translate-x-1/2 w-48 h-12 flex justify-center items-end">
-        <TtsPlayback 
+        <TtsPlayback
           isPlaying={isPlaying}
           onPlayPause={handlePlayPause}
           onStop={handleStop}
-          className="w-full h-full border-2 border-white backdrop-blur-xl bg-black/20 rounded-lg py-2 px-4 flex items-center justify-center" 
+          className="w-full h-full border-2 border-white backdrop-blur-xl bg-black/20 rounded-lg py-2 px-4 flex items-center justify-center"
         />
       </div>
     </div>
