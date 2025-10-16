@@ -21,6 +21,7 @@ interface UseVoiceMemoChatReturn {
     addUserMessage: (audioBlob: Blob, transcription: string) => Promise<void>;
     addTextMessage: (text: string) => Promise<void>;
     addAIMessage: (options: AIResponseOptions) => Promise<void>;
+    addProgressMessage: (iteration: number, action: string, status: string) => Promise<void>;
     deleteMessage: (messageId: string) => Promise<void>;
     loadChatSession: (tabId: number, url: string) => Promise<void>;
     saveChatSession: () => Promise<void>;
@@ -252,6 +253,28 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
         }
     }, []);
 
+    // Add progress message
+    const addProgressMessage = useCallback(async (iteration: number, action: string, status: string) => {
+        try {
+            setError(null);
+
+            const message: ChatMessage = {
+                id: `progress_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                progressUpdate: {
+                    iteration,
+                    action,
+                    status
+                },
+                createdAt: Date.now()
+            };
+
+            setMessages(prev => [...prev, message]);
+            log('Progress message added', { iteration, action, status });
+        } catch (error) {
+            err('Failed to add progress message', error);
+        }
+    }, []);
+
     // Add AI message
     const addAIMessage = useCallback(async (options: AIResponseOptions) => {
         if (options.functionCallResponse) {
@@ -392,6 +415,7 @@ export const useVoiceMemoChat = (options: UseVoiceMemoChatOptions = {}): UseVoic
         addUserMessage,
         addTextMessage,
         addAIMessage,
+        addProgressMessage,
         deleteMessage,
         loadChatSession,
         saveChatSession,

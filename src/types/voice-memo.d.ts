@@ -17,6 +17,11 @@ export interface ChatMessage {
     id: string;
     voiceMemo?: VoiceMemo;
     functionCallResponse?: ParsedFunctionWithResult;
+    progressUpdate?: {
+        iteration: number;
+        action: string;
+        status: string;
+    };
     createdAt: number;
     updatedAt?: number;
 }

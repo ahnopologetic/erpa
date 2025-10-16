@@ -36,6 +36,7 @@ function Sidepanel() {
         addUserMessage,
         addTextMessage,
         addAIMessage,
+        addProgressMessage,
         deleteMessage,
         isLoading: chatLoading,
         error: chatError
@@ -49,7 +50,8 @@ function Sidepanel() {
     const { isProcessing: isProcessingFunctionCall, processUserInput } = useFunctionCalls({
         promptSession,
         loadContextForCurrentTab,
-        addAIMessage
+        addAIMessage,
+        addProgressMessage
     })
     // Listen for messages from background script to close sidepanel
     React.useEffect(() => {

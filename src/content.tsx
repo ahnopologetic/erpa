@@ -232,6 +232,31 @@ const PlasmoOverlay = () => {
           handleQueueTTS()
         }
       }
+
+      if (message?.type === "GET_CONTENT") {
+        try {
+          log('[GET_CONTENT] Getting content for selector:', message.selector)
+          const targetElement = document.querySelector(message.selector) as HTMLElement | null
+          
+          if (!targetElement) {
+            sendResponse({ ok: false, error: `Element not found for selector: ${message.selector}` })
+            return true
+          }
+
+          // Use findReadableNodesUntilNextSection to get readable content
+          const nodes = findReadableNodesUntilNextSection(targetElement, document)
+          log('[GET_CONTENT] Found readable nodes:', nodes)
+          
+          // Extract and concatenate HTML content from each node
+          const content = nodes.map(node => node.outerHTML).join('\n')
+          
+          sendResponse({ ok: true, content })
+        } catch (e) {
+          err('[GET_CONTENT] Error getting content:', e)
+          sendResponse({ ok: false, error: (e as Error)?.message || "Unknown error" })
+        }
+        return true
+      }
     })
   }, [currentCursor, queue, handleQueueTTS])
 
