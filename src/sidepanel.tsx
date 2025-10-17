@@ -20,6 +20,8 @@ function Sidepanel() {
     const [mode, setMode] = React.useState<"voice" | "text">("voice")
     const [textInput, setTextInput] = React.useState("")
     const [isProcessingText, setIsProcessingText] = React.useState(false)
+    const [chatMessages, setChatMessages] = React.useState<Array<{ id: string, role: 'user' | 'assistant', content: string, createdAt: number, updatedAt?: number }>>([])
+    const [chatLoading, setChatLoading] = React.useState(false)
 
     const streamRef = React.useRef<MediaStream | null>(null)
     const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
@@ -224,8 +226,44 @@ function Sidepanel() {
         // TODO: append table of contents to prompt session
     }, [])
 
+    const deleteMessage = React.useCallback((messageId: string) => {
+        setChatMessages(prev => prev.filter(msg => msg.id !== messageId))
+    }, [])
+
     const handleTextSubmit = async () => {
-        // TODO: handle text submit
+        if (!textInput.trim() || !agent) {
+            return
+        }
+
+        const userMessage = textInput.trim()
+        const messageId = Date.now().toString()
+
+        // Add user message to chat
+        setChatMessages(prev => [...prev, {
+            id: messageId,
+            role: 'user',
+            content: userMessage,
+            createdAt: Date.now()
+        } as { id: string, role: 'user' | 'assistant', content: string, createdAt: number, updatedAt?: number }])
+
+        // Clear input and set loading states
+        setTextInput("")
+        setIsProcessingText(true)
+        setChatLoading(true)
+
+        try {
+            log('Starting agent execution with task:', userMessage)
+
+            // Run the agent - it will log everything to console
+            await agent.run(userMessage)
+
+            log('Agent execution completed')
+        } catch (error) {
+            err('Agent execution failed:', error)
+        } finally {
+            setIsProcessingText(false)
+            setChatLoading(false)
+        }
     }
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
