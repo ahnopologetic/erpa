@@ -25,35 +25,7 @@ function Sidepanel() {
 
     const streamRef = React.useRef<MediaStream | null>(null)
     const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
-    const [promptSession, setPromptSession] = React.useState<LanguageModelSession | null>(null)
-    const [summarizationPromptSession, setSummarizationPromptSession] = React.useState<LanguageModelSession | null>(null)
 
-    const { initializePromptSession, loadContextForCurrentTab } = usePromptAPI()
-
-    // Voice memo chat functionality
-    const {
-        messages: chatMessages,
-        addUserMessage,
-        addTextMessage,
-        addAIMessage,
-        addProgressMessage,
-        deleteMessage,
-        isLoading: chatLoading,
-        error: chatError
-    } = useVoiceMemoChat({
-        tabId: currentTabId || undefined,
-        url: currentUrl || undefined,
-        autoLoad: true
-    })
-
-    // Function call hook (shared for text and voice)
-    const { isProcessing: isProcessingFunctionCall, processUserInput } = useFunctionCalls({
-        promptSession,
-        loadContextForCurrentTab,
-        addAIMessage,
-        addProgressMessage
-    })
-    // Listen for messages from background script to close sidepanel
     React.useEffect(() => {
         const getCurrentTab = async () => {
             try {
@@ -87,17 +59,6 @@ function Sidepanel() {
 
         checkMicrophonePermission()
         checkOffscreenDocument()
-        const createPromptSession = async () => {
-            const session = await initializePromptSession(undefined, {
-                expectedInputs: [{ type: 'audio', languages: ['en'] }, { type: 'text', languages: ['en'] }],
-                expectedOutputs: [{ type: 'text', languages: ['en'] }]
-            })
-            const clonedSession = await session.clone()
-            setSummarizationPromptSession(clonedSession)
-            setPromptSession(session)
-            log('Prompt session is created and set to state', { session })
-        }
-        createPromptSession()
         return () => {
             stopStream()
         }
@@ -148,50 +109,6 @@ function Sidepanel() {
                     url: URL.createObjectURL(audioBlob) // For testing - you can open this URL in a new tab
                 });
 
-                if (promptSession) {
-                    log('Calling audio input to prompt session')
-                    setIsTranscribing(true)
-
-                    try {
-                        // Use standard transcription for chat mode
-                        const transcriptionResult = await promptSession.prompt([
-                            {
-                                role: 'assistant',
-                                content: [
-                                    {
-                                        type: 'text',
-                                        value: 'Please transcribe this audio accurately. Provide a clear, complete transcription of all spoken content. Do not include any other text in your response.'
-                                    },
-                                ]
-                            },
-                            {
-                                role: 'user',
-                                content: [
-                                    {
-                                        type: 'audio',
-                                        value: audioBlob
-                                    }
-                                ]
-                            }
-                        ])
-                        log('Transcription result', { transcriptionResult })
-
-                        // Add as user message then run function-call pipeline on the transcription
-                        if (transcriptionResult) {
-                            await addUserMessage(audioBlob, transcriptionResult)
-                            await processUserInput(transcriptionResult)
-                        }
-                    } catch (error) {
-                        log('Transcription error', error)
-                        // Add error message to chat
-                        await addAIMessage({
-                            textResponse: "I'm sorry, I couldn't transcribe your audio. Please try again."
-                        })
-                    } finally {
-                        setIsTranscribing(false)
-                    }
-                }
-
                 // Stop listening state
                 setIsListening(false);
                 stopStream();
@@ -203,7 +120,7 @@ function Sidepanel() {
         return () => {
             chrome.runtime.onMessage.removeListener(handleMessage);
         };
-    }, [promptSession]);
+    }, []);
 
     const stopStream = () => {
         if (streamRef.current) {
@@ -294,54 +211,21 @@ function Sidepanel() {
     }
 
     const handleTocGenerated = React.useCallback(async (sections: Array<{ title: string; cssSelector: string }>) => {
-        if (!promptSession) {
-            warn('No prompt session found when trying to append TOC')
-            return
-        }
-        
         if (!sections || sections.length === 0) {
             warn('No sections provided to handleTocGenerated')
             return
         }
 
-        log('Appending table of contents to prompt session', { 
+        log('Appending table of contents to prompt session', {
             sectionsCount: sections.length,
             sections: sections.map(s => s.title)
         })
-        
-        try {
-            await promptSession.append(
-                [{
-                    role: 'assistant',
-                    content: [
-                        {
-                            type: 'text',
-                            value: 'Here is the table of contents for the page: ' + sections.map(s => s.title).join(', ')
-                        },
-                    ]
-                }]
-            )
-            log('Successfully appended TOC to prompt session')
-        } catch (error) {
-            err('Failed to append TOC to prompt session', error)
-        }
-    }, [promptSession])
+
+        // TODO: append table of contents to prompt session
+    }, [])
 
     const handleTextSubmit = async () => {
-        if (!textInput.trim() || !promptSession || isProcessingText) {
-            return
-        }
-
-        const userMessage = textInput.trim()
-        setTextInput("")
-        setIsProcessingText(true)
-
-        try {
-            await addTextMessage(userMessage)
-            await processUserInput(userMessage)
-        } finally {
-            setIsProcessingText(false)
-        }
+        // TODO: handle text submit
     }
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -416,7 +300,7 @@ function Sidepanel() {
                 </div>
                 <p className="mt-2 text-sm text-gray-400">
                     {isListening ? "Recording your message..." :
-                        (isProcessingText || isProcessingFunctionCall) ? "Processing your message..." :
+                        (isProcessingText) ? "Processing your message..." :
                             mode === "voice" ? "Click the voice orb below to start a conversation." :
                                 "Type your message below to start a conversation."}
                 </p>
@@ -434,7 +318,7 @@ function Sidepanel() {
 
             <div className="action-panel flex z-10 bg-black">
                 <div className="toc h-full flex items-center justify-center px-2">
-                    <TocPopup promptSession={summarizationPromptSession} onTocGenerated={handleTocGenerated} />
+                    <TocPopup onTocGenerated={handleTocGenerated} />
                     <Button variant="ghost" size="sm" onClick={() => setMode(mode === "voice" ? "text" : "voice")}>
                         {
                             mode === "voice" ? (

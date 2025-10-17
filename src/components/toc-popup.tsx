@@ -7,11 +7,10 @@ import type { Section } from "../hooks/useDetectSections";
 import { err, log } from "~lib/log";
 
 type TocPopupProps = {
-    promptSession: LanguageModelSession
     onTocGenerated: (toc: Array<{ title: string; cssSelector: string }>) => void
 }
 
-export const TocPopup = ({ promptSession, onTocGenerated }: TocPopupProps) => {
+export const TocPopup = ({ onTocGenerated }: TocPopupProps) => {
     const [isOpen, setIsOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const [sections, setSections] = useState<Section[]>([])
@@ -39,10 +38,8 @@ export const TocPopup = ({ promptSession, onTocGenerated }: TocPopupProps) => {
             // Save context for future use
             await saveContextForCurrentTab(detectedSections)
             // Notify parent component
-            if (promptSession) {
-                onTocGenerated(detectedSections)
-                tocSentRef.current = true
-            }
+            onTocGenerated(detectedSections)
+            tocSentRef.current = true
         } catch (error) {
             err('Failed to fetch sections', error)
         }
@@ -57,15 +54,9 @@ export const TocPopup = ({ promptSession, onTocGenerated }: TocPopupProps) => {
             if (contextSections.length > 0) {
                 log('Context found, setting sections', { contextSections })
                 setSections(contextSections)
-                // IMPORTANT: Always notify parent component when sections are loaded from localStorage
-                // This ensures the prompt session gets the TOC for read out function
-                if (promptSession) {
-                    onTocGenerated(contextSections)
-                    tocSentRef.current = true
-                    log('Called onTocGenerated with sections from localStorage', { count: contextSections.length })
-                } else {
-                    log('Prompt session not ready yet, will send TOC when it becomes available')
-                }
+                onTocGenerated(contextSections)
+                tocSentRef.current = true
+                log('Called onTocGenerated with sections from localStorage', { count: contextSections.length })
             } else {
                 log('No context found, trying to detect new sections')
                 await handleFetchSections()
@@ -92,15 +83,13 @@ export const TocPopup = ({ promptSession, onTocGenerated }: TocPopupProps) => {
         loadContextForTab()
     }, [])
 
-    // Ensure TOC is sent to prompt session when it becomes available
-    // This handles the race condition where sections might load before promptSession is ready
     useEffect(() => {
-        if (promptSession && sections.length > 0 && !tocSentRef.current) {
-            log('Prompt session is now available, ensuring TOC is sent', { sectionsCount: sections.length })
+        if (sections.length > 0 && !tocSentRef.current) {
+            log('Sections are now available, ensuring TOC is sent', { sectionsCount: sections.length })
             onTocGenerated(sections)
             tocSentRef.current = true
         }
-    }, [promptSession, sections, onTocGenerated])
+    }, [sections, onTocGenerated])
 
     // Listen for tab changes
     useEffect(() => {
