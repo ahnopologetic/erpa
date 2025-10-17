@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@ahnopologetic/use-prompt-api':
+        specifier: ^0.1.1
+        version: 0.1.1(react@18.2.0)
       '@radix-ui/react-popover':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@18.2.18)(@types/react@18.2.48)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -71,6 +74,17 @@ importers:
         version: 5.3.3
 
 packages:
+
+  '@ahnopologetic/use-prompt-api@0.1.1':
+    resolution: {integrity: sha512-OLKMvV6VbSzI6Bk2e25y6TnOYZzQIao8IcmuGUKF3f7UIhR2mt533s1eEMWg/VNp9VAu5K1urbNxNPHlSXp2yg==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      zod: ^3.22.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      zod:
+        optional: true
 
   '@ampproject/remapping@2.3.0':
     resolution: {integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==}
@@ -3408,6 +3422,10 @@ packages:
     engines: {node: '>=18'}
 
 snapshots:
+
+  '@ahnopologetic/use-prompt-api@0.1.1(react@18.2.0)':
+    optionalDependencies:
+      react: 18.2.0
 
   '@ampproject/remapping@2.3.0':
     dependencies:

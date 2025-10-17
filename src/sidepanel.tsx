@@ -5,10 +5,8 @@ import { Button } from "~components/ui/button"
 import { ChatInterface } from "~components/ui/chat-interface"
 import { Textarea } from "~components/ui/textarea"
 import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
-import { useFunctionCalls } from "~hooks/useFunctionCalls"
-import { usePromptAPI, type TocItem } from "~hooks/usePromptAPI"
-import { useVoiceMemoChat } from "~hooks/useVoiceMemoChat"
 import { err, log, warn } from "~lib/log"
+import { useErpaChatAgent } from "~hooks/useErpaChatAgent"
 import "~style.css"
 
 function Sidepanel() {
@@ -25,6 +23,8 @@ function Sidepanel() {
 
     const streamRef = React.useRef<MediaStream | null>(null)
     const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
+
+    const agent = useErpaChatAgent()
 
     React.useEffect(() => {
         const getCurrentTab = async () => {
