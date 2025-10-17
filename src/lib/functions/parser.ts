@@ -51,13 +51,20 @@ When navigating, use the exact CSS selectors provided above.`;
         }
 
         await newSession.append([{
-            role: 'system', content: `You are a function parser that matches user commands to available functions.
+            role: 'system', content: `You are a function parser for a web browsing agent. You MUST map user requests to available functions.
+
       Available functions:
       ${functionRegistry.map(func => `
         ${func.name}: ${func.description}
         Parameters: ${func.parameters.map(p => `${p.name} (${p.type}${p.required ? ', required' : ''}) // ${p.description}`).join(', ')}
         Examples: ${func.examples.join(', ')}
       `).join('\n')}
+
+      CRITICAL RULES:
+      - For ANY request to FIND, READ, GET, SUMMARIZE, or ANALYZE webpage content → Use getContent function
+      - For ANY request to NAVIGATE or GO to sections → Use navigate function  
+      - For ANY request to READ OUT content → Use readOut function
+      - You MUST always return a function, never return null unless truly impossible to map
 
       Your job is to:
       1. Identify which function best matches the user's intent
@@ -71,10 +78,16 @@ When navigating, use the exact CSS selectors provided above.`;
         "confidence": 0.8  // How confident you are in this match (0-1)
       }
 
-      If no function matches well, return:
-      { "functionName": null, "parameters": {}, "confidence": 0 }
+      If the task is complete, return:
+      { "functionName": "task_complete", "parameters": { "summary": "Brief summary of what was accomplished" }, "confidence": 1.0 }
 
-      For navigation, the location should be a valid css selector. e.g., '#campus', '.div:nth-of-type(2) > div', etc.${tocContextText}
+      For getContent: Use CSS selectors from available sections or general selectors like 'body', 'main', 'article'
+      For navigation: Use exact CSS selectors from available sections${tocContextText}
+
+      Examples:
+      - "Find information about campus" → getContent with selector for campus section
+      - "Summarize the content" → getContent with appropriate selector
+      - "Go to about section" → navigate to about section selector
 
       DO NOT ADD ANY COMMENTS` }
         ]);
@@ -108,7 +121,9 @@ When navigating, use the exact CSS selectors provided above.`;
             const parsed = JSON.parse(cleanedJson) as ParsedFunction;
 
             // Validate the parsed response
-            if (parsed.functionName && !functionRegistry.find(f => f.name === parsed.functionName)) {
+            if (parsed.functionName && 
+                parsed.functionName !== 'task_complete' && 
+                !functionRegistry.find(f => f.name === parsed.functionName)) {
                 throw new Error(`Invalid function name: ${parsed.functionName}`);
             }
 
@@ -127,6 +142,16 @@ When navigating, use the exact CSS selectors provided above.`;
 
 export async function executeCommand(parsed: ParsedFunction): Promise<ParsedFunctionWithResult> {
     try {
+        // Handle special case for task_complete
+        if (parsed.functionName === 'task_complete') {
+            return {
+                functionName: parsed.functionName,
+                parameters: parsed.parameters,
+                confidence: parsed.confidence,
+                result: `Task completed: ${parsed.parameters.summary || 'Task completed successfully'}`
+            };
+        }
+
         const funcDef = functionRegistry.find(f => f.name === parsed.functionName);
         if (!funcDef) {
             throw new Error(`Function ${parsed.functionName} not found`);

@@ -69,19 +69,41 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                             </div>
                         ) : (
                             <>
-                                {messages.map((message) => (
-                                    <VoiceMemoBubble
-                                        key={message.id}
-                                        voiceMemo={{
-                                            ...message.voiceMemo,
-                                            isPlaying: currentlyPlayingId === message.voiceMemo.id
-                                        }}
-                                        functionCall={message.functionCallResponse}
-                                        onPlay={handlePlayMessage}
-                                        onPause={handlePauseMessage}
-                                        onDelete={onDeleteMessage ? handleDeleteMessage : undefined}
-                                    />
-                                ))}
+                                {messages.map((message) => {
+                                    // Render progress messages differently
+                                    if (message.progressUpdate) {
+                                        return (
+                                            <div key={message.id} className="flex justify-start my-2">
+                                                <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg px-3 py-2 text-sm text-blue-200">
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                                                        <span className="text-xs text-blue-300">
+                                                            Step {message.progressUpdate.iteration}: {message.progressUpdate.action}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-xs text-blue-400 mt-1">
+                                                        {message.progressUpdate.status}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    // Render regular messages
+                                    return (
+                                        <VoiceMemoBubble
+                                            key={message.id}
+                                            voiceMemo={{
+                                                ...message.voiceMemo,
+                                                isPlaying: currentlyPlayingId === message.voiceMemo.id
+                                            }}
+                                            functionCall={message.functionCallResponse}
+                                            onPlay={handlePlayMessage}
+                                            onPause={handlePauseMessage}
+                                            onDelete={onDeleteMessage ? handleDeleteMessage : undefined}
+                                        />
+                                    );
+                                })}
                                 <div ref={messagesEndRef} />
                             </>
                         )}

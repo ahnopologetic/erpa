@@ -1,6 +1,6 @@
 // src/utils/functions/registry.ts
 
-import { handleNavigation, handleReadOut } from "./handlers";
+import { handleNavigation, handleReadOut, handleGetContent } from "./handlers";
 
 interface FunctionParameter {
     name: string;
@@ -57,10 +57,29 @@ export const functionRegistry: FunctionDefinition[] = [
             "read out the Allston section => readOut('SECTION', 'Allston')"
         ],
         handler: "handleReadOut"
+    },
+    {
+        name: "getContent",
+        description: "Retrieve text content from a specific section or element",
+        parameters: [
+            {
+                name: "selector",
+                type: "string",
+                description: "CSS selector of the target section or element to retrieve content from",
+                required: true
+            }
+        ],
+        examples: [
+            "get content from Campus section",
+            "read the introduction",
+            "get content from #about-section"
+        ],
+        handler: "handleGetContent"
     }
 ];
 
 export const functionHandlers: Record<string, Function> = {
     "navigate": handleNavigation,
-    "readOut": handleReadOut
+    "readOut": handleReadOut,
+    "getContent": handleGetContent
 }
