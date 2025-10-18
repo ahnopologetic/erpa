@@ -1,13 +1,15 @@
 import cssText from "data-text:~style.css"
 import type { PlasmoCSConfig } from "plasmo"
-import { useCallback, useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
+import TtsPlayback from "~components/tts-playback"
 import { SectionHighlight } from "~components/ui/section-highlight"
 import { detectSections } from "~hooks/useDetectSections"
-import { debug, err, log, warn } from "~lib/log"
 import { findReadableNodesUntilNextSection } from "~lib/debugging/readable"
-import { highlightCursorPosition, highlightNode } from "~lib/utils"
-import TtsPlayback from "~components/tts-playback"
+import { ErpaReadableQueueManager } from "~lib/erpa-readable"
+import { createFromReadableNodes } from "~lib/erpa-readable/element-factory"
+import type { SectionInfo } from "~lib/erpa-readable/types"
+import { debug, err, warn } from "~lib/log"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -43,25 +45,63 @@ export const getStyle = (): HTMLStyleElement => {
   return styleElement
 }
 
+/**
+ * Convert existing Section format to SectionInfo format for queue manager compatibility
+ */
+const convertToSectionInfo = (
+  sections: Array<{ title: string; cssSelector: string }>,
+  document: Document
+): SectionInfo[] => {
+  return sections.map((section, index) => ({
+    index,
+    title: section.title,
+    cssSelector: section.cssSelector,
+    element: document.querySelector(section.cssSelector) as HTMLElement
+  })).filter(s => s.element !== null)
+}
+
 const PlasmoOverlay = () => {
   const [isVisible, setIsVisible] = useState(false)
   const [sections, setSections] = useState<Array<{ title: string; cssSelector: string }>>([])
 
-  const [currentCursor, setCurrentCursor] = useState<HTMLElement | null>(null)
-  const [queue, setQueue] = useState<HTMLElement[]>([])
+  // Queue manager instance
+  const queueManagerRef = useRef<ErpaReadableQueueManager | null>(null)
+  const [queueState, setQueueState] = useState({
+    isPlaying: false,
+    currentSectionIndex: 0,
+    currentElement: null as any
+  })
 
-  // TTS state
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentUtterance, setCurrentUtterance] = useState<SpeechSynthesisUtterance | null>(null)
-  const [currentCleanup, setCurrentCleanup] = useState<(() => void) | null>(null)
+  // Initialize queue manager
+  useEffect(() => {
+    if (!queueManagerRef.current) {
+      queueManagerRef.current = new ErpaReadableQueueManager({
+        rate: 1.0,
+        pitch: 1.0,
+        volume: 1.0,
+        autoProgress: true,
+        onQueueStart: () => {
+          setQueueState(prev => ({ ...prev, isPlaying: true }))
+          debug('[Queue] Queue started')
+        },
+        onQueueEnd: () => {
+          setQueueState(prev => ({ ...prev, isPlaying: false }))
+          debug('[Queue] Queue ended')
+        },
+        onSectionChange: (index) => {
+          setQueueState(prev => ({ ...prev, currentSectionIndex: index }))
+          debug('[Queue] Section changed to:', index)
+        },
+        onError: (error, element) => {
+          err('[Queue] Error:', error, 'Element:', element?.id ?? 'unknown')
+        }
+      })
+    }
 
-  // Section-aware TTS state
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0)
-  const [isAutoProgressing, setIsAutoProgressing] = useState(false)
-
-  // Ref to avoid circular dependency
-  const handleQueueTTSRef = useRef<() => void>()
-
+    return () => {
+      queueManagerRef.current?.stop()
+    }
+  }, [])
 
   const handleNavigateToSection = useCallback((selector: string) => {
     debug('[NavigateToSection] Navigating to section:', selector)
@@ -69,13 +109,10 @@ const PlasmoOverlay = () => {
       const section = document.querySelector(selector) as HTMLElement | null
       if (section) {
         section.scrollIntoView({ behavior: "smooth" })
-        debug('[Navigate] Successfully navigated to section:', selector)
-        setCurrentCursor(section)
 
-        // Update current section index
         const sectionIndex = sections.findIndex(s => s.cssSelector === selector)
-        if (sectionIndex !== -1) {
-          setCurrentSectionIndex(sectionIndex)
+        if (sectionIndex !== -1 && queueManagerRef.current) {
+          queueManagerRef.current.jumpToSection(sectionIndex)
         }
       } else {
         err('[Navigate] Section not found for selector:', selector)
@@ -88,135 +125,7 @@ const PlasmoOverlay = () => {
     }
   }, [sections])
 
-  const speakText = useCallback((text: string) => {
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel()
 
-    const utterance = new SpeechSynthesisUtterance(text)
-
-    utterance.onstart = () => {
-      setIsPlaying(true)
-      debug('[TTS] TTS started:', text.substring(0, 50) + '...')
-    }
-
-    utterance.onend = () => {
-      setIsPlaying(false)
-      setCurrentUtterance(null)
-      if (currentCleanup) {
-        currentCleanup()
-        setCurrentCleanup(null)
-      }
-      debug('[TTS] TTS ended')
-
-      // Auto-continue to next section if queue is empty
-      setTimeout(() => {
-        if (queue.length === 0 && handleQueueTTSRef.current) {
-          debug('[TTS] Queue is empty after TTS ended, checking for auto-progression')
-          handleQueueTTSRef.current()
-        }
-      }, 100)
-    }
-
-    utterance.onerror = (event) => {
-      err('[TTS] TTS error:', event)
-      setIsPlaying(false)
-      setCurrentUtterance(null)
-      if (currentCleanup) {
-        currentCleanup()
-        setCurrentCleanup(null)
-      }
-    }
-
-    setCurrentUtterance(utterance)
-    window.speechSynthesis.speak(utterance)
-  }, [currentCleanup, queue])
-
-  const handleQueueTTS = useCallback(() => {
-    if (!currentCursor) {
-      debug('No current cursor set. Please navigate to a section first.')
-      return
-    }
-
-    if (sections.length === 0) {
-      debug('No sections available. Please detect sections first.')
-      return
-    }
-
-    if (queue.length === 0) {
-      const nodes = findReadableNodesUntilNextSection(currentCursor, document)
-      debug('Found readable nodes:', nodes)
-
-      if (nodes.length === 0) {
-        // No more readable content in current section, try to auto-progress to next section
-        debug('[TTS] No more readable content in current section, attempting auto-progression')
-
-        const nextSectionIndex = currentSectionIndex + 1
-        if (nextSectionIndex >= sections.length) {
-          debug('[TTS] Reached end of document, no more sections to progress to')
-          return
-        }
-
-        debug('[TTS] Auto-progressing to next section:', sections[nextSectionIndex]?.title)
-        setIsAutoProgressing(true)
-
-        // Navigate to next section
-        const nextSection = sections[nextSectionIndex]
-        if (nextSection) {
-          handleNavigateToSection(nextSection.cssSelector)
-          setCurrentSectionIndex(nextSectionIndex)
-
-          // Clear current queue and find new readable content
-          setQueue([])
-
-          // Small delay to allow scroll animation to complete, then find new content
-          setTimeout(() => {
-            const nextCursor = document.querySelector(nextSection.cssSelector) as HTMLElement
-            if (nextCursor) {
-              setCurrentCursor(nextCursor)
-              const nodes = findReadableNodesUntilNextSection(nextCursor, document)
-              debug('[TTS] Found readable nodes in next section:', nodes)
-              if (nodes.length > 0) {
-                setQueue(nodes)
-                // Continue TTS with new content
-                setTimeout(() => handleQueueTTS(), 100)
-              }
-            }
-            setIsAutoProgressing(false)
-          }, 1000) // Wait for scroll animation
-        }
-        return
-      }
-
-      setQueue((prevQueue) => [...prevQueue, ...nodes])
-      return
-    }
-
-    setQueue((prevQueue) => {
-      const newQueue = [...prevQueue]
-      const readableNode = newQueue.shift()
-
-      if (readableNode) {
-        setCurrentCursor(readableNode)
-
-        // Read out loud with TTS
-        const text = (readableNode.textContent || '').trim()
-        if (text) {
-          speakText(text)
-        }
-
-        // Highlight the node while speaking
-        const cleanup = highlightNode(readableNode)
-        setCurrentCleanup(() => cleanup)
-      }
-
-      return newQueue
-    })
-  }, [currentCursor, sections, queue, speakText, currentSectionIndex, handleNavigateToSection])
-
-  // Set the ref to avoid circular dependency
-  useEffect(() => {
-    handleQueueTTSRef.current = handleQueueTTS
-  }, [handleQueueTTS])
 
   useEffect(() => {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -229,7 +138,6 @@ const PlasmoOverlay = () => {
           return false
         }
         section.scrollIntoView({ behavior: "smooth" })
-        setCurrentCursor(section)
         sendResponse({ ok: true })
         return true
       }
@@ -238,8 +146,7 @@ const PlasmoOverlay = () => {
         debug('[Erpa] Setting sections for highlight', message.sections)
         setSections(message.sections || [])
         // Reset auto-progression state when sections are updated
-        setIsAutoProgressing(false)
-        setCurrentSectionIndex(0)
+        setQueueState(prev => ({ ...prev, currentSectionIndex: 0 }))
       }
 
       if (message?.type === "DETECT_SECTIONS") {
@@ -257,7 +164,8 @@ const PlasmoOverlay = () => {
 
       if (message?.type === "FIND_READABLE_TEXT_UNTIL_NEXT_SECTION") {
         try {
-          const nodes = findReadableNodesUntilNextSection(currentCursor, document)
+          // This handler is kept for compatibility but doesn't use currentCursor anymore
+          const nodes: HTMLElement[] = []
           sendResponse({ ok: true, nodes: nodes })
         } catch (e) {
           sendResponse({ ok: false, error: (e as Error)?.message || "Unknown error" })
@@ -266,10 +174,10 @@ const PlasmoOverlay = () => {
 
       if (message?.type === "READ_OUT") {
         debug('[READ_OUT] Reading out:', message.targetType, message.target)
-        
+
         try {
           let targetElement: HTMLElement | null = null
-          
+
           if (message.targetType === 'SECTION') {
             // Find the section by name in the sections array
             const targetSection = sections.find(s => s.title === message.target)
@@ -286,35 +194,42 @@ const PlasmoOverlay = () => {
             targetElement = document.querySelector(message.target) as HTMLElement
             debug('[READ_OUT] Found target node element:', targetElement)
           }
-          
+
           if (!targetElement) {
             err('[READ_OUT] Target element not found for:', message.target)
             sendResponse({ ok: false, error: `Target element not found: ${message.target}` })
             return true
           }
-          
-          // Navigate to the target element first
+
+          // Navigate and create readable elements
           targetElement.scrollIntoView({ behavior: "smooth" })
-          setCurrentCursor(targetElement)
-          
-          // Find readable nodes from the target element
+
           const nodes = findReadableNodesUntilNextSection(targetElement, document)
-          debug('[READ_OUT] Found readable nodes:', nodes)
-          
           if (nodes.length === 0) {
-            debug('[READ_OUT] No readable content found in target')
-            sendResponse({ ok: false, error: 'No readable content found in target' })
+            sendResponse({ ok: false, error: 'No readable content found' })
             return true
           }
-          
-          // Clear existing queue and set new content
-          setQueue(nodes)
-          
-          // Start TTS processing
+
+          // Find section index
+          const sectionIndex = sections.findIndex(s => {
+            const el = document.querySelector(s.cssSelector)
+            return el?.contains(targetElement) || el === targetElement
+          })
+
+          const sectionTitle = sectionIndex !== -1 ? sections[sectionIndex].title : 'Unknown Section'
+
+          // Create ErpaReadableElements
+          const elements = createFromReadableNodes(nodes, sectionIndex, sectionTitle)
+
+          // Clear queue and enqueue new elements
+          queueManagerRef.current?.clear()
+          queueManagerRef.current?.enqueue(elements)
+
+          // Start playback
           setTimeout(() => {
-            handleQueueTTS()
-          }, 100) // Small delay to ensure state updates
-          
+            queueManagerRef.current?.start()
+          }, 100)
+
           sendResponse({ ok: true })
         } catch (error) {
           err('[READ_OUT] Error reading out:', error)
@@ -348,106 +263,69 @@ const PlasmoOverlay = () => {
         return true
       }
     })
-  }, [currentCursor, queue, handleQueueTTS])
+  }, [sections])
 
   // Scroll-based content refresh detection
   useEffect(() => {
     let scrollTimeout: NodeJS.Timeout
 
     const handleScroll = () => {
-      // Clear existing timeout
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout)
-      }
+      if (scrollTimeout) clearTimeout(scrollTimeout)
 
-      // Debounce scroll events
       scrollTimeout = setTimeout(() => {
-        if (sections.length === 0) return
+        if (sections.length === 0 || !queueManagerRef.current) return
 
-        // Find the currently visible section based on scroll position
         const scrollPosition = window.scrollY + window.innerHeight / 2
         let newSectionIndex = 0
         let closestDistance = Infinity
 
         sections.forEach((section, index) => {
-          let element: HTMLElement | null = null
           try {
-            element = document.querySelector(section.cssSelector) as HTMLElement
-          } catch (e) {
-            warn('[TTS] Error getting element for section:', e)
-            return
-          }
-          if (element) {
-            const elementTop = element.offsetTop
-            const distance = Math.abs(scrollPosition - elementTop)
-            if (distance < closestDistance) {
-              closestDistance = distance
-              newSectionIndex = index
+            const element = document.querySelector(section.cssSelector) as HTMLElement
+            if (element) {
+              const distance = Math.abs(scrollPosition - element.offsetTop)
+              if (distance < closestDistance) {
+                closestDistance = distance
+                newSectionIndex = index
+              }
             }
+          } catch (e) {
+            warn('[Scroll] Error getting element:', e)
           }
         })
 
-        // If user scrolled to a different section, refresh the content
-        if (newSectionIndex !== currentSectionIndex && !isAutoProgressing) {
-          debug('[TTS] User scrolled to new section, refreshing content:', sections[newSectionIndex]?.title)
-
-          setCurrentSectionIndex(newSectionIndex)
-
-          // Find the new section element and update cursor
-          const newSection = sections[newSectionIndex]
-          if (newSection) {
-            const newCursor = document.querySelector(newSection.cssSelector) as HTMLElement
-            if (newCursor) {
-              setCurrentCursor(newCursor)
-
-              // Refresh the readable content queue
-              const nodes = findReadableNodesUntilNextSection(newCursor, document)
-              debug('[TTS] Refreshed readable nodes after scroll:', nodes)
-              setQueue(nodes)
-
-              // If TTS was playing, restart with new content
-              if (isPlaying) {
-                handleQueueTTS()
-              }
-            }
-          }
+        if (newSectionIndex !== queueState.currentSectionIndex) {
+          setQueueState(prev => ({ ...prev, currentSectionIndex: newSectionIndex }))
         }
-      }, 150) // Debounce delay
+      }, 150)
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => {
       window.removeEventListener('scroll', handleScroll)
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout)
-      }
+      if (scrollTimeout) clearTimeout(scrollTimeout)
     }
-  }, [sections, currentSectionIndex, isAutoProgressing, isPlaying, handleQueueTTS])
+  }, [sections, queueState.currentSectionIndex])
 
 
   const handlePlayPause = useCallback(() => {
-    if (isPlaying) {
-      window.speechSynthesis.pause()
-      setIsPlaying(false)
+    if (!queueManagerRef.current) return
+
+    if (queueState.isPlaying) {
+      queueManagerRef.current.pause()
       debug('[TTS] TTS paused')
-    } else if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume()
-      setIsPlaying(true)
-      debug('[TTS] TTS resumed')
+    } else {
+      queueManagerRef.current.start()
+      debug('[TTS] TTS started/resumed')
     }
-  }, [isPlaying])
+  }, [queueState.isPlaying])
 
   const handleStop = useCallback(() => {
-    window.speechSynthesis.cancel()
-    setIsPlaying(false)
-    setCurrentUtterance(null)
-    setIsAutoProgressing(false) // Stop auto-progression
-    if (currentCleanup) {
-      currentCleanup()
-      setCurrentCleanup(null)
-    }
+    if (!queueManagerRef.current) return
+
+    queueManagerRef.current.stop()
     debug('[TTS] TTS stopped')
-  }, [currentCleanup])
+  }, [])
 
   useEffect(() => {
     if (sections.length > 0) {
@@ -455,21 +333,6 @@ const PlasmoOverlay = () => {
     }
   }, [sections])
 
-  // Cleanup TTS on unmount and handle section changes
-  useEffect(() => {
-    return () => {
-      window.speechSynthesis.cancel()
-      setIsAutoProgressing(false)
-    }
-  }, [])
-
-  // Reset auto-progression state when sections change
-  useEffect(() => {
-    if (sections.length > 0) {
-      setIsAutoProgressing(false)
-      setCurrentSectionIndex(0)
-    }
-  }, [sections])
 
 
   // Tab key listener for testing TTS cursor-following functionality
@@ -477,8 +340,38 @@ const PlasmoOverlay = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Tab') {
         e.preventDefault()
-        debug('[TTS] Tab key pressed - triggering TTS queue processing')
-        handleQueueTTS()
+        debug('[TTS] Tab key pressed')
+
+        if (!queueManagerRef.current) return
+
+        // If queue is empty, populate it with current section content
+        if (queueManagerRef.current.elements.length === 0) {
+          // Find current section element
+          const currentSection = sections[queueState.currentSectionIndex]
+          if (!currentSection) return
+
+          const sectionElement = document.querySelector(currentSection.cssSelector) as HTMLElement
+          if (!sectionElement) return
+
+          // Find readable nodes from current section
+          const nodes = findReadableNodesUntilNextSection(sectionElement, document)
+          if (nodes.length === 0) {
+            debug('[TTS] No readable content found in current section')
+            return
+          }
+
+          // Create ErpaReadableElements and enqueue them
+          const elements = createFromReadableNodes(nodes, queueState.currentSectionIndex, currentSection.title)
+          queueManagerRef.current.enqueue(elements)
+
+          debug('[TTS] Populated queue with', elements.length, 'elements from current section')
+        }
+
+        // If queue is already playing, don't interrupt - let it continue naturally
+        // If queue is not playing, start it
+        if (queueManagerRef.current.elements.length > 0 && !queueManagerRef.current.isPlaying) {
+          queueManagerRef.current.start()
+        }
       }
     }
 
@@ -486,7 +379,7 @@ const PlasmoOverlay = () => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [handleQueueTTS])
+  }, [sections, queueState.currentSectionIndex])
 
   return (
     <div
@@ -500,7 +393,7 @@ const PlasmoOverlay = () => {
 
       <div className="pointer-events-auto z-10 absolute bottom-2 left-1/2 transform -translate-x-1/2 w-48 h-12 flex justify-center items-end">
         <TtsPlayback
-          isPlaying={isPlaying}
+          isPlaying={queueState.isPlaying}
           onPlayPause={handlePlayPause}
           onStop={handleStop}
           className="w-full h-full border-2 border-white backdrop-blur-xl bg-black/20 rounded-lg py-2 px-4 flex items-center justify-center"

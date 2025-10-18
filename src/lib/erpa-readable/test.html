@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ErpaReadableElement Test Environment</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .test-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .test-button {
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .test-button:hover {
+            background: #0056b3;
+        }
+        
+        .test-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .test-output {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-ready { background: #28a745; }
+        .status-running { background: #ffc107; }
+        .status-error { background: #dc3545; }
+        
+        .test-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .test-info h3 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        
+        .test-info p {
+            margin: 0;
+            color: #424242;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🧪 ErpaReadableElement Test Environment</h1>
+            <p>Test the unified TTS, highlighting, and section management system</p>
+        </div>
+        
+        <div class="test-info">
+            <h3>Test Environment Status</h3>
+            <p>
+                <span id="status-indicator" class="status-indicator status-ready"></span>
+                <span id="status-text">Ready to run tests</span>
+            </p>
+        </div>
+        
+        <div class="test-buttons">
+            <button class="test-button" onclick="runBasicTest()">Run Basic Test</button>
+            <button class="test-button" onclick="runComprehensiveTest()">Run Comprehensive Test</button>
+            <button class="test-button" onclick="runQueueOperationsTest()">Run Queue Operations Test</button>
+            <button class="test-button" onclick="runManualTest()">Run Manual Test</button>
+            <button class="test-button" onclick="clearOutput()">Clear Output</button>
+            <button class="test-button" onclick="cleanup()">Cleanup</button>
+        </div>
+        
+        <div class="test-output" id="test-output">
+            Welcome to the ErpaReadableElement test environment!
+            
+            This test environment allows you to:
+            • Test the ErpaReadableElement interface
+            • Test queue management operations
+            • Test TTS integration
+            • Test highlighting functionality
+            • Test section navigation
+            
+            Click any test button to get started.
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the test environment
+        import { 
+            createTestEnvironment, 
+            runBasicTest, 
+            runComprehensiveTest, 
+            runQueueOperationsTest,
+            MockDOM,
+            TestRunner
+        } from './test-environment.js';
+        
+        let currentRunner = null;
+        
+        // Make functions available globally
+        window.runBasicTest = async function() {
+            updateStatus('running', 'Running basic test...');
+            try {
+                await runBasicTest();
+                updateStatus('ready', 'Basic test completed');
+                logOutput('✅ Basic test completed successfully');
+            } catch (error) {
+                updateStatus('error', 'Basic test failed');
+                logOutput('❌ Basic test failed: ' + error.message);
+                console.error(error);
+            }
+        };
+        
+        window.runComprehensiveTest = async function() {
+            updateStatus('running', 'Running comprehensive test...');
+            try {
+                await runComprehensiveTest();
+                updateStatus('ready', 'Comprehensive test completed');
+                logOutput('✅ Comprehensive test completed successfully');
+            } catch (error) {
+                updateStatus('error', 'Comprehensive test failed');
+                logOutput('❌ Comprehensive test failed: ' + error.message);
+                console.error(error);
+            }
+        };
+        
+        window.runQueueOperationsTest = async function() {
+            updateStatus('running', 'Running queue operations test...');
+            try {
+                await runQueueOperationsTest();
+                updateStatus('ready', 'Queue operations test completed');
+                logOutput('✅ Queue operations test completed successfully');
+            } catch (error) {
+                updateStatus('error', 'Queue operations test failed');
+                logOutput('❌ Queue operations test failed: ' + error.message);
+                console.error(error);
+            }
+        };
+        
+        window.runManualTest = function() {
+            updateStatus('running', 'Setting up manual test...');
+            try {
+                currentRunner = createTestEnvironment({
+                    onQueueStart: () => logOutput('🎵 Queue started'),
+                    onQueueEnd: () => logOutput('🏁 Queue ended'),
+                    onSectionChange: (index) => logOutput(`📖 Section changed to: ${index}`),
+                    onError: (error, element) => logOutput(`❌ Error in element ${element.id}: ${error.message}`)
+                });
+                
+                // Create test document
+                const doc = MockDOM.createMockDocument();
+                logOutput('📄 Created test document with sections and content');
+                
+                // Get queue manager for manual control
+                const queueManager = currentRunner.getQueueManager();
+                window.queueManager = queueManager;
+                
+                logOutput('🎮 Manual test ready! Use the console to control the queue:');
+                logOutput('  • queueManager.start() - Start playback');
+                logOutput('  • queueManager.pause() - Pause playback');
+                logOutput('  • queueManager.stop() - Stop playback');
+                logOutput('  • queueManager.next() - Next element');
+                logOutput('  • queueManager.previous() - Previous element');
+                logOutput('  • queueManager.getState() - Get current state');
+                
+                updateStatus('ready', 'Manual test ready');
+            } catch (error) {
+                updateStatus('error', 'Manual test setup failed');
+                logOutput('❌ Manual test setup failed: ' + error.message);
+                console.error(error);
+            }
+        };
+        
+        window.clearOutput = function() {
+            document.getElementById('test-output').textContent = '';
+        };
+        
+        window.cleanup = function() {
+            if (currentRunner) {
+                currentRunner.cleanup();
+                currentRunner = null;
+            }
+            MockDOM.cleanup();
+            updateStatus('ready', 'Test environment cleaned up');
+            logOutput('🧹 Test environment cleaned up');
+        };
+        
+        function updateStatus(status, text) {
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            indicator.className = `status-indicator status-${status}`;
+            statusText.textContent = text;
+        }
+        
+        function logOutput(message) {
+            const output = document.getElementById('test-output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.textContent += `[${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        // Override console.log to also show in the test output
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            logOutput(args.join(' '));
+        };
+        
+        // Override console.error to also show in the test output
+        const originalError = console.error;
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            logOutput('❌ ERROR: ' + args.join(' '));
+        };
+        
+        // Initialize the test environment
+        logOutput('🚀 ErpaReadableElement test environment initialized');
+        logOutput('📋 Available tests:');
+        logOutput('  • Basic Test - Simple document with basic elements');
+        logOutput('  • Comprehensive Test - Complex document with multiple sections');
+        logOutput('  • Queue Operations Test - Test queue management functions');
+        logOutput('  • Manual Test - Interactive testing with console controls');
+    </script>
+</body>
+</html>
