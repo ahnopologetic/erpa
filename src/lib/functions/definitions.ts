@@ -11,7 +11,10 @@ const navigateFunction = createFunctionDefinition('navigate', 'Navigate to a spe
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     const tab = tabs?.[0]
     log('Navigating to:', location, { tabId: tab?.id })
-    await chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'SCROLL_TO_SECTION', selector: location })
+    const response = await chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'SCROLL_TO_SECTION', selector: location })
+    if (!response?.ok) {
+        throw new Error(response?.error || 'Failed to navigate to section')
+    }
     return true
 })
 

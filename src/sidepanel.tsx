@@ -23,11 +23,65 @@ function Sidepanel() {
     const [isProcessingText, setIsProcessingText] = React.useState(false)
     const [chatMessages, setChatMessages] = React.useState<ChatMessage[]>([])
     const [chatLoading, setChatLoading] = React.useState(false)
+    const [currentStreamingMessageId, setCurrentStreamingMessageId] = React.useState<string | null>(null)
 
     const streamRef = React.useRef<MediaStream | null>(null)
     const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
 
-    const agent = useErpaChatAgent()
+    // Handle agent message updates
+    const handleAgentMessageUpdate = React.useCallback((message: ChatMessage) => {
+        setChatMessages(prev => {
+            // Always create new messages, don't replace existing ones
+            // Check if message already exists
+            const existingIndex = prev.findIndex(m => m.id === message.id);
+            
+            if (existingIndex >= 0) {
+                // Update existing message (for streaming text updates)
+                const updated = [...prev];
+                updated[existingIndex] = message;
+                
+                // Set streaming indicator for text messages only
+                if (message.id.startsWith('text-')) {
+                    setCurrentStreamingMessageId(message.id);
+                }
+                
+                return updated;
+            } else {
+                // Add new message
+                if (message.id.startsWith('text-')) {
+                    setCurrentStreamingMessageId(message.id);
+                }
+                
+                return [...prev, message];
+            }
+        });
+    }, []);
+
+    // Handle agent progress updates
+    const handleAgentProgressUpdate = React.useCallback((iteration: number, action: string, status: string) => {
+        // Clear streaming indicator when new iteration starts
+        if (action === "Processing") {
+            setCurrentStreamingMessageId(null);
+        }
+        
+        const progressMessage: ChatMessage = {
+            id: `progress-${iteration}`,
+            progressUpdate: {
+                iteration,
+                action,
+                status
+            },
+            createdAt: Date.now()
+        };
+        
+        setChatMessages(prev => {
+            // Remove any existing progress message for this iteration
+            const filtered = prev.filter(m => m.id !== `progress-${iteration}`);
+            return [...filtered, progressMessage];
+        });
+    }, []);
+
+    const agent = useErpaChatAgent(handleAgentMessageUpdate, handleAgentProgressUpdate)
 
     React.useEffect(() => {
         const getCurrentTab = async () => {
@@ -266,15 +320,33 @@ function Sidepanel() {
         try {
             log('Starting agent execution with task:', userMessage)
 
-            // Run the agent - it will log everything to console
+            // Initialize agent if not already done
+            await agent.initialize()
+
+            // Run the agent - it will stream responses to the UI
             await agent.run(userMessage)
 
             log('Agent execution completed')
         } catch (error) {
             err('Agent execution failed:', error)
+            
+            // Add error message to chat
+            const errorMessage: ChatMessage = {
+                id: `error-${Date.now()}`,
+                voiceMemo: {
+                    id: `error-${Date.now()}`,
+                    type: 'ai',
+                    audioBlob: new Blob(),
+                    transcription: `Error: ${error.message}`,
+                    timestamp: Date.now()
+                },
+                createdAt: Date.now()
+            };
+            setChatMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsProcessingText(false)
             setChatLoading(false)
+            setCurrentStreamingMessageId(null)
         }
     }
 
@@ -362,6 +434,7 @@ function Sidepanel() {
                     messages={chatMessages}
                     onDeleteMessage={deleteMessage}
                     isLoading={chatLoading || isTranscribing || isProcessingText}
+                    currentStreamingMessageId={currentStreamingMessageId}
                     className="h-full"
                 />
             </div>
