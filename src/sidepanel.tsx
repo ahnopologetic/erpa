@@ -8,6 +8,7 @@ import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
 import { err, log, warn } from "~lib/log"
 import { useErpaChatAgent } from "~hooks/useErpaChatAgent"
 import "~style.css"
+import type { ChatMessage } from "~types/voice-memo"
 
 function Sidepanel() {
     const [isListening, setIsListening] = React.useState(false)
@@ -20,7 +21,7 @@ function Sidepanel() {
     const [mode, setMode] = React.useState<"voice" | "text">("voice")
     const [textInput, setTextInput] = React.useState("")
     const [isProcessingText, setIsProcessingText] = React.useState(false)
-    const [chatMessages, setChatMessages] = React.useState<Array<{ id: string, role: 'user' | 'assistant', content: string, createdAt: number, updatedAt?: number }>>([])
+    const [chatMessages, setChatMessages] = React.useState<ChatMessage[]>([])
     const [chatLoading, setChatLoading] = React.useState(false)
 
     const streamRef = React.useRef<MediaStream | null>(null)
@@ -241,10 +242,15 @@ function Sidepanel() {
         // Add user message to chat
         setChatMessages(prev => [...prev, {
             id: messageId,
-            role: 'user',
-            content: userMessage,
+            voiceMemo: {
+                id: messageId,
+                type: 'user',
+                audioBlob: new Blob(),
+                transcription: userMessage,
+                timestamp: Date.now()
+            },
             createdAt: Date.now()
-        } as { id: string, role: 'user' | 'assistant', content: string, createdAt: number, updatedAt?: number }])
+        } as ChatMessage])
 
         // Clear input and set loading states
         setTextInput("")

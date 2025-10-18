@@ -74,7 +74,7 @@ class ErpaChatAgent {
             for await (const chunk of processor.iterate()) {
                 fullResponse = chunk;
                 // Clear line and rewrite to show streaming effect
-                process.stdout.write('\r\x1b[K'); // Clear current line
+                // process.stdout.write('\r\x1b[K'); // Clear current line
                 // TODO: print streaming
                 console.log(chunk.substring(0, 150) + (chunk.length > 150 ? '...' : ''));
             }
