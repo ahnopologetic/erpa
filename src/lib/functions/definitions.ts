@@ -28,8 +28,18 @@ const readOutFunction = createFunctionDefinition('readOut', 'Read out a specific
 }, async ({ targetType, target }: { targetType: string, target: string }) => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     const tab = tabs?.[0]
-    await chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'READ_OUT', targetType: targetType, target: target })
-    return true
+    
+    return new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'READ_OUT', targetType: targetType, target: target }, (response) => {
+            if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message))
+            } else if (response?.ok) {
+                resolve(`Successfully started reading out ${targetType.toLowerCase()}: ${target}`)
+            } else {
+                reject(new Error(response?.error || 'Failed to read out content'))
+            }
+        })
+    })
 })
 
 const getContentFunction = createFunctionDefinition('getContent', 'Get content from a specific section or node', {

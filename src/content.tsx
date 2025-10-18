@@ -266,16 +266,61 @@ const PlasmoOverlay = () => {
 
       if (message?.type === "READ_OUT") {
         debug('[READ_OUT] Reading out:', message.targetType, message.target)
-        debug('[READ_OUT] Queue length:', queue.length)
-
-        const nodes = findReadableNodesUntilNextSection(currentCursor, document)
-        debug('[READ_OUT] Found readable nodes:', nodes)
-        setQueue((prevQueue) => [...prevQueue, ...nodes])
-
-        while (queue.length > 0) {
-          debug('[READ_OUT] Reading out next node')
-          handleQueueTTS()
+        
+        try {
+          let targetElement: HTMLElement | null = null
+          
+          if (message.targetType === 'SECTION') {
+            // Find the section by name in the sections array
+            const targetSection = sections.find(s => s.title === message.target)
+            if (targetSection) {
+              targetElement = document.querySelector(targetSection.cssSelector) as HTMLElement
+              debug('[READ_OUT] Found target section element:', targetElement)
+            } else {
+              err('[READ_OUT] Section not found:', message.target)
+              sendResponse({ ok: false, error: `Section "${message.target}" not found` })
+              return true
+            }
+          } else if (message.targetType === 'NODE') {
+            // Use the target as a CSS selector
+            targetElement = document.querySelector(message.target) as HTMLElement
+            debug('[READ_OUT] Found target node element:', targetElement)
+          }
+          
+          if (!targetElement) {
+            err('[READ_OUT] Target element not found for:', message.target)
+            sendResponse({ ok: false, error: `Target element not found: ${message.target}` })
+            return true
+          }
+          
+          // Navigate to the target element first
+          targetElement.scrollIntoView({ behavior: "smooth" })
+          setCurrentCursor(targetElement)
+          
+          // Find readable nodes from the target element
+          const nodes = findReadableNodesUntilNextSection(targetElement, document)
+          debug('[READ_OUT] Found readable nodes:', nodes)
+          
+          if (nodes.length === 0) {
+            debug('[READ_OUT] No readable content found in target')
+            sendResponse({ ok: false, error: 'No readable content found in target' })
+            return true
+          }
+          
+          // Clear existing queue and set new content
+          setQueue(nodes)
+          
+          // Start TTS processing
+          setTimeout(() => {
+            handleQueueTTS()
+          }, 100) // Small delay to ensure state updates
+          
+          sendResponse({ ok: true })
+        } catch (error) {
+          err('[READ_OUT] Error reading out:', error)
+          sendResponse({ ok: false, error: (error as Error)?.message || "Unknown error" })
         }
+        return true
       }
 
       if (message?.type === "GET_CONTENT") {
