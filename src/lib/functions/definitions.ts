@@ -1,20 +1,22 @@
 import { createFunctionDefinition } from "@ahnopologetic/use-prompt-api";
+import { log } from "~lib/log";
 
 const navigateFunction = createFunctionDefinition('navigate', 'Navigate to a specific location on the page', {
-    type: 'function',
+    type: 'object',
     properties: {
-        location: { type: 'string', description: "Location to navigate to. Should be a valid css selector. e.g., '#campus', '.div: nth- of - type(2) > div', etc." }
+        location: { type: 'string', description: "Location to navigate to. Look for the section name in the context and use the css selector. Should be a valid css selector. e.g., '#campus', '.div: nth- of - type(2) > div', etc." }
     },
     required: ['location']
 }, async ({ location }: { location: string }) => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     const tab = tabs?.[0]
+    log('Navigating to:', location, { tabId: tab?.id })
     await chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'SCROLL_TO_SECTION', selector: location })
     return true
 })
 
 const readOutFunction = createFunctionDefinition('readOut', 'Read out a specific section or node', {
-    type: 'function',
+    type: 'object',
     properties: {
         targetType: { type: 'string', description: "Type of target to read out. Should be 'SECTION' or 'NODE'" },
         target: { type: 'string', description: "Target to read out. For section, it should be the section name. For node, it should be the node id or selector." }
@@ -28,7 +30,7 @@ const readOutFunction = createFunctionDefinition('readOut', 'Read out a specific
 })
 
 const getContentFunction = createFunctionDefinition('getContent', 'Get content from a specific section or node', {
-    type: 'function',
+    type: 'object',
     properties: {
         selector: { type: 'string', description: "Selector to get content from. Should be a valid css selector. e.g., '#campus', '.div:nth-of-type(2) > div', etc." }
     },

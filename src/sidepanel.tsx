@@ -224,8 +224,14 @@ function Sidepanel() {
             sections: sections.map(s => s.title)
         })
 
-        // TODO: append table of contents to prompt session
-    }, [])
+        await agent.initialize()
+        if (!agent) {
+            warn('Agent not initialized')
+            return
+        }
+
+        await agent.addToContext([{ role: 'system', content: `The table of contents is: ${sections.map(s => `Name: ${s.title} (Selector: ${s.cssSelector})`).join('\n')}` }])
+    }, [agent])
 
     const deleteMessage = React.useCallback((messageId: string) => {
         setChatMessages(prev => prev.filter(msg => msg.id !== messageId))

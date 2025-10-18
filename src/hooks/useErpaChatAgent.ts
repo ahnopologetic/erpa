@@ -1,9 +1,11 @@
 import { FunctionRegistry, SessionManager, StreamProcessor, buildFunctionSystemPrompt, executeFunctionCall, formatFunctionResult, parseFunctionCall } from "@ahnopologetic/use-prompt-api";
 import { useEffect, useState } from "react";
 import { getContentFunction, navigateFunction, readOutFunction } from "~lib/functions/definitions";
+import { log } from "~lib/log";
 
 class ErpaChatAgent {
     private session: SessionManager | null = null;
+    private sessionManager: SessionManager | null = null;
     private registry: FunctionRegistry;
     private systemPrompt: string;
     private maxIterations: number;
@@ -34,23 +36,27 @@ class ErpaChatAgent {
         return completionIndicators.some((indicator) => lowerResponse.includes(indicator));
     }
 
-    public async addToContext(context: string) {
+    public async addToContext(context: string | PromptInput[]) {
         if (!this.session) {
             throw new Error('Session not initialized');
         }
-        // TODO: add to context
+        log('Adding to context', { context })
+        this.session.append(context as PromptInput[]);
+    }
+
+    async initialize() {
+        this.sessionManager = new SessionManager(undefined, { enablePersistence: false });
+        this.session = await this.sessionManager.create({
+            systemPrompt: `${this.systemPrompt}\n\n${buildFunctionSystemPrompt(this.registry)}`,
+            enablePersistence: false,
+        });
+        this.session.append([{ role: 'system', content: `${this.systemPrompt}\n\n${buildFunctionSystemPrompt(this.registry)}` }]);
     }
 
     async run(task: string): Promise<void> {
-        this.session = new SessionManager();
-
-        const fullSystemPrompt = `${this.systemPrompt}\n\n${buildFunctionSystemPrompt(this.registry)}`;
-
-        await this.session.create({
-            systemPrompt: fullSystemPrompt,
-            enablePersistence: false,
-        });
-
+        if (!this.session) {
+            throw new Error('Session not initialized');
+        }
         let currentPrompt = task;
         let iteration = 0;
 
@@ -59,27 +65,22 @@ class ErpaChatAgent {
 
         while (iteration < this.maxIterations) {
             iteration++;
-
             console.log(`Iteration ${iteration}`);
-
             // Stream the response
             const stream = this.session.promptStreaming(currentPrompt);
-            const processor = new StreamProcessor(stream);
-
-            console.log(`Agent Response (streaming)\n`);
 
             let fullResponse = '';
-
             // Stream and collect response
-            for await (const chunk of processor.iterate()) {
-                fullResponse = chunk;
-                // Clear line and rewrite to show streaming effect
-                // process.stdout.write('\r\x1b[K'); // Clear current line
-                // TODO: print streaming
-                console.log(chunk.substring(0, 150) + (chunk.length > 150 ? '...' : ''));
+            const reader = stream.getReader();
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    fullResponse += value;
+                }
+            } finally {
+                reader.releaseLock();
             }
-
-            console.log('\n'); // New line after streaming completes
 
             // Parse for function calls
             const parsed = parseFunctionCall(fullResponse);
@@ -130,7 +131,12 @@ class ErpaChatAgent {
         if (iteration >= this.maxIterations) {
             console.log('MAX ITERATIONS REACHED');
         }
+    }
 
+    async destroy() {
+        if (!this.session) {
+            throw new Error('Session not initialized');
+        }
         this.session.destroy();
     }
 }
@@ -142,7 +148,7 @@ const useErpaChatAgent = () => {
         setAgent(new ErpaChatAgent({
             functions: [navigateFunction, readOutFunction, getContentFunction],
             systemPrompt: "You're a helpful AI browser agent who helps visually impaired users navigate and understand websites.",
-            maxIterations: 10,
+            maxIterations: 2,
         }));
     }, []);
 
