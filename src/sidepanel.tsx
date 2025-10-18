@@ -6,7 +6,8 @@ import { ChatInterface } from "~components/ui/chat-interface"
 import { Textarea } from "~components/ui/textarea"
 import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
 import { err, log, warn } from "~lib/log"
-import { useErpaChatAgent } from "~hooks/useErpaChatAgent"
+import { ErpaChatAgent, useErpaChatAgent } from "~hooks/useErpaChatAgent"
+import { getContentFunction, navigateFunction, readOutFunction } from "~lib/functions/definitions"
 import "~style.css"
 import type { ChatMessage } from "~types/voice-memo"
 
@@ -27,6 +28,7 @@ function Sidepanel() {
 
     const streamRef = React.useRef<MediaStream | null>(null)
     const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
+    const agent = React.useRef<ErpaChatAgent | null>(null)
 
     // Handle agent message updates
     const handleAgentMessageUpdate = React.useCallback((message: ChatMessage) => {
@@ -34,24 +36,24 @@ function Sidepanel() {
             // Always create new messages, don't replace existing ones
             // Check if message already exists
             const existingIndex = prev.findIndex(m => m.id === message.id);
-            
+
             if (existingIndex >= 0) {
                 // Update existing message (for streaming text updates)
                 const updated = [...prev];
                 updated[existingIndex] = message;
-                
+
                 // Set streaming indicator for text messages only
                 if (message.id.startsWith('text-')) {
                     setCurrentStreamingMessageId(message.id);
                 }
-                
+
                 return updated;
             } else {
                 // Add new message
                 if (message.id.startsWith('text-')) {
                     setCurrentStreamingMessageId(message.id);
                 }
-                
+
                 return [...prev, message];
             }
         });
@@ -63,7 +65,7 @@ function Sidepanel() {
         if (action === "Processing") {
             setCurrentStreamingMessageId(null);
         }
-        
+
         const progressMessage: ChatMessage = {
             id: `progress-${iteration}`,
             progressUpdate: {
@@ -73,7 +75,7 @@ function Sidepanel() {
             },
             createdAt: Date.now()
         };
-        
+
         setChatMessages(prev => {
             // Remove any existing progress message for this iteration
             const filtered = prev.filter(m => m.id !== `progress-${iteration}`);
@@ -81,7 +83,6 @@ function Sidepanel() {
         });
     }, []);
 
-    const agent = useErpaChatAgent(handleAgentMessageUpdate, handleAgentProgressUpdate)
 
     React.useEffect(() => {
         const getCurrentTab = async () => {
@@ -112,6 +113,17 @@ function Sidepanel() {
             offscreenDocumentRef.current = offscreenDocument
         }
 
+        const initializeErpaAgent = async () => {
+            agent.current = new ErpaChatAgent({
+                functions: [navigateFunction, readOutFunction, getContentFunction],
+                systemPrompt: "You're a helpful AI browser agent who helps visually impaired users navigate and understand websites.",
+                maxIterations: 2,
+                onMessageUpdate: handleAgentMessageUpdate,
+                onProgressUpdate: handleAgentProgressUpdate,
+            })
+        }
+
+        initializeErpaAgent()
         getCurrentTab()
 
         checkMicrophonePermission()
@@ -277,14 +289,8 @@ function Sidepanel() {
             sectionsCount: sections.length,
             sections: sections.map(s => s.title)
         })
-
-        await agent.initialize()
-        if (!agent) {
-            warn('Agent not initialized')
-            return
-        }
-
-        await agent.addToContext([{ role: 'system', content: `The table of contents is: ${sections.map(s => `Name: ${s.title} (Selector: ${s.cssSelector})`).join('\n')}` }])
+        await agent.current.initialize()
+        await agent.current.addToContext([{ role: 'system', content: `The table of contents is: ${sections.map(s => `Name: ${s.title} (Selector: ${s.cssSelector})`).join('\n')}` }])
     }, [agent])
 
     const deleteMessage = React.useCallback((messageId: string) => {
@@ -292,7 +298,8 @@ function Sidepanel() {
     }, [])
 
     const handleTextSubmit = async () => {
-        if (!textInput.trim() || !agent) {
+        if (!textInput.trim() || !agent.current) {
+            log('Agent not initialized')
             return
         }
 
@@ -320,16 +327,12 @@ function Sidepanel() {
         try {
             log('Starting agent execution with task:', userMessage)
 
-            // Initialize agent if not already done
-            await agent.initialize()
-
-            // Run the agent - it will stream responses to the UI
-            await agent.run(userMessage)
+            await agent.current.run(userMessage)
 
             log('Agent execution completed')
         } catch (error) {
             err('Agent execution failed:', error)
-            
+
             // Add error message to chat
             const errorMessage: ChatMessage = {
                 id: `error-${Date.now()}`,

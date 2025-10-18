@@ -48,7 +48,7 @@ class ErpaChatAgent {
     private parseAndSendMessages(content: string, iteration: number): void {
         // Remove JSON blocks from content - we don't want to show them as separate messages
         const cleanedContent = content.replace(/```json[\s\S]*?```/g, '');
-        
+
         // Only send text content (no JSON blocks)
         if (cleanedContent.trim()) {
             const messageId = `text-${iteration}`;
@@ -96,20 +96,20 @@ class ErpaChatAgent {
         while (iteration < this.maxIterations) {
             iteration++;
             console.log(`Iteration ${iteration}`);
-            
+
             // Reset sent message IDs for new iteration
             this.sentMessageIds.clear();
             this.pendingJsonContent = '';
-            
+
             // Send progress update
             this.onProgressUpdate?.(iteration, "Processing", "Generating response...");
-            
+
             // Stream the response
             const stream = this.session.promptStreaming(currentPrompt);
 
             let fullResponse = '';
             let currentStreamContent = '';
-            
+
             // Stream and collect response
             const reader = stream.getReader();
             try {
@@ -118,7 +118,7 @@ class ErpaChatAgent {
                     if (done) break;
                     fullResponse += value;
                     currentStreamContent += value;
-                    
+
                     // Parse for json blocks and create separate messages
                     this.parseAndSendMessages(currentStreamContent, iteration);
                 }
@@ -132,7 +132,7 @@ class ErpaChatAgent {
             if (parsed.functionCall) {
                 // Send progress update
                 this.onProgressUpdate?.(iteration, "Executing function", `Calling ${parsed.functionCall.name}...`);
-                
+
                 // Display reasoning if present
                 if (parsed.reasoning) {
                     console.log(`Reasoning:`);
@@ -179,7 +179,7 @@ class ErpaChatAgent {
                     console.log('TASK COMPLETE');
                     console.log(`Final Answer:`);
                     console.log(fullResponse);
-                    
+
                     // Parse final response for any remaining content
                     this.parseAndSendMessages(fullResponse, iteration);
                     break;
@@ -218,4 +218,4 @@ const useErpaChatAgent = (onMessageUpdate?: (message: ChatMessage) => void, onPr
     return agent;
 }
 
-export { useErpaChatAgent };
+export { useErpaChatAgent, ErpaChatAgent };
