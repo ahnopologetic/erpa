@@ -5,11 +5,11 @@ import { Button } from "~components/ui/button"
 import { ChatInterface } from "~components/ui/chat-interface"
 import { Textarea } from "~components/ui/textarea"
 import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
-import { useFunctionCalls } from "~hooks/useFunctionCalls"
-import { usePromptAPI, type TocItem } from "~hooks/usePromptAPI"
-import { useVoiceMemoChat } from "~hooks/useVoiceMemoChat"
 import { err, log, warn } from "~lib/log"
+import { ErpaChatAgent, useErpaChatAgent } from "~hooks/useErpaChatAgent"
+import { getContentFunction, navigateFunction, readOutFunction } from "~lib/functions/definitions"
 import "~style.css"
+import type { ChatMessage } from "~types/voice-memo"
 
 function Sidepanel() {
     const [isListening, setIsListening] = React.useState(false)
@@ -22,38 +22,68 @@ function Sidepanel() {
     const [mode, setMode] = React.useState<"voice" | "text">("voice")
     const [textInput, setTextInput] = React.useState("")
     const [isProcessingText, setIsProcessingText] = React.useState(false)
+    const [chatMessages, setChatMessages] = React.useState<ChatMessage[]>([])
+    const [chatLoading, setChatLoading] = React.useState(false)
+    const [currentStreamingMessageId, setCurrentStreamingMessageId] = React.useState<string | null>(null)
 
     const streamRef = React.useRef<MediaStream | null>(null)
     const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
-    const [promptSession, setPromptSession] = React.useState<LanguageModelSession | null>(null)
-    const [summarizationPromptSession, setSummarizationPromptSession] = React.useState<LanguageModelSession | null>(null)
+    const agent = React.useRef<ErpaChatAgent | null>(null)
 
-    const { initializePromptSession, loadContextForCurrentTab } = usePromptAPI()
+    // Handle agent message updates
+    const handleAgentMessageUpdate = React.useCallback((message: ChatMessage) => {
+        setChatMessages(prev => {
+            // Always create new messages, don't replace existing ones
+            // Check if message already exists
+            const existingIndex = prev.findIndex(m => m.id === message.id);
 
-    // Voice memo chat functionality
-    const {
-        messages: chatMessages,
-        addUserMessage,
-        addTextMessage,
-        addAIMessage,
-        addProgressMessage,
-        deleteMessage,
-        isLoading: chatLoading,
-        error: chatError
-    } = useVoiceMemoChat({
-        tabId: currentTabId || undefined,
-        url: currentUrl || undefined,
-        autoLoad: true
-    })
+            if (existingIndex >= 0) {
+                // Update existing message (for streaming text updates)
+                const updated = [...prev];
+                updated[existingIndex] = message;
 
-    // Function call hook (shared for text and voice)
-    const { isProcessing: isProcessingFunctionCall, processUserInput } = useFunctionCalls({
-        promptSession,
-        loadContextForCurrentTab,
-        addAIMessage,
-        addProgressMessage
-    })
-    // Listen for messages from background script to close sidepanel
+                // Set streaming indicator for text messages only
+                if (message.id.startsWith('text-')) {
+                    setCurrentStreamingMessageId(message.id);
+                }
+
+                return updated;
+            } else {
+                // Add new message
+                if (message.id.startsWith('text-')) {
+                    setCurrentStreamingMessageId(message.id);
+                }
+
+                return [...prev, message];
+            }
+        });
+    }, []);
+
+    // Handle agent progress updates
+    const handleAgentProgressUpdate = React.useCallback((iteration: number, action: string, status: string) => {
+        // Clear streaming indicator when new iteration starts
+        if (action === "Processing") {
+            setCurrentStreamingMessageId(null);
+        }
+
+        const progressMessage: ChatMessage = {
+            id: `progress-${iteration}`,
+            progressUpdate: {
+                iteration,
+                action,
+                status
+            },
+            createdAt: Date.now()
+        };
+
+        setChatMessages(prev => {
+            // Remove any existing progress message for this iteration
+            const filtered = prev.filter(m => m.id !== `progress-${iteration}`);
+            return [...filtered, progressMessage];
+        });
+    }, []);
+
+
     React.useEffect(() => {
         const getCurrentTab = async () => {
             try {
@@ -83,21 +113,21 @@ function Sidepanel() {
             offscreenDocumentRef.current = offscreenDocument
         }
 
+        const initializeErpaAgent = async () => {
+            agent.current = new ErpaChatAgent({
+                functions: [navigateFunction, readOutFunction, getContentFunction],
+                systemPrompt: "You're a helpful AI browser agent who helps visually impaired users navigate and understand websites.",
+                maxIterations: 2,
+                onMessageUpdate: handleAgentMessageUpdate,
+                onProgressUpdate: handleAgentProgressUpdate,
+            })
+        }
+
+        initializeErpaAgent()
         getCurrentTab()
 
         checkMicrophonePermission()
         checkOffscreenDocument()
-        const createPromptSession = async () => {
-            const session = await initializePromptSession(undefined, {
-                expectedInputs: [{ type: 'audio', languages: ['en'] }, { type: 'text', languages: ['en'] }],
-                expectedOutputs: [{ type: 'text', languages: ['en'] }]
-            })
-            const clonedSession = await session.clone()
-            setSummarizationPromptSession(clonedSession)
-            setPromptSession(session)
-            log('Prompt session is created and set to state', { session })
-        }
-        createPromptSession()
         return () => {
             stopStream()
         }
@@ -148,50 +178,6 @@ function Sidepanel() {
                     url: URL.createObjectURL(audioBlob) // For testing - you can open this URL in a new tab
                 });
 
-                if (promptSession) {
-                    log('Calling audio input to prompt session')
-                    setIsTranscribing(true)
-
-                    try {
-                        // Use standard transcription for chat mode
-                        const transcriptionResult = await promptSession.prompt([
-                            {
-                                role: 'assistant',
-                                content: [
-                                    {
-                                        type: 'text',
-                                        value: 'Please transcribe this audio accurately. Provide a clear, complete transcription of all spoken content. Do not include any other text in your response.'
-                                    },
-                                ]
-                            },
-                            {
-                                role: 'user',
-                                content: [
-                                    {
-                                        type: 'audio',
-                                        value: audioBlob
-                                    }
-                                ]
-                            }
-                        ])
-                        log('Transcription result', { transcriptionResult })
-
-                        // Add as user message then run function-call pipeline on the transcription
-                        if (transcriptionResult) {
-                            await addUserMessage(audioBlob, transcriptionResult)
-                            await processUserInput(transcriptionResult)
-                        }
-                    } catch (error) {
-                        log('Transcription error', error)
-                        // Add error message to chat
-                        await addAIMessage({
-                            textResponse: "I'm sorry, I couldn't transcribe your audio. Please try again."
-                        })
-                    } finally {
-                        setIsTranscribing(false)
-                    }
-                }
-
                 // Stop listening state
                 setIsListening(false);
                 stopStream();
@@ -203,7 +189,7 @@ function Sidepanel() {
         return () => {
             chrome.runtime.onMessage.removeListener(handleMessage);
         };
-    }, [promptSession]);
+    }, []);
 
     const stopStream = () => {
         if (streamRef.current) {
@@ -294,53 +280,76 @@ function Sidepanel() {
     }
 
     const handleTocGenerated = React.useCallback(async (sections: Array<{ title: string; cssSelector: string }>) => {
-        if (!promptSession) {
-            warn('No prompt session found when trying to append TOC')
-            return
-        }
-        
         if (!sections || sections.length === 0) {
             warn('No sections provided to handleTocGenerated')
             return
         }
 
-        log('Appending table of contents to prompt session', { 
+        log('Appending table of contents to prompt session', {
             sectionsCount: sections.length,
             sections: sections.map(s => s.title)
         })
-        
-        try {
-            await promptSession.append(
-                [{
-                    role: 'assistant',
-                    content: [
-                        {
-                            type: 'text',
-                            value: 'Here is the table of contents for the page: ' + sections.map(s => s.title).join(', ')
-                        },
-                    ]
-                }]
-            )
-            log('Successfully appended TOC to prompt session')
-        } catch (error) {
-            err('Failed to append TOC to prompt session', error)
-        }
-    }, [promptSession])
+        await agent.current.initialize()
+        await agent.current.addToContext([{ role: 'system', content: `The table of contents is: ${sections.map(s => `Name: ${s.title} (Selector: ${s.cssSelector})`).join('\n')}` }])
+    }, [agent])
+
+    const deleteMessage = React.useCallback((messageId: string) => {
+        setChatMessages(prev => prev.filter(msg => msg.id !== messageId))
+    }, [])
 
     const handleTextSubmit = async () => {
-        if (!textInput.trim() || !promptSession || isProcessingText) {
+        if (!textInput.trim() || !agent.current) {
+            log('Agent not initialized')
             return
         }
 
         const userMessage = textInput.trim()
+        const messageId = Date.now().toString()
+
+        // Add user message to chat
+        setChatMessages(prev => [...prev, {
+            id: messageId,
+            voiceMemo: {
+                id: messageId,
+                type: 'user',
+                audioBlob: new Blob(),
+                transcription: userMessage,
+                timestamp: Date.now()
+            },
+            createdAt: Date.now()
+        } as ChatMessage])
+
+        // Clear input and set loading states
         setTextInput("")
         setIsProcessingText(true)
+        setChatLoading(true)
 
         try {
-            await addTextMessage(userMessage)
-            await processUserInput(userMessage)
+            log('Starting agent execution with task:', userMessage)
+
+            await agent.current.run(userMessage)
+
+            log('Agent execution completed')
+        } catch (error) {
+            err('Agent execution failed:', error)
+
+            // Add error message to chat
+            const errorMessage: ChatMessage = {
+                id: `error-${Date.now()}`,
+                voiceMemo: {
+                    id: `error-${Date.now()}`,
+                    type: 'ai',
+                    audioBlob: new Blob(),
+                    transcription: `Error: ${error.message}`,
+                    timestamp: Date.now()
+                },
+                createdAt: Date.now()
+            };
+            setChatMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsProcessingText(false)
+            setChatLoading(false)
+            setCurrentStreamingMessageId(null)
         }
     }
 
@@ -416,7 +425,7 @@ function Sidepanel() {
                 </div>
                 <p className="mt-2 text-sm text-gray-400">
                     {isListening ? "Recording your message..." :
-                        (isProcessingText || isProcessingFunctionCall) ? "Processing your message..." :
+                        (isProcessingText) ? "Processing your message..." :
                             mode === "voice" ? "Click the voice orb below to start a conversation." :
                                 "Type your message below to start a conversation."}
                 </p>
@@ -428,13 +437,14 @@ function Sidepanel() {
                     messages={chatMessages}
                     onDeleteMessage={deleteMessage}
                     isLoading={chatLoading || isTranscribing || isProcessingText}
+                    currentStreamingMessageId={currentStreamingMessageId}
                     className="h-full"
                 />
             </div>
 
             <div className="action-panel flex z-10 bg-black">
                 <div className="toc h-full flex items-center justify-center px-2">
-                    <TocPopup promptSession={summarizationPromptSession} onTocGenerated={handleTocGenerated} />
+                    <TocPopup onTocGenerated={handleTocGenerated} />
                     <Button variant="ghost" size="sm" onClick={() => setMode(mode === "voice" ? "text" : "voice")}>
                         {
                             mode === "voice" ? (

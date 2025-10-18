@@ -30,6 +30,8 @@ const getFunctionIcon = (functionName: string) => {
             return '📄';
         case 'analyze':
             return '🔬';
+        case 'json_response':
+            return '📋';
         default:
             return '⚙️';
     }
@@ -50,6 +52,8 @@ const getFunctionDisplayName = (functionName: string) => {
             return 'Extract Data';
         case 'analyze':
             return 'Analyze';
+        case 'json_response':
+            return 'JSON Response';
         default:
             return functionName.charAt(0).toUpperCase() + functionName.slice(1);
     }

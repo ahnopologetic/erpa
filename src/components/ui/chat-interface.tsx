@@ -1,16 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ScrollArea } from '~components/ui/scroll-area';
 import { VoiceMemoBubble } from '~components/ui/voice-memo-bubble';
+import FunctionCallBubble from '~components/ui/function-call-bubble';
 import { cn } from '~lib/utils';
 import type { ChatInterfaceProps } from '~types/voice-memo';
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({
+interface ChatInterfacePropsExtended extends ChatInterfaceProps {
+    currentStreamingMessageId?: string | null;
+}
+
+export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
     messages,
     onSendMessage,
     onPlayMessage,
     onDeleteMessage,
     isLoading = false,
-    className
+    className,
+    currentStreamingMessageId
 }) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -90,19 +96,51 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                     }
 
                                     // Render regular messages
-                                    return (
-                                        <VoiceMemoBubble
-                                            key={message.id}
-                                            voiceMemo={{
-                                                ...message.voiceMemo,
-                                                isPlaying: currentlyPlayingId === message.voiceMemo.id
-                                            }}
-                                            functionCall={message.functionCallResponse}
-                                            onPlay={handlePlayMessage}
-                                            onPause={handlePauseMessage}
-                                            onDelete={onDeleteMessage ? handleDeleteMessage : undefined}
-                                        />
-                                    );
+                                    if (message.voiceMemo) {
+                                        const isStreaming = currentStreamingMessageId === message.id;
+                                        
+                                        return (
+                                            <div key={message.id} className="relative">
+                                                <VoiceMemoBubble
+                                                    voiceMemo={{
+                                                        ...message.voiceMemo,
+                                                        isPlaying: currentlyPlayingId === message.voiceMemo.id
+                                                    }}
+                                                    functionCall={message.functionCallResponse}
+                                                    onPlay={handlePlayMessage}
+                                                    onPause={handlePauseMessage}
+                                                    onDelete={onDeleteMessage ? handleDeleteMessage : undefined}
+                                                />
+                                                {isStreaming && (
+                                                    <div className="absolute bottom-1 right-1 flex items-center space-x-1">
+                                                        <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse"></div>
+                                                        <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                                                        <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    }
+                                    
+                                    // Render function call messages
+                                    if (message.functionCallResponse) {
+                                        return (
+                                            <div key={message.id} className="flex justify-start my-2">
+                                                <FunctionCallBubble
+                                                    functionCall={{
+                                                        functionName: message.functionCallResponse.functionCall.name,
+                                                        parameters: message.functionCallResponse.functionCall.arguments,
+                                                        confidence: 1.0,
+                                                        result: message.functionCallResponse.result
+                                                    }}
+                                                    timestamp={message.createdAt}
+                                                    className="mb-4"
+                                                />
+                                            </div>
+                                        );
+                                    }
+                                    
+                                    return null;
                                 })}
                                 <div ref={messagesEndRef} />
                             </>

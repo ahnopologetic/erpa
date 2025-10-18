@@ -13,6 +13,15 @@ export interface VoiceMemo {
     error?: string;
 }
 
+interface ParsedFunctionWithResult {
+    functionCall: {
+        name: string;
+        arguments: Record<string, any>;
+    };
+    result: any;
+    success: boolean;
+}
+
 export interface ChatMessage {
     id: string;
     voiceMemo?: VoiceMemo;
