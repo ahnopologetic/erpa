@@ -53,6 +53,7 @@ const PlasmoOverlay = () => {
   // TTS state
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentUtterance, setCurrentUtterance] = useState<SpeechSynthesisUtterance | null>(null)
+  const [currentCleanup, setCurrentCleanup] = useState<(() => void) | null>(null)
 
   const speakText = useCallback((text: string) => {
     // Cancel any ongoing speech
@@ -68,6 +69,10 @@ const PlasmoOverlay = () => {
     utterance.onend = () => {
       setIsPlaying(false)
       setCurrentUtterance(null)
+      if (currentCleanup) {
+        currentCleanup()
+        setCurrentCleanup(null)
+      }
       debug('[TTS] TTS ended')
     }
 
@@ -75,11 +80,15 @@ const PlasmoOverlay = () => {
       err('[TTS] TTS error:', event)
       setIsPlaying(false)
       setCurrentUtterance(null)
+      if (currentCleanup) {
+        currentCleanup()
+        setCurrentCleanup(null)
+      }
     }
 
     setCurrentUtterance(utterance)
     window.speechSynthesis.speak(utterance)
-  }, [])
+  }, [currentCleanup])
 
   const handleQueueTTS = useCallback(() => {
     if (!currentCursor) {
@@ -114,10 +123,7 @@ const PlasmoOverlay = () => {
 
         // Highlight the node while speaking
         const cleanup = highlightNode(readableNode)
-        // TODO: make it dependent on the duration of the speech
-        setTimeout(() => {
-          cleanup()
-        }, 7000)
+        setCurrentCleanup(() => cleanup)
       }
 
       return newQueue
@@ -243,8 +249,12 @@ const PlasmoOverlay = () => {
     window.speechSynthesis.cancel()
     setIsPlaying(false)
     setCurrentUtterance(null)
+    if (currentCleanup) {
+      currentCleanup()
+      setCurrentCleanup(null)
+    }
     debug('[TTS] TTS stopped')
-  }, [])
+  }, [currentCleanup])
 
   useEffect(() => {
     if (sections.length > 0) {
@@ -258,6 +268,7 @@ const PlasmoOverlay = () => {
       window.speechSynthesis.cancel()
     }
   }, [])
+
 
   // Tab key listener for testing findReadableTextUntilNextSection
   useEffect(() => {
