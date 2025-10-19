@@ -8,6 +8,7 @@ import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
 import { err, log, warn } from "~lib/log"
 import { ErpaChatAgent, useErpaChatAgent } from "~hooks/useErpaChatAgent"
 import { getContentFunction, navigateFunction, readOutFunction } from "~lib/functions/definitions"
+// Remove summarizer imports - using existing Prompt API instead
 import "~style.css"
 import type { ChatMessage } from "~types/voice-memo"
 
@@ -182,6 +183,11 @@ function Sidepanel() {
                 setIsListening(false);
                 stopStream();
             }
+
+            if (message.type === 'TRIGGER_PAGE_SUMMARY') {
+                log('Received TRIGGER_PAGE_SUMMARY message');
+                handlePageSummary();
+            }
         };
 
         chrome.runtime.onMessage.addListener(handleMessage);
@@ -292,6 +298,122 @@ function Sidepanel() {
         await agent.current.initialize()
         await agent.current.addToContext([{ role: 'system', content: `The table of contents is: ${sections.map(s => `Name: ${s.title} (Selector: ${s.cssSelector})`).join('\n')}` }])
     }, [agent])
+
+    const handlePageSummary = React.useCallback(async () => {
+        try {
+            setChatLoading(true);
+            log('Starting page summary generation using Prompt API');
+
+            // Get page content with detected sections from active tab
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!tab.id) {
+                throw new Error('No active tab found');
+            }
+
+            const response = await chrome.tabs.sendMessage(tab.id, {
+                type: 'GET_PAGE_CONTENT'
+            });
+
+            if (!response.ok) {
+                throw new Error(response.error);
+            }
+
+            log('Page content collected:', {
+                sectionsCount: response.sections.length,
+                pageTitle: response.pageTitle,
+                mainContentLength: response.mainContent.length
+            });
+
+            // Initialize agent if not already done
+            if (!agent.current) {
+                throw new Error('Agent not initialized');
+            }
+
+            await agent.current.initialize();
+
+            // Add page context to agent with detailed section information
+            const sectionsInfo = response.sections.map(s =>
+                `Section: ${s.title}\nContent: ${s.content}`
+            ).join('\n\n');
+
+            await agent.current.addToContext([{
+                role: 'system',
+                content: `You are summarizing a webpage titled "${response.pageTitle}" for a visually impaired user. 
+
+Page content sample: ${response.mainContent}
+
+Available sections with their content:
+${sectionsInfo}
+
+Please provide a comprehensive summary in a natural, spoken format that includes:
+1. A brief overview of what this page is about
+2. Key points from different sections with quotes
+3. A recommendation for where to start reading
+
+Format your response as natural speech, like you're talking to someone:
+
+"This page is about [topic]. Here's what you'll find:
+
+First, in the [Section Name] section, it says [quote]. This is important because...
+
+Next, the [Section Name] section covers [quote]. This means...
+
+Finally, the [Section Name] section explains [quote]. This is useful because...
+
+I recommend starting with the [Section Name] section to get the best overview of this topic."
+
+Use natural transitions like "First", "Next", "Also", "Finally" and speak as if you're having a conversation.`
+            }]);
+
+            // Use the agent to generate summary
+            const summaryTask = `Please summarize this webpage in a conversational, spoken format. Include key quotes from the sections and tell me where to start reading.`;
+
+            log('Running agent with summary task:', summaryTask);
+            await agent.current.run(summaryTask);
+
+            log('Summary generation completed via Prompt API');
+
+            // The agent will automatically add the summary as a chat message
+            // We need to trigger TTS to read the summary aloud
+            // Wait a moment for the message to be added to chat, then trigger TTS
+            setTimeout(async () => {
+                try {
+                    // Get the latest AI message (should be the summary)
+                    const latestMessage = chatMessages[chatMessages.length - 1];
+                    if (latestMessage && latestMessage.voiceMemo?.type === 'ai') {
+                        const summaryText = latestMessage.voiceMemo.transcription;
+                        log('Triggering TTS for summary:', summaryText.substring(0, 100) + '...');
+
+                        // Use the content script TTS system to read the summary
+                        await chrome.tabs.sendMessage(tab.id, {
+                            type: 'READ_OUT_TEXT',
+                            text: summaryText
+                        });
+                    }
+                } catch (error) {
+                    log('Failed to trigger TTS for summary:', error);
+                }
+            }, 1000); // Wait 1 second for the message to be processed
+
+        } catch (error) {
+            err('Summary generation failed:', error);
+            // Show error message to user
+            const errorMessage: ChatMessage = {
+                id: `error-${Date.now()}`,
+                voiceMemo: {
+                    id: `error-${Date.now()}`,
+                    type: 'ai',
+                    audioBlob: new Blob(),
+                    transcription: `Failed to generate summary: ${error.message}`,
+                    timestamp: Date.now()
+                },
+                createdAt: Date.now()
+            };
+            setChatMessages(prev => [...prev, errorMessage]);
+        } finally {
+            setChatLoading(false);
+        }
+    }, [agent]);
 
     const deleteMessage = React.useCallback((messageId: string) => {
         setChatMessages(prev => prev.filter(msg => msg.id !== messageId))

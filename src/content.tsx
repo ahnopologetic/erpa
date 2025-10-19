@@ -266,6 +266,76 @@ const PlasmoOverlay = () => {
         }
         return true
       }
+
+      if (message?.type === "GET_PAGE_CONTENT") {
+        try {
+          debug('[GET_PAGE_CONTENT] Collecting page content with sections')
+          
+          // Use already-detected sections (same ones used by TOC and navigation)
+          const sectionsWithContent = sections.map((section, index) => {
+            const element = document.querySelector(section.cssSelector) as HTMLElement;
+            if (!element) return null;
+            
+            // Use existing helper to get readable content nodes
+            const nodes = findReadableNodesUntilNextSection(element, document);
+            const content = nodes
+              .map(node => node.innerText || node.textContent)
+              .join(' ')
+              .trim();
+            
+            return {
+              title: section.title,
+              cssSelector: section.cssSelector,
+              content: content.substring(0, 1000), // Increased to 1000 chars for better context
+              index
+            };
+          }).filter(s => s !== null && s.content.length > 0);
+          
+          // Also get a sample of the main content for context
+          const mainContent = document.body.innerText.substring(0, 2000);
+          
+          sendResponse({ 
+            ok: true, 
+            sections: sectionsWithContent,
+            pageTitle: document.title,
+            mainContent: mainContent // Sample of main content for context
+          });
+        } catch (e) {
+          err('[GET_PAGE_CONTENT] Error:', e);
+          sendResponse({ ok: false, error: (e as Error)?.message || "Unknown error" });
+        }
+        return true;
+      }
+
+      if (message?.type === "READ_OUT_TEXT") {
+        try {
+          const text = message.text;
+          debug('[READ_OUT_TEXT] Reading text:', text.substring(0, 100) + '...');
+          
+          // Create a temporary element to hold the text for TTS
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = text;
+          document.body.appendChild(tempDiv);
+          
+          // Use existing TTS system
+          const nodes = [tempDiv];
+          const elements = createFromReadableNodes(nodes, -1, 'Page Summary');
+          
+          queueManagerRef.current?.clear();
+          queueManagerRef.current?.enqueue(elements);
+          
+          setTimeout(() => {
+            queueManagerRef.current?.start();
+            document.body.removeChild(tempDiv);
+          }, 100);
+          
+          sendResponse({ ok: true });
+        } catch (error) {
+          err('[READ_OUT_TEXT] Error:', error);
+          sendResponse({ ok: false, error: (error as Error)?.message || "Unknown error" });
+        }
+        return true;
+      }
     })
   }, [sections])
 
@@ -348,33 +418,46 @@ const PlasmoOverlay = () => {
 
         if (!queueManagerRef.current) return
 
-        // If queue is empty, populate it with current section content
-        if (queueManagerRef.current.elements.length === 0) {
-          // Find current section element
-          const currentSection = sections[queueState.currentSectionIndex]
-          if (!currentSection) return
+        // Check if we have focus on a section
+        const hasFocus = queueManagerRef.current.elements.length > 0 && 
+                         queueManagerRef.current.isPlaying
 
-          const sectionElement = document.querySelector(currentSection.cssSelector) as HTMLElement
-          if (!sectionElement) return
+        if (!hasFocus) {
+          // Trigger page summary
+          debug('[TTS] No section focused - triggering page summary')
+          chrome.runtime.sendMessage({ type: 'TRIGGER_PAGE_SUMMARY' })
+        } else {
+          // Existing behavior - continue reading current section
+          debug('[TTS] Section focused - continuing current behavior')
+          
+          // If queue is empty, populate it with current section content
+          if (queueManagerRef.current.elements.length === 0) {
+            // Find current section element
+            const currentSection = sections[queueState.currentSectionIndex]
+            if (!currentSection) return
 
-          // Find readable nodes from current section
-          const nodes = findReadableNodesUntilNextSection(sectionElement, document)
-          if (nodes.length === 0) {
-            debug('[TTS] No readable content found in current section')
-            return
+            const sectionElement = document.querySelector(currentSection.cssSelector) as HTMLElement
+            if (!sectionElement) return
+
+            // Find readable nodes from current section
+            const nodes = findReadableNodesUntilNextSection(sectionElement, document)
+            if (nodes.length === 0) {
+              debug('[TTS] No readable content found in current section')
+              return
+            }
+
+            // Create ErpaReadableElements and enqueue them
+            const elements = createFromReadableNodes(nodes, queueState.currentSectionIndex, currentSection.title)
+            queueManagerRef.current.enqueue(elements)
+
+            debug('[TTS] Populated queue with', elements.length, 'elements from current section')
           }
 
-          // Create ErpaReadableElements and enqueue them
-          const elements = createFromReadableNodes(nodes, queueState.currentSectionIndex, currentSection.title)
-          queueManagerRef.current.enqueue(elements)
-
-          debug('[TTS] Populated queue with', elements.length, 'elements from current section')
-        }
-
-        // If queue is already playing, don't interrupt - let it continue naturally
-        // If queue is not playing, start it
-        if (queueManagerRef.current.elements.length > 0 && !queueManagerRef.current.isPlaying) {
-          queueManagerRef.current.start()
+          // If queue is already playing, don't interrupt - let it continue naturally
+          // If queue is not playing, start it
+          if (queueManagerRef.current.elements.length > 0 && !queueManagerRef.current.isPlaying) {
+            queueManagerRef.current.start()
+          }
         }
       }
     }
