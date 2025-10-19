@@ -22,7 +22,7 @@ const readOutFunction = createFunctionDefinition('readOut', 'Read out a specific
     type: 'object',
     properties: {
         targetType: { type: 'string', description: "Type of target to read out. Should be 'SECTION' or 'NODE'" },
-        target: { type: 'string', description: "Target to read out. For section, it should be the section name. For node, it should be the node id or selector." }
+        target: { type: 'string', description: "Target to read out. For section, it should be the section name. Search for the exact section name in the context. For node, it should be the node id or selector." }
     },
     required: ['targetType', 'target']
 }, async ({ targetType, target }: { targetType: string, target: string }) => {

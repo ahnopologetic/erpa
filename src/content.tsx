@@ -212,8 +212,12 @@ const PlasmoOverlay = () => {
 
           // Find section index
           const sectionIndex = sections.findIndex(s => {
-            const el = document.querySelector(s.cssSelector)
-            return el?.contains(targetElement) || el === targetElement
+            try {
+              const el = document.querySelector(s.cssSelector)
+              return el?.contains(targetElement) || el === targetElement
+            } catch (e) {
+              return false
+            }
           })
 
           const sectionTitle = sectionIndex !== -1 ? sections[sectionIndex].title : 'Unknown Section'
