@@ -307,18 +307,58 @@ const PlasmoOverlay = () => {
         return true;
       }
 
+      if (message?.type === "CREATE_TTS_ELEMENT") {
+        try {
+          const text = message.text;
+          const elementId = message.id || 'tts-element';
+          debug('[CREATE_TTS_ELEMENT] Creating element:', elementId, text.substring(0, 100) + '...');
+          
+          // Remove any existing element with the same ID
+          const existingElement = document.getElementById(elementId);
+          if (existingElement) {
+            existingElement.remove();
+          }
+          
+          // Create a new element with the text
+          const tempDiv = document.createElement('div');
+          tempDiv.id = elementId;
+          tempDiv.innerHTML = text;
+          tempDiv.style.position = 'absolute';
+          tempDiv.style.left = '-9999px';
+          tempDiv.style.top = '-9999px';
+          tempDiv.style.visibility = 'hidden';
+          document.body.appendChild(tempDiv);
+          
+          sendResponse({ ok: true });
+        } catch (error) {
+          err('[CREATE_TTS_ELEMENT] Error:', error);
+          sendResponse({ ok: false, error: (error as Error)?.message || "Unknown error" });
+        }
+        return true;
+      }
+
       if (message?.type === "READ_OUT_TEXT") {
         try {
           const text = message.text;
           debug('[READ_OUT_TEXT] Reading text:', text.substring(0, 100) + '...');
           
-          // Create a temporary element to hold the text for TTS
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = text;
-          document.body.appendChild(tempDiv);
+          // Try to find an existing TTS element first
+          let targetElement = document.getElementById('page-summary-text');
+          
+          if (!targetElement) {
+            // Create a temporary element to hold the text for TTS
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = text;
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px';
+            tempDiv.style.top = '-9999px';
+            tempDiv.style.visibility = 'hidden';
+            document.body.appendChild(tempDiv);
+            targetElement = tempDiv;
+          }
           
           // Use existing TTS system
-          const nodes = [tempDiv];
+          const nodes = [targetElement];
           const elements = createFromReadableNodes(nodes, -1, 'Page Summary');
           
           queueManagerRef.current?.clear();
@@ -326,7 +366,10 @@ const PlasmoOverlay = () => {
           
           setTimeout(() => {
             queueManagerRef.current?.start();
-            document.body.removeChild(tempDiv);
+            // Clean up temporary element if it was created here
+            if (targetElement && !targetElement.id) {
+              document.body.removeChild(targetElement);
+            }
           }, 100);
           
           sendResponse({ ok: true });

@@ -10,7 +10,7 @@ class ErpaChatAgent {
     private registry: FunctionRegistry;
     private systemPrompt: string;
     private maxIterations: number;
-    private onMessageUpdate?: (message: ChatMessage) => void;
+    public onMessageUpdate?: (message: ChatMessage) => void;
     private onProgressUpdate?: (iteration: number, action: string, status: string) => void;
     private sentMessageIds: Set<string> = new Set();
     private pendingJsonContent: string = '';
@@ -46,12 +46,31 @@ class ErpaChatAgent {
     }
 
     private parseAndSendMessages(content: string, iteration: number): void {
+        console.log('[DEBUG] parseAndSendMessages called with:', {
+            contentLength: content.length,
+            iteration,
+            contentPreview: content.substring(0, 200) + '...'
+        });
+        
         // Remove JSON blocks from content - we don't want to show them as separate messages
         const cleanedContent = content.replace(/```json[\s\S]*?```/g, '');
+        
+        console.log('[DEBUG] Cleaned content:', {
+            originalLength: content.length,
+            cleanedLength: cleanedContent.length,
+            cleanedPreview: cleanedContent.substring(0, 200) + '...',
+            hasContent: !!cleanedContent.trim()
+        });
 
         // Only send text content (no JSON blocks)
         if (cleanedContent.trim()) {
             const messageId = `text-${iteration}`;
+            console.log('[DEBUG] Sending message to UI:', {
+                messageId,
+                contentLength: cleanedContent.trim().length,
+                contentPreview: cleanedContent.trim().substring(0, 100) + '...'
+            });
+            
             this.onMessageUpdate?.({
                 id: messageId,
                 voiceMemo: {
@@ -63,6 +82,8 @@ class ErpaChatAgent {
                 },
                 createdAt: Date.now()
             });
+        } else {
+            console.log('[DEBUG] No content to send after cleaning');
         }
     }
 
@@ -191,6 +212,9 @@ class ErpaChatAgent {
 
         if (iteration >= this.maxIterations) {
             console.log('MAX ITERATIONS REACHED');
+            // DEBUG: Parse and send any final response even when max iterations reached
+            // Note: fullResponse is not available here, so we can't parse it
+            console.log('[DEBUG] Max iterations reached, but fullResponse is not available in this scope');
         }
     }
 

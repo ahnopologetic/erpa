@@ -11,6 +11,7 @@ import { getContentFunction, navigateFunction, readOutFunction } from "~lib/func
 // Remove summarizer imports - using existing Prompt API instead
 import "~style.css"
 import type { ChatMessage } from "~types/voice-memo"
+import erpaAgentSystemPrompt from "~prompt"
 
 function Sidepanel() {
     const [isListening, setIsListening] = React.useState(false)
@@ -117,7 +118,7 @@ function Sidepanel() {
         const initializeErpaAgent = async () => {
             agent.current = new ErpaChatAgent({
                 functions: [navigateFunction, readOutFunction, getContentFunction],
-                systemPrompt: "You're a helpful AI browser agent who helps visually impaired users navigate and understand websites.",
+                systemPrompt: erpaAgentSystemPrompt,
                 maxIterations: 2,
                 onMessageUpdate: handleAgentMessageUpdate,
                 onProgressUpdate: handleAgentProgressUpdate,
@@ -345,7 +346,7 @@ Page content sample: ${response.mainContent}
 Available sections with their content:
 ${sectionsInfo}
 
-Please provide a comprehensive summary in a natural, spoken format that includes:
+Please provide a concise summary in a natural, spoken format (under 200 words) that includes:
 1. A brief overview of what this page is about
 2. Key points from different sections with quotes
 3. A recommendation for where to start reading
@@ -362,8 +363,66 @@ Finally, the [Section Name] section explains [quote]. This is useful because...
 
 I recommend starting with the [Section Name] section to get the best overview of this topic."
 
-Use natural transitions like "First", "Next", "Also", "Finally" and speak as if you're having a conversation.`
+IMPORTANT: Keep your response under 200 words. Use natural transitions like "First", "Next", "Also", "Finally" and speak as if you're having a conversation. Be concise but informative.`
             }]);
+
+            // Set up streaming capture BEFORE running the agent
+            const originalOnMessageUpdate = agent.current.onMessageUpdate;
+            let summaryText = '';
+            let messageCount = 0;
+            let ttsTriggered = false;
+            
+            // Override the message update handler to capture streaming text
+            agent.current.onMessageUpdate = (message: ChatMessage) => {
+                messageCount++;
+                log(`[DEBUG] Message update #${messageCount}:`, {
+                    id: message.id,
+                    type: message.voiceMemo?.type,
+                    hasTranscription: !!message.voiceMemo?.transcription,
+                    transcriptionLength: message.voiceMemo?.transcription?.length || 0
+                });
+                
+                // Call the original handler first
+                originalOnMessageUpdate?.(message);
+                
+                // Capture streaming text for summary
+                if (message.voiceMemo?.type === 'ai' && message.voiceMemo.transcription) {
+                    summaryText = message.voiceMemo.transcription;
+                    log('[DEBUG] Captured streaming text:', {
+                        length: summaryText.length,
+                        preview: summaryText.substring(0, 100) + '...',
+                        fullText: summaryText
+                    });
+                    
+                    // Trigger TTS immediately when we have substantial text (not just the first few characters)
+                    if (summaryText.length > 100 && !ttsTriggered) {
+                        ttsTriggered = true;
+                        log('[DEBUG] Triggering TTS immediately with streaming text');
+                        
+                        // Trigger TTS asynchronously without blocking
+                        setTimeout(async () => {
+                            try {
+                                // Create a temporary element in the page for TTS to capture
+                                await chrome.tabs.sendMessage(tab.id, {
+                                    type: 'CREATE_TTS_ELEMENT',
+                                    text: summaryText,
+                                    id: 'page-summary-text'
+                                });
+
+                                // Use the content script TTS system to read the summary
+                                await chrome.tabs.sendMessage(tab.id, {
+                                    type: 'READ_OUT_TEXT',
+                                    text: summaryText
+                                });
+                                
+                                log('[DEBUG] TTS triggered successfully with streaming text');
+                            } catch (error) {
+                                log('[DEBUG] Failed to trigger TTS with streaming text:', error);
+                            }
+                        }, 500); // Small delay to ensure message is processed
+                    }
+                }
+            };
 
             // Use the agent to generate summary
             const summaryTask = `Please summarize this webpage in a conversational, spoken format. Include key quotes from the sections and tell me where to start reading.`;
@@ -372,28 +431,65 @@ Use natural transitions like "First", "Next", "Also", "Finally" and speak as if 
             await agent.current.run(summaryTask);
 
             log('Summary generation completed via Prompt API');
-
-            // The agent will automatically add the summary as a chat message
-            // We need to trigger TTS to read the summary aloud
-            // Wait a moment for the message to be added to chat, then trigger TTS
+            
+            // Set up a fallback timeout in case streaming capture fails
             setTimeout(async () => {
                 try {
-                    // Get the latest AI message (should be the summary)
-                    const latestMessage = chatMessages[chatMessages.length - 1];
-                    if (latestMessage && latestMessage.voiceMemo?.type === 'ai') {
-                        const summaryText = latestMessage.voiceMemo.transcription;
-                        log('Triggering TTS for summary:', summaryText.substring(0, 100) + '...');
+                    log('[DEBUG] Fallback TTS trigger timeout reached');
+                    
+                    if (!ttsTriggered && summaryText) {
+                        log('[DEBUG] Using fallback streaming text for TTS');
+
+                        // Create a temporary element in the page for TTS to capture
+                        await chrome.tabs.sendMessage(tab.id, {
+                            type: 'CREATE_TTS_ELEMENT',
+                            text: summaryText,
+                            id: 'page-summary-text'
+                        });
 
                         // Use the content script TTS system to read the summary
                         await chrome.tabs.sendMessage(tab.id, {
                             type: 'READ_OUT_TEXT',
                             text: summaryText
                         });
+                    } else if (!ttsTriggered) {
+                        log('[DEBUG] No streaming text captured, trying fallback from chat messages');
+                        // Fallback: try to get from chat messages
+                        const latestMessage = chatMessages[chatMessages.length - 1];
+                        log('[DEBUG] Latest message from chat:', {
+                            exists: !!latestMessage,
+                            type: latestMessage?.voiceMemo?.type,
+                            hasTranscription: !!latestMessage?.voiceMemo?.transcription,
+                            transcriptionLength: latestMessage?.voiceMemo?.transcription?.length || 0
+                        });
+                        
+                        if (latestMessage && latestMessage.voiceMemo?.type === 'ai') {
+                            const fallbackText = latestMessage.voiceMemo.transcription;
+                            if (fallbackText) {
+                                log('[DEBUG] Using fallback text for TTS:', fallbackText.substring(0, 100) + '...');
+                                await chrome.tabs.sendMessage(tab.id, {
+                                    type: 'CREATE_TTS_ELEMENT',
+                                    text: fallbackText,
+                                    id: 'page-summary-text'
+                                });
+                                await chrome.tabs.sendMessage(tab.id, {
+                                    type: 'READ_OUT_TEXT',
+                                    text: fallbackText
+                                });
+                            } else {
+                                log('[DEBUG] Fallback message has no transcription');
+                            }
+                        } else {
+                            log('[DEBUG] No valid fallback message found');
+                        }
                     }
+                    
+                    // Restore original handler
+                    agent.current!.onMessageUpdate = originalOnMessageUpdate;
                 } catch (error) {
-                    log('Failed to trigger TTS for summary:', error);
+                    log('[DEBUG] Failed to trigger fallback TTS for summary:', error);
                 }
-            }, 1000); // Wait 1 second for the message to be processed
+            }, 2000); // Wait 2 seconds for the agent to complete
 
         } catch (error) {
             err('Summary generation failed:', error);
@@ -413,7 +509,7 @@ Use natural transitions like "First", "Next", "Also", "Finally" and speak as if 
         } finally {
             setChatLoading(false);
         }
-    }, [agent]);
+    }, [agent, chatMessages]);
 
     const deleteMessage = React.useCallback((messageId: string) => {
         setChatMessages(prev => prev.filter(msg => msg.id !== messageId))
