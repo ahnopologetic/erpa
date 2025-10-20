@@ -186,7 +186,7 @@ function Sidepanel() {
             if (message.type === "toggle-mic") {
                 log('[toggle-mic] Toggle mic message received', { message })
                 if (message.target === "sidepanel") {
-                    if (isListening) {
+                    if (message.isListening) {
                         setIsListening(false)
                     } else {
                         // handleToggleMic()
@@ -208,6 +208,26 @@ function Sidepanel() {
                     },
                     createdAt: Date.now()
                 } as ChatMessage])
+                setIsListening(false)
+            }
+            if (message.type === "speech-recognition-error") {
+                log('[speech-recognition-error] Speech recognition error received', { message })
+                setChatMessages(prev => [...prev, {
+                    id: `speech-recognition-error-${Date.now()}`,
+                    voiceMemo: {
+                        id: `speech-recognition-error-${Date.now()}`,
+                        type: 'user',
+                        audioBlob: new Blob(),
+                        transcription: `Transcription error: ${message.error}`,
+                        timestamp: Date.now()
+                    },
+                    createdAt: Date.now()
+                } as ChatMessage])
+                setIsListening(false)
+            }
+            if (message.type === "speech-recognition-ended") {
+                log('[speech-recognition-ended] Speech recognition ended', { message })
+                setIsListening(false)
             }
         };
 

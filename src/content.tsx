@@ -68,6 +68,13 @@ const PlasmoOverlay = () => {
 
   // Use the speech recognition hook
   const speechRecognition = useSpeechRecognition({
+    onEnd: () => {
+      log('[Speech Recognition] Speech recognition ended')
+      chrome.runtime.sendMessage({
+        type: "speech-recognition-ended",
+        target: "sidepanel"
+      })
+    },
     onResult: (transcript) => {
       log('[Speech Recognition] Final transcript:', transcript)
       chrome.runtime.sendMessage({
@@ -78,6 +85,11 @@ const PlasmoOverlay = () => {
     },
     onError: (error) => {
       console.error('[Speech Recognition] Error:', error)
+      chrome.runtime.sendMessage({
+        type: "speech-recognition-error",
+        error: error,
+        target: "sidepanel"
+      })
     }
   })
 
@@ -404,7 +416,8 @@ const PlasmoOverlay = () => {
         debug('[TTS] Ctrl + Command + Enter key pressed')
         chrome.runtime.sendMessage({
           type: "toggle-mic",
-          target: "sidepanel"
+          target: "sidepanel",
+          isListening: speechRecognition.isListening
         })
         handleToggleMic()
       }
