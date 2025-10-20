@@ -68,6 +68,13 @@ const PlasmoOverlay = () => {
 
   // Use the speech recognition hook
   const speechRecognition = useSpeechRecognition({
+    onStart: () => {
+      log('[Speech Recognition] Speech recognition started')
+      chrome.runtime.sendMessage({
+        type: "speech-recognition-started",
+        target: "sidepanel"
+      })
+    },
     onEnd: () => {
       log('[Speech Recognition] Speech recognition ended')
       chrome.runtime.sendMessage({
@@ -90,8 +97,23 @@ const PlasmoOverlay = () => {
         error: error,
         target: "sidepanel"
       })
-    }
+    },
+    singleTurn: true
   })
+
+  // Listen for sidepanel mic toggle commands
+  useEffect(() => {
+    const handleMessage = (message: any) => {
+      if (message?.type === 'toggle-mic' && message.target === 'content') {
+        speechRecognition.toggleListening()
+      }
+    }
+
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleMessage)
+    }
+  }, [speechRecognition])
 
   // Queue manager instance
   const queueManagerRef = useRef<ErpaReadableQueueManager | null>(null)

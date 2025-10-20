@@ -1,4 +1,4 @@
-import { MicIcon, PencilIcon, SendIcon } from "lucide-react"
+import { SendIcon } from "lucide-react"
 import React from "react"
 import { TocPopup } from "~components/toc-popup"
 import { Button } from "~components/ui/button"
@@ -16,7 +16,6 @@ function Sidepanel() {
     const [contextChanged, setContextChanged] = React.useState(false)
     const [isTranscribing, setIsTranscribing] = React.useState(false)
     const [isSidepanelEnabled, setIsSidepanelEnabled] = React.useState(true)
-    // Remove mode toggle - only chat mode
     const [currentTabId, setCurrentTabId] = React.useState<number | null>(null)
     const [currentUrl, setCurrentUrl] = React.useState<string>('')
     const [mode, setMode] = React.useState<"voice" | "text">("voice")
@@ -26,8 +25,6 @@ function Sidepanel() {
     const [chatLoading, setChatLoading] = React.useState(false)
     const [currentStreamingMessageId, setCurrentStreamingMessageId] = React.useState<string | null>(null)
 
-    const streamRef = React.useRef<MediaStream | null>(null)
-    const offscreenDocumentRef = React.useRef<chrome.runtime.ExtensionContext | null>(null)
     const agent = React.useRef<ErpaChatAgent | null>(null)
 
     // Handle agent message updates
@@ -97,21 +94,6 @@ function Sidepanel() {
             }
         };
 
-        const checkMicrophonePermission = async () => {
-            const permission = await navigator.permissions.query({ name: "microphone" })
-            log('Microphone permission', { permission })
-            if (!permission) {
-                chrome.tabs.create({ url: "tabs/permission.html" })
-            }
-        }
-        const checkOffscreenDocument = async () => {
-            const contexts = await chrome.runtime.getContexts({});
-            const offscreenDocument = contexts.find(
-                (c) => c.contextType === "OFFSCREEN_DOCUMENT"
-            );
-            log('Offscreen document', { offscreenDocument })
-            offscreenDocumentRef.current = offscreenDocument
-        }
 
         const initializeErpaAgent = async () => {
             agent.current = new ErpaChatAgent({
@@ -125,12 +107,6 @@ function Sidepanel() {
 
         initializeErpaAgent()
         getCurrentTab()
-
-        checkMicrophonePermission()
-        checkOffscreenDocument()
-        return () => {
-            stopStream()
-        }
     }, [])
 
     React.useEffect(() => {
@@ -148,53 +124,10 @@ function Sidepanel() {
                 setIsSidepanelEnabled(false);
                 setContextChanged(true);
             }
-            if (message.type === "recording-error") {
-                log(`Recording error: ${message.error}`, message.details);
-                setIsListening(false);
-                stopStream();
-                alert(`Recording error: ${message.error}`);
+
+            if (message.type === "speech-recognition-started") {
+                setIsListening(true)
             }
-            if (message.type === "recording-stopped" && message.target === "sidepanel") {
-                log(`Received recording data:`, {
-                    fileName: message.fileName,
-                    mimeType: message.mimeType,
-                    audioDataLength: message.audioData?.length
-                });
-
-                // Convert base64 back to blob
-                const binaryString = atob(message.audioData);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
-                const audioBlob = new Blob([bytes], { type: message.mimeType });
-
-                log("🎵 RECORDED AUDIO FILE:", {
-                    blob: audioBlob,
-                    fileName: message.fileName,
-                    mimeType: message.mimeType,
-                    size: audioBlob.size,
-                    sizeInMB: (audioBlob.size / (1024 * 1024)).toFixed(2),
-                    url: URL.createObjectURL(audioBlob) // For testing - you can open this URL in a new tab
-                });
-
-                // Stop listening state
-                setIsListening(false);
-                stopStream();
-            }
-
-            if (message.type === "toggle-mic") {
-                log('[toggle-mic] Toggle mic message received', { message })
-                if (message.target === "sidepanel") {
-                    if (message.isListening) {
-                        setIsListening(false)
-                    } else {
-                        // handleToggleMic()
-                        setIsListening(true)
-                    }
-                }
-            }
-
             if (message.type === "speech-recognition-result") {
                 log('[speech-recognition-result] Speech recognition result received', { message })
                 setChatMessages(prev => [...prev, {
@@ -208,7 +141,6 @@ function Sidepanel() {
                     },
                     createdAt: Date.now()
                 } as ChatMessage])
-                setIsListening(false)
                 await agent.current.run(message.transcript)
             }
             if (message.type === "speech-recognition-error") {
@@ -237,95 +169,8 @@ function Sidepanel() {
         return () => {
             chrome.runtime.onMessage.removeListener(handleMessage);
         };
-    }, [isListening, agent.current]);
+    }, [agent.current, isListening]);
 
-    const stopStream = () => {
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach((t) => t.stop())
-            streamRef.current = null
-        }
-    }
-
-
-    const handleToggleMic = async () => {
-        if (isListening) {
-            stopStream()
-            setIsListening(false)
-            if (offscreenDocumentRef.current) {
-                const response = await chrome.runtime.sendMessage({
-                    type: "stop-recording",
-                    target: "offscreen"
-                })
-                log('Stop recording response', { response })
-            }
-            return
-        }
-
-        try {
-            // Get microphone permission first
-            const micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            streamRef.current = micStream
-            setIsListening(true)
-
-            // Check if we can capture the current tab
-            const [tab] = await chrome.tabs.query({
-                active: true,
-                currentWindow: true,
-            });
-
-            if (!tab) {
-                throw new Error("No active tab found");
-            }
-
-            if (
-                tab.url?.startsWith("chrome://") ||
-                tab.url?.startsWith("chrome-extension://") ||
-                tab.url?.startsWith("chrome-extension://") ||
-                tab.url?.startsWith("edge://") ||
-                tab.url?.startsWith("moz-extension://")
-            ) {
-                throw new Error("Cannot record Chrome system pages. Please try on a regular webpage.");
-            }
-
-            log('Attempting to get tab stream ID for tab:', { tabId: tab.id, url: tab.url });
-
-            // Get tab capture stream ID via background script with proper invocation
-            const response = await chrome.runtime.sendMessage({
-                type: "get-tab-stream-id",
-                tabId: tab.id
-            });
-
-            if (!response.success) {
-                throw new Error(response.error || "Failed to get tab stream ID");
-            }
-
-            const streamId = response.streamId;
-            log('Tab stream ID received via background script', { streamId });
-
-            // Send recording start message to offscreen document
-            if (offscreenDocumentRef.current) {
-                const recordingResponse = await chrome.runtime.sendMessage({
-                    type: "start-recording",
-                    data: streamId,
-                    target: "offscreen"
-                })
-                log('Start recording response', { recordingResponse })
-            }
-        } catch (error) {
-            err("Recording setup failed", error)
-            setIsListening(false)
-            stopStream()
-
-            // Show user-friendly error message
-            if (error.message.includes("Cannot record Chrome system pages")) {
-                alert(error.message);
-            } else if (error.message.includes("Permission denied") || error.message.includes("NotAllowedError")) {
-                alert("Microphone permission denied. Please allow microphone access and try again.");
-            } else {
-                alert("Failed to start recording. Please try again.");
-            }
-        }
-    }
 
     const handleTocGenerated = React.useCallback(async (sections: Array<{ title: string; cssSelector: string }>) => {
         if (!sections || sections.length === 0) {
@@ -464,18 +309,10 @@ function Sidepanel() {
             <div className="relative z-10 p-4 border-b border-gray-700">
                 <div className="flex items-center justify-between">
                     <h1 className="text-xl font-semibold">Erpa</h1>
-                    {isListening && (
-                        <div className="flex items-center space-x-2">
-                            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                            <span className="text-sm text-red-400">Recording...</span>
-                        </div>
-                    )}
                 </div>
                 <p className="mt-2 text-sm text-gray-400">
-                    {isListening ? "Recording your message..." :
-                        (isProcessingText) ? "Processing your message..." :
-                            mode === "voice" ? "Click the voice orb below to start a conversation." :
-                                "Type your message below to start a conversation."}
+                    {(isProcessingText) ? "Processing your message..." :
+                        "Type your message below to start a conversation, or use speech recognition from the content script."}
                 </p>
             </div>
 
@@ -493,56 +330,50 @@ function Sidepanel() {
             <div className="action-panel flex z-10 bg-black">
                 <div className="toc h-full flex items-center justify-center px-2">
                     <TocPopup onTocGenerated={handleTocGenerated} />
-                    <Button variant="ghost" size="sm" onClick={() => setMode(mode === "voice" ? "text" : "voice")}>
-                        {
-                            mode === "voice" ? (
-                                <PencilIcon className="w-4 h-4" />
-                            ) : (
-                                <MicIcon className="w-4 h-4" />
-                            )
-                        }
-                    </Button>
                 </div>
-                <div className="flex items-center justify-center bg-transparent py-4">
-                    {
-                        mode === "voice" ? (
-                            <div onClick={handleToggleMic} className="cursor-pointer">
+                <div className="flex items-center justify-center bg-transparent py-4 w-full">
+                    {mode === "voice" && (
+                        <div className="px-2" onClick={(e) => e.stopPropagation()}>
+                            <div onClick={() => {
+                                chrome.runtime.sendMessage({ type: 'toggle-mic', target: 'content' })
+                            }} className="cursor-pointer">
                                 <VoicePoweredOrb
                                     enableVoiceControl={false}
                                     isRecording={isListening}
                                     className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 max-h-24"
                                 />
                             </div>
-                        ) : (
-                            <div className="w-full px-2 flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
-                                <Textarea
-                                    value={textInput}
-                                    onChange={(e) => setTextInput(e.target.value)}
-                                    onKeyPress={handleKeyPress}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 max-h-24 w-full px-4 text-sm resize-none"
-                                    placeholder="Type your message..."
-                                    disabled={isProcessingText}
-                                />
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleTextSubmit()
-                                    }}
-                                    disabled={!textInput.trim() || isProcessingText}
-                                    className="flex-shrink-0"
-                                >
-                                    {isProcessingText ? (
-                                        <div className="w-4 h-4 border-2 border-gray-300 border-t-white rounded-full animate-spin" />
-                                    ) : (
-                                        <SendIcon className="w-4 h-4" />
-                                    )}
-                                </Button>
-                            </div>
-                        )
-                    }
+                        </div>
+                    )}
+                    {mode === "text" && (
+                        <div className="w-full px-2 flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                            <Textarea
+                                value={textInput}
+                                onChange={(e) => setTextInput(e.target.value)}
+                                onKeyPress={handleKeyPress}
+                                onClick={(e) => e.stopPropagation()}
+                                className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 max-h-24 w-full px-4 text-sm resize-none"
+                                placeholder="Type your message..."
+                                disabled={isProcessingText}
+                            />
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleTextSubmit()
+                                }}
+                                disabled={!textInput.trim() || isProcessingText}
+                                className="flex-shrink-0"
+                            >
+                                {isProcessingText ? (
+                                    <div className="w-4 h-4 border-2 border-gray-300 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <SendIcon className="w-4 h-4" />
+                                )}
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
