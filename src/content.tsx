@@ -377,6 +377,16 @@ const PlasmoOverlay = () => {
           queueManagerRef.current.start()
         }
       }
+
+      // If the key is ctrl + command + enter, send a message to the sidepanel to toggle the mic
+      if (e.ctrlKey && e.metaKey && e.key === 'Enter') {
+        e.preventDefault()
+        debug('[TTS] Ctrl + Command + Enter key pressed')
+        chrome.runtime.sendMessage({
+          type: "toggle-mic",
+          target: "sidepanel"
+        })
+      }
     }
 
     document.addEventListener('keydown', handleKeyDown)
