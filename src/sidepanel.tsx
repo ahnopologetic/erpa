@@ -116,8 +116,7 @@ function Sidepanel() {
         const initializeErpaAgent = async () => {
             agent.current = new ErpaChatAgent({
                 functions: [navigateFunction, readOutFunction, getContentFunction],
-                systemPrompt: "You're a helpful AI browser agent who helps visually impaired users navigate and understand websites.",
-                maxIterations: 2,
+                maxIterations: 10,
                 onMessageUpdate: handleAgentMessageUpdate,
                 onProgressUpdate: handleAgentProgressUpdate,
             })
