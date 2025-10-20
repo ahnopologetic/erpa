@@ -1,15 +1,17 @@
 import cssText from "data-text:~style.css"
+import { MicIcon } from "lucide-react"
 import type { PlasmoCSConfig } from "plasmo"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import TtsPlayback from "~components/tts-playback"
 import { SectionHighlight } from "~components/ui/section-highlight"
 import { detectSections } from "~hooks/useDetectSections"
+import useSpeechRecognition from "~hooks/useSpeechRecognition"
 import { findReadableNodesUntilNextSection } from "~lib/debugging/readable"
 import { ErpaReadableQueueManager } from "~lib/erpa-readable"
 import { createFromReadableNodes } from "~lib/erpa-readable/element-factory"
 import type { SectionInfo } from "~lib/erpa-readable/types"
-import { debug, err, warn } from "~lib/log"
+import { debug, err, log, warn } from "~lib/log"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -63,6 +65,33 @@ const convertToSectionInfo = (
 const PlasmoOverlay = () => {
   const [isVisible, setIsVisible] = useState(false)
   const [sections, setSections] = useState<Array<{ title: string; cssSelector: string }>>([])
+
+  // Use the speech recognition hook
+  const speechRecognition = useSpeechRecognition({
+    onEnd: () => {
+      log('[Speech Recognition] Speech recognition ended')
+      chrome.runtime.sendMessage({
+        type: "speech-recognition-ended",
+        target: "sidepanel"
+      })
+    },
+    onResult: (transcript) => {
+      log('[Speech Recognition] Final transcript:', transcript)
+      chrome.runtime.sendMessage({
+        type: "speech-recognition-result",
+        transcript: transcript,
+        target: "sidepanel"
+      })
+    },
+    onError: (error) => {
+      console.error('[Speech Recognition] Error:', error)
+      chrome.runtime.sendMessage({
+        type: "speech-recognition-error",
+        error: error,
+        target: "sidepanel"
+      })
+    }
+  })
 
   // Queue manager instance
   const queueManagerRef = useRef<ErpaReadableQueueManager | null>(null)
@@ -337,6 +366,9 @@ const PlasmoOverlay = () => {
     }
   }, [sections])
 
+  const handleToggleMic = useCallback(() => {
+    return speechRecognition.toggleListening()
+  }, [speechRecognition])
 
 
   // Tab key listener for testing TTS cursor-following functionality
@@ -384,8 +416,10 @@ const PlasmoOverlay = () => {
         debug('[TTS] Ctrl + Command + Enter key pressed')
         chrome.runtime.sendMessage({
           type: "toggle-mic",
-          target: "sidepanel"
+          target: "sidepanel",
+          isListening: speechRecognition.isListening
         })
+        handleToggleMic()
       }
     }
 
@@ -393,7 +427,7 @@ const PlasmoOverlay = () => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [sections, queueState.currentSectionIndex])
+  }, [sections, queueState.currentSectionIndex, handleToggleMic, speechRecognition.isListening])
 
   return (
     <div
@@ -407,9 +441,11 @@ const PlasmoOverlay = () => {
 
       <div className="pointer-events-auto z-10 absolute bottom-2 left-1/2 transform -translate-x-1/2 w-48 h-12 flex justify-center items-end">
         <TtsPlayback
+          isListening={speechRecognition.isListening}
           isPlaying={queueState.isPlaying}
           onPlayPause={handlePlayPause}
           onStop={handleStop}
+          onHandsUp={handleToggleMic}
           className="w-full h-full border-2 border-white backdrop-blur-xl bg-black/20 rounded-lg py-2 px-4 flex items-center justify-center"
         />
       </div>

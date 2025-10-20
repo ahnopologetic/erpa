@@ -184,15 +184,51 @@ function Sidepanel() {
             }
 
             if (message.type === "toggle-mic") {
-                log('Toggle mic message received', { message })
+                log('[toggle-mic] Toggle mic message received', { message })
                 if (message.target === "sidepanel") {
-                    if (isListening) {
-                        stopStream()
+                    if (message.isListening) {
                         setIsListening(false)
                     } else {
-                        handleToggleMic()
+                        // handleToggleMic()
+                        setIsListening(true)
                     }
                 }
+            }
+
+            if (message.type === "speech-recognition-result") {
+                log('[speech-recognition-result] Speech recognition result received', { message })
+                setChatMessages(prev => [...prev, {
+                    id: `speech-recognition-result-${Date.now()}`,
+                    voiceMemo: {
+                        id: `speech-recognition-result-${Date.now()}`,
+                        type: 'user',
+                        audioBlob: new Blob(),
+                        transcription: message.transcript,
+                        timestamp: Date.now()
+                    },
+                    createdAt: Date.now()
+                } as ChatMessage])
+                setIsListening(false)
+                await agent.current.run(message.transcript)
+            }
+            if (message.type === "speech-recognition-error") {
+                log('[speech-recognition-error] Speech recognition error received', { message })
+                setChatMessages(prev => [...prev, {
+                    id: `speech-recognition-error-${Date.now()}`,
+                    voiceMemo: {
+                        id: `speech-recognition-error-${Date.now()}`,
+                        type: 'user',
+                        audioBlob: new Blob(),
+                        transcription: `Transcription error: ${message.error}`,
+                        timestamp: Date.now()
+                    },
+                    createdAt: Date.now()
+                } as ChatMessage])
+                setIsListening(false)
+            }
+            if (message.type === "speech-recognition-ended") {
+                log('[speech-recognition-ended] Speech recognition ended', { message })
+                setIsListening(false)
             }
         };
 
@@ -201,7 +237,7 @@ function Sidepanel() {
         return () => {
             chrome.runtime.onMessage.removeListener(handleMessage);
         };
-    }, []);
+    }, [isListening, agent.current]);
 
     const stopStream = () => {
         if (streamRef.current) {
@@ -472,7 +508,7 @@ function Sidepanel() {
                         mode === "voice" ? (
                             <div onClick={handleToggleMic} className="cursor-pointer">
                                 <VoicePoweredOrb
-                                    enableVoiceControl={isListening}
+                                    enableVoiceControl={false}
                                     isRecording={isListening}
                                     className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 max-h-24"
                                 />
