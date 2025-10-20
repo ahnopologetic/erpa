@@ -4,6 +4,47 @@ import { getContentFunction, navigateFunction, readOutFunction } from "~lib/func
 import { log } from "~lib/log";
 import type { ChatMessage } from "~types/voice-memo";
 
+const SYSTEM_PROMPT = `You're a helpful AI browser agent who helps visually impaired users navigate and understand websites.
+
+### OUTPUT RULES
+
+You can respond in **two ways**:
+
+1️⃣ **Direct Answer (no function needed)**  
+Respond naturally to the user in plain text, then finish with this token: <|task_complete|>
+
+Example:
+User: What is the capital of France?
+You:
+<text>
+The capital of France is Paris.
+</text>
+<|task_complete|>
+
+2️⃣ **Function Call (when you need data or action)**  
+Return ONLY a valid JSON object and nothing else. Follow this format exactly:
+\`\`\`json
+{
+  "functionCall": {
+    "name": "function_name",
+    "arguments": {
+      "param1": "value1",
+      "param2": "value2"
+    }
+  },
+  "reasoning": "Briefly explain why you're calling this function"
+}
+\`\`\`
+
+BEHAVIOR RULES
+- Never mix natural text with a JSON function call in the same message.
+- Always use <|task_complete|> to mark when your task is complete.
+- Always use the function names and parameter names exactly as defined.
+- If you get a function result, use it to provide a helpful final answer.
+- Keep reasoning concise (1–2 sentences max).
+- If the answer is known or can be reasoned directly, prefer direct output.
+`
+
 class ErpaChatAgent {
     private session: SessionManager | null = null;
     private sessionManager: SessionManager | null = null;
@@ -24,7 +65,7 @@ class ErpaChatAgent {
     }) {
         this.registry = new FunctionRegistry();
         this.registry.registerMultiple(config.functions);
-        this.systemPrompt = config.systemPrompt || 'You are a helpful AI assistant with access to tools.';
+        this.systemPrompt = config.systemPrompt || SYSTEM_PROMPT;
         this.maxIterations = config.maxIterations || 10;
         this.onMessageUpdate = config.onMessageUpdate;
         this.onProgressUpdate = config.onProgressUpdate;
@@ -32,17 +73,7 @@ class ErpaChatAgent {
 
 
     private isTaskComplete(response: string): boolean {
-        const completionIndicators = [
-            'task is complete',
-            'task complete',
-            'finished',
-            'final answer',
-            'in conclusion',
-            'to summarize',
-        ];
-
-        const lowerResponse = response.toLowerCase();
-        return completionIndicators.some((indicator) => lowerResponse.includes(indicator));
+        return response.includes('<|task_complete|>');
     }
 
     private parseAndSendMessages(content: string, iteration: number): void {
@@ -170,23 +201,21 @@ class ErpaChatAgent {
                 );
 
                 currentPrompt = `${formattedResult}\n\nContinue with the task. If the task is complete, provide your final answer without calling any functions.`;
-
-            } else {
-                // No function call - check if task is complete
-                const isComplete = this.isTaskComplete(fullResponse);
-
-                if (isComplete) {
-                    console.log('TASK COMPLETE');
-                    console.log(`Final Answer:`);
-                    console.log(fullResponse);
-
-                    // Parse final response for any remaining content
-                    this.parseAndSendMessages(fullResponse, iteration);
-                    break;
-                }
-
-                currentPrompt = 'Continue with the task.';
             }
+
+            const isComplete = this.isTaskComplete(fullResponse);
+
+            if (isComplete) {
+                console.log('TASK COMPLETE');
+                console.log(`Final Answer:`);
+                console.log(fullResponse);
+
+                // Parse final response for any remaining content
+                this.parseAndSendMessages(fullResponse, iteration);
+                break;
+            }
+
+            currentPrompt = 'Continue with the task.';
         }
 
         if (iteration >= this.maxIterations) {
