@@ -1,4 +1,5 @@
 import cssText from "data-text:~style.css"
+import { MicIcon } from "lucide-react"
 import type { PlasmoCSConfig } from "plasmo"
 import { useCallback, useEffect, useRef, useState } from "react"
 
@@ -9,7 +10,7 @@ import { findReadableNodesUntilNextSection } from "~lib/debugging/readable"
 import { ErpaReadableQueueManager } from "~lib/erpa-readable"
 import { createFromReadableNodes } from "~lib/erpa-readable/element-factory"
 import type { SectionInfo } from "~lib/erpa-readable/types"
-import { debug, err, warn } from "~lib/log"
+import { debug, err, log, warn } from "~lib/log"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -63,6 +64,8 @@ const convertToSectionInfo = (
 const PlasmoOverlay = () => {
   const [isVisible, setIsVisible] = useState(false)
   const [sections, setSections] = useState<Array<{ title: string; cssSelector: string }>>([])
+  const [isMicEnabled, setIsMicEnabled] = useState(false)
+  const micStreamRef = useRef<MediaStream | null>(null)
 
   // Queue manager instance
   const queueManagerRef = useRef<ErpaReadableQueueManager | null>(null)
@@ -337,6 +340,27 @@ const PlasmoOverlay = () => {
     }
   }, [sections])
 
+  const handleToggleMic = useCallback(async () => {
+    if (isMicEnabled) {
+      setIsMicEnabled(false)
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach((track) => track.stop())
+        micStreamRef.current = null
+      }
+      log('[TTS] Mic disabled')
+      return true;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream
+      setIsMicEnabled(true)
+      log('[TTS] Mic enabled')
+      return true;
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      return false;
+    }
+  }, [micStreamRef.current, isMicEnabled])
 
 
   // Tab key listener for testing TTS cursor-following functionality
@@ -382,10 +406,12 @@ const PlasmoOverlay = () => {
       if (e.ctrlKey && e.metaKey && e.key === 'Enter') {
         e.preventDefault()
         debug('[TTS] Ctrl + Command + Enter key pressed')
-        chrome.runtime.sendMessage({
-          type: "toggle-mic",
-          target: "sidepanel"
-        })
+        // chrome.runtime.sendMessage({
+        //   type: "toggle-mic",
+        //   target: "sidepanel"
+        // })
+
+        handleToggleMic()
       }
     }
 
@@ -393,7 +419,7 @@ const PlasmoOverlay = () => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [sections, queueState.currentSectionIndex])
+  }, [sections, queueState.currentSectionIndex, handleToggleMic, isMicEnabled])
 
   return (
     <div
@@ -406,6 +432,9 @@ const PlasmoOverlay = () => {
       />
 
       <div className="pointer-events-auto z-10 absolute bottom-2 left-1/2 transform -translate-x-1/2 w-48 h-12 flex justify-center items-end">
+        <button onClick={handleToggleMic} title="Toggle microphone" aria-label="Toggle microphone">
+          <MicIcon className={`w-4 h-4 ${isMicEnabled ? 'text-green-500' : 'text-red-500'}`} />
+        </button>
         <TtsPlayback
           isPlaying={queueState.isPlaying}
           onPlayPause={handlePlayPause}
