@@ -182,6 +182,18 @@ function Sidepanel() {
                 setIsListening(false);
                 stopStream();
             }
+
+            if (message.type === "toggle-mic") {
+                log('Toggle mic message received', { message })
+                if (message.target === "sidepanel") {
+                    if (isListening) {
+                        stopStream()
+                        setIsListening(false)
+                    } else {
+                        handleToggleMic()
+                    }
+                }
+            }
         };
 
         chrome.runtime.onMessage.addListener(handleMessage);
