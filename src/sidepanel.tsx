@@ -184,13 +184,13 @@ function Sidepanel() {
             }
 
             if (message.type === "toggle-mic") {
-                log('Toggle mic message received', { message })
+                log('[toggle-mic] Toggle mic message received', { message })
                 if (message.target === "sidepanel") {
                     if (isListening) {
-                        stopStream()
                         setIsListening(false)
                     } else {
-                        handleToggleMic()
+                        // handleToggleMic()
+                        setIsListening(true)
                     }
                 }
             }
@@ -201,7 +201,7 @@ function Sidepanel() {
         return () => {
             chrome.runtime.onMessage.removeListener(handleMessage);
         };
-    }, []);
+    }, [isListening]);
 
     const stopStream = () => {
         if (streamRef.current) {
@@ -472,7 +472,7 @@ function Sidepanel() {
                         mode === "voice" ? (
                             <div onClick={handleToggleMic} className="cursor-pointer">
                                 <VoicePoweredOrb
-                                    enableVoiceControl={isListening}
+                                    enableVoiceControl={false}
                                     isRecording={isListening}
                                     className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 max-h-24"
                                 />

@@ -406,11 +406,10 @@ const PlasmoOverlay = () => {
       if (e.ctrlKey && e.metaKey && e.key === 'Enter') {
         e.preventDefault()
         debug('[TTS] Ctrl + Command + Enter key pressed')
-        // chrome.runtime.sendMessage({
-        //   type: "toggle-mic",
-        //   target: "sidepanel"
-        // })
-
+        chrome.runtime.sendMessage({
+          type: "toggle-mic",
+          target: "sidepanel"
+        })
         handleToggleMic()
       }
     }
