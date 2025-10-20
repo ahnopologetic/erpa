@@ -1,27 +1,31 @@
-import { Pause, Play, Square } from "lucide-react"
+import { Hand, Pause, Play, Square } from "lucide-react"
 import React from "react"
 
 type TtsPlaybackProps = {
     isPlaying: boolean
     onPlayPause: () => void
     onStop: () => void
+    onHandsUp: () => void
+    isListening: boolean
 } & React.HTMLAttributes<HTMLDivElement>
 
-const TtsPlayback: React.FC<TtsPlaybackProps> = ({ 
-    isPlaying, 
-    onPlayPause, 
-    onStop, 
+const TtsPlayback: React.FC<TtsPlaybackProps> = ({
+    isPlaying,
+    onPlayPause,
+    onStop,
+    onHandsUp,
+    isListening,
     className,
-    ...props 
+    ...props
 }) => {
-    if (!isPlaying && !window.speechSynthesis.paused) return null
-    
+    if (!isPlaying && !isListening && !window.speechSynthesis.paused) return null
+
     return (
         <div className={className} {...props}>
             <div className="flex items-center justify-center space-x-3">
                 {/* Status indicator */}
-                <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
-                
+                <div className={`w-2 h-2 rounded-full ${isPlaying || isListening ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
+
                 {/* Play/Pause button */}
                 <button
                     onClick={onPlayPause}
@@ -34,7 +38,7 @@ const TtsPlayback: React.FC<TtsPlaybackProps> = ({
                         <Play className="w-5 h-5 text-white" />
                     )}
                 </button>
-                
+
                 {/* Stop button */}
                 <button
                     onClick={onStop}
@@ -42,6 +46,14 @@ const TtsPlayback: React.FC<TtsPlaybackProps> = ({
                     aria-label="Stop"
                 >
                     <Square className="w-5 h-5 text-white" />
+                </button>
+
+                <button
+                    onClick={onHandsUp}
+                    className="hover:bg-white/10 p-1 rounded transition-colors"
+                    aria-label="Hands up"
+                >
+                    <Hand className={`w-5 h-5 ${isListening ? 'text-red-500' : 'text-white'}`} />
                 </button>
             </div>
         </div>

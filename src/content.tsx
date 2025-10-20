@@ -427,13 +427,12 @@ const PlasmoOverlay = () => {
       />
 
       <div className="pointer-events-auto z-10 absolute bottom-2 left-1/2 transform -translate-x-1/2 w-48 h-12 flex justify-center items-end">
-        <button onClick={handleToggleMic} title="Toggle microphone" aria-label="Toggle microphone">
-          <MicIcon className={`w-4 h-4 ${speechRecognition.isListening ? 'text-green-500' : 'text-red-500'}`} />
-        </button>
         <TtsPlayback
+          isListening={speechRecognition.isListening}
           isPlaying={queueState.isPlaying}
           onPlayPause={handlePlayPause}
           onStop={handleStop}
+          onHandsUp={handleToggleMic}
           className="w-full h-full border-2 border-white backdrop-blur-xl bg-black/20 rounded-lg py-2 px-4 flex items-center justify-center"
         />
       </div>
