@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import TtsPlayback from "~components/tts-playback"
 import { SectionHighlight } from "~components/ui/section-highlight"
 import { detectSections } from "~hooks/useDetectSections"
+import useSpeechRecognition from "~hooks/useSpeechRecognition"
 import { findReadableNodesUntilNextSection } from "~lib/debugging/readable"
 import { ErpaReadableQueueManager } from "~lib/erpa-readable"
 import { createFromReadableNodes } from "~lib/erpa-readable/element-factory"
@@ -64,8 +65,21 @@ const convertToSectionInfo = (
 const PlasmoOverlay = () => {
   const [isVisible, setIsVisible] = useState(false)
   const [sections, setSections] = useState<Array<{ title: string; cssSelector: string }>>([])
-  const [isMicEnabled, setIsMicEnabled] = useState(false)
-  const speechRecognitionRef = useRef<SpeechRecognition | null>(null)
+
+  // Use the speech recognition hook
+  const speechRecognition = useSpeechRecognition({
+    onResult: (transcript) => {
+      log('[Speech Recognition] Final transcript:', transcript)
+      chrome.runtime.sendMessage({
+        type: "speech-recognition-result",
+        transcript: transcript,
+        target: "sidepanel"
+      })
+    },
+    onError: (error) => {
+      console.error('[Speech Recognition] Error:', error)
+    }
+  })
 
   // Queue manager instance
   const queueManagerRef = useRef<ErpaReadableQueueManager | null>(null)
@@ -341,88 +355,8 @@ const PlasmoOverlay = () => {
   }, [sections])
 
   const handleToggleMic = useCallback(() => {
-    if (isMicEnabled) {
-      // Stop speech recognition
-      if (speechRecognitionRef.current) {
-        speechRecognitionRef.current.stop()
-        speechRecognitionRef.current = null
-      }
-      setIsMicEnabled(false)
-      log('[Speech Recognition] Speech recognition disabled')
-      return true;
-    }
-
-    try {
-      // Check if Speech Recognition is supported
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        console.error("Speech Recognition not supported in this browser")
-        return false;
-      }
-
-      // Create speech recognition instance
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-
-      // Configure speech recognition
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      // Set up event handlers
-      recognition.onstart = () => {
-        log('[Speech Recognition] Speech recognition started')
-      };
-
-      recognition.onresult = (event) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        if (finalTranscript) {
-          log('[Speech Recognition] Final transcript:', finalTranscript)
-          chrome.runtime.sendMessage({
-            type: "speech-recognition-result",
-            transcript: finalTranscript,
-            target: "sidepanel"
-          })
-        }
-
-        if (interimTranscript) {
-          debug('[Speech Recognition] Interim transcript:', interimTranscript)
-        }
-      };
-
-      recognition.onerror = (event) => {
-        console.error('[Speech Recognition] Error:', event.error)
-        setIsMicEnabled(false)
-        speechRecognitionRef.current = null
-      };
-
-      recognition.onend = () => {
-        log('[Speech Recognition] Speech recognition ended')
-        setIsMicEnabled(false)
-        speechRecognitionRef.current = null
-      };
-
-      // Start speech recognition
-      speechRecognitionRef.current = recognition;
-      recognition.start();
-      setIsMicEnabled(true)
-      log('[Speech Recognition] Speech recognition enabled')
-      return true;
-    } catch (error) {
-      console.error("Error setting up speech recognition:", error);
-      return false;
-    }
-  }, [isMicEnabled])
+    return speechRecognition.toggleListening()
+  }, [speechRecognition])
 
 
   // Tab key listener for testing TTS cursor-following functionality
@@ -480,7 +414,7 @@ const PlasmoOverlay = () => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [sections, queueState.currentSectionIndex, handleToggleMic, isMicEnabled])
+  }, [sections, queueState.currentSectionIndex, handleToggleMic, speechRecognition.isListening])
 
   return (
     <div
@@ -494,7 +428,7 @@ const PlasmoOverlay = () => {
 
       <div className="pointer-events-auto z-10 absolute bottom-2 left-1/2 transform -translate-x-1/2 w-48 h-12 flex justify-center items-end">
         <button onClick={handleToggleMic} title="Toggle microphone" aria-label="Toggle microphone">
-          <MicIcon className={`w-4 h-4 ${isMicEnabled ? 'text-green-500' : 'text-red-500'}`} />
+          <MicIcon className={`w-4 h-4 ${speechRecognition.isListening ? 'text-green-500' : 'text-red-500'}`} />
         </button>
         <TtsPlayback
           isPlaying={queueState.isPlaying}
