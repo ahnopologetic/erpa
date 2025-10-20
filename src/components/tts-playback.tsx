@@ -24,7 +24,14 @@ const TtsPlayback: React.FC<TtsPlaybackProps> = ({
         <div className={className} {...props}>
             <div className="flex items-center justify-center space-x-3">
                 {/* Status indicator */}
-                <div className={`w-2 h-2 rounded-full ${isPlaying || isListening ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
+                <div
+                    className={`w-2 h-2 rounded-full ${isListening
+                        ? 'bg-red-500 animate-pulse'
+                        : isPlaying
+                            ? 'bg-green-500 animate-pulse'
+                            : 'bg-yellow-500'
+                        }`}
+                />
 
                 {/* Play/Pause button */}
                 <button
@@ -53,7 +60,7 @@ const TtsPlayback: React.FC<TtsPlaybackProps> = ({
                     className="hover:bg-white/10 p-1 rounded transition-colors"
                     aria-label="Hands up"
                 >
-                    <Hand className={`w-5 h-5 ${isListening ? 'text-red-500' : 'text-white'}`} />
+                    <Hand className={`w-5 h-5 ${isListening ? 'text-red-500 animate-pulse' : 'text-white'}`} />
                 </button>
             </div>
         </div>
