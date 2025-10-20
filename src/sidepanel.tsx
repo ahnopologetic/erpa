@@ -194,6 +194,21 @@ function Sidepanel() {
                     }
                 }
             }
+
+            if (message.type === "speech-recognition-result") {
+                log('[speech-recognition-result] Speech recognition result received', { message })
+                setChatMessages(prev => [...prev, {
+                    id: `speech-recognition-result-${Date.now()}`,
+                    voiceMemo: {
+                        id: `speech-recognition-result-${Date.now()}`,
+                        type: 'user',
+                        audioBlob: new Blob(),
+                        transcription: message.transcript,
+                        timestamp: Date.now()
+                    },
+                    createdAt: Date.now()
+                } as ChatMessage])
+            }
         };
 
         chrome.runtime.onMessage.addListener(handleMessage);

@@ -65,7 +65,7 @@ const PlasmoOverlay = () => {
   const [isVisible, setIsVisible] = useState(false)
   const [sections, setSections] = useState<Array<{ title: string; cssSelector: string }>>([])
   const [isMicEnabled, setIsMicEnabled] = useState(false)
-  const micStreamRef = useRef<MediaStream | null>(null)
+  const speechRecognitionRef = useRef<SpeechRecognition | null>(null)
 
   // Queue manager instance
   const queueManagerRef = useRef<ErpaReadableQueueManager | null>(null)
@@ -340,27 +340,89 @@ const PlasmoOverlay = () => {
     }
   }, [sections])
 
-  const handleToggleMic = useCallback(async () => {
+  const handleToggleMic = useCallback(() => {
     if (isMicEnabled) {
-      setIsMicEnabled(false)
-      if (micStreamRef.current) {
-        micStreamRef.current.getTracks().forEach((track) => track.stop())
-        micStreamRef.current = null
+      // Stop speech recognition
+      if (speechRecognitionRef.current) {
+        speechRecognitionRef.current.stop()
+        speechRecognitionRef.current = null
       }
-      log('[TTS] Mic disabled')
+      setIsMicEnabled(false)
+      log('[Speech Recognition] Speech recognition disabled')
       return true;
     }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStreamRef.current = stream
+      // Check if Speech Recognition is supported
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        console.error("Speech Recognition not supported in this browser")
+        return false;
+      }
+
+      // Create speech recognition instance
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+
+      // Configure speech recognition
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      // Set up event handlers
+      recognition.onstart = () => {
+        log('[Speech Recognition] Speech recognition started')
+      };
+
+      recognition.onresult = (event) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        if (finalTranscript) {
+          log('[Speech Recognition] Final transcript:', finalTranscript)
+          chrome.runtime.sendMessage({
+            type: "speech-recognition-result",
+            transcript: finalTranscript,
+            target: "sidepanel"
+          })
+        }
+
+        if (interimTranscript) {
+          debug('[Speech Recognition] Interim transcript:', interimTranscript)
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('[Speech Recognition] Error:', event.error)
+        setIsMicEnabled(false)
+        speechRecognitionRef.current = null
+      };
+
+      recognition.onend = () => {
+        log('[Speech Recognition] Speech recognition ended')
+        setIsMicEnabled(false)
+        speechRecognitionRef.current = null
+      };
+
+      // Start speech recognition
+      speechRecognitionRef.current = recognition;
+      recognition.start();
       setIsMicEnabled(true)
-      log('[TTS] Mic enabled')
+      log('[Speech Recognition] Speech recognition enabled')
       return true;
     } catch (error) {
-      console.error("Error accessing microphone:", error);
+      console.error("Error setting up speech recognition:", error);
       return false;
     }
-  }, [micStreamRef.current, isMicEnabled])
+  }, [isMicEnabled])
 
 
   // Tab key listener for testing TTS cursor-following functionality
