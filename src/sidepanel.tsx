@@ -209,6 +209,7 @@ function Sidepanel() {
                     createdAt: Date.now()
                 } as ChatMessage])
                 setIsListening(false)
+                await agent.current.run(message.transcript)
             }
             if (message.type === "speech-recognition-error") {
                 log('[speech-recognition-error] Speech recognition error received', { message })
@@ -236,7 +237,7 @@ function Sidepanel() {
         return () => {
             chrome.runtime.onMessage.removeListener(handleMessage);
         };
-    }, [isListening]);
+    }, [isListening, agent.current]);
 
     const stopStream = () => {
         if (streamRef.current) {
