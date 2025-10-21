@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ScrollArea } from '~components/ui/scroll-area';
 import { VoiceMemoBubble } from '~components/ui/voice-memo-bubble';
+import { AITextBubble } from '~components/ui/ai-text-bubble';
 import FunctionCallBubble from '~components/ui/function-call-bubble';
 import { cn } from '~lib/utils';
 import type { ChatInterfaceProps } from '~types/voice-memo';
+import { ChevronDown } from 'lucide-react';
 
 interface ChatInterfacePropsExtended extends ChatInterfaceProps {
     currentStreamingMessageId?: string | null;
@@ -21,6 +23,7 @@ export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
+    const [showScrollButton, setShowScrollButton] = useState(false);
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
@@ -28,6 +31,20 @@ export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [messages]);
+
+    // Handle scroll detection
+    const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+        const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+        const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10; // 10px threshold
+        setShowScrollButton(!isAtBottom);
+    };
+
+    // Scroll to bottom function
+    const scrollToBottom = () => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
 
     // Handle voice memo play
     const handlePlayMessage = (voiceMemo: any) => {
@@ -57,8 +74,8 @@ export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
     return (
         <div className={cn("flex flex-col h-full", className)}>
             {/* Messages container */}
-            <div className="flex-1 overflow-hidden">
-                <ScrollArea className="h-full w-full">
+            <div className="flex-1 overflow-hidden relative">
+                <ScrollArea className="h-full w-full" onScrollCapture={handleScroll}>
                     <div className="p-4 space-y-4">
                         {messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-center py-12">
@@ -75,7 +92,7 @@ export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
                             </div>
                         ) : (
                             <>
-                                {messages.map((message) => {
+                                {messages.map((message, index) => {
                                     // Render progress messages differently
                                     if (message.progressUpdate) {
                                         return (
@@ -99,6 +116,18 @@ export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
                                     if (message.voiceMemo) {
                                         const isStreaming = currentStreamingMessageId === message.id;
                                         
+                                        // Check if this is an AI message (type: 'ai')
+                                        if (message.voiceMemo.type === 'ai') {
+                                            return (
+                                                <AITextBubble
+                                                    key={`${message.id}-${index}`}
+                                                    content={message.voiceMemo.transcription}
+                                                    isStreaming={isStreaming}
+                                                />
+                                            );
+                                        }
+                                        
+                                        // For user messages, use VoiceMemoBubble
                                         return (
                                             <div key={message.id} className="relative">
                                                 <VoiceMemoBubble
@@ -111,19 +140,13 @@ export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
                                                     onPause={handlePauseMessage}
                                                     onDelete={onDeleteMessage ? handleDeleteMessage : undefined}
                                                 />
-                                                {isStreaming && (
-                                                    <div className="absolute bottom-1 right-1 flex items-center space-x-1">
-                                                        <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse"></div>
-                                                        <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                                                        <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                                                    </div>
-                                                )}
                                             </div>
                                         );
                                     }
-                                    
+
                                     // Render function call messages
                                     if (message.functionCallResponse) {
+                                        console.log('Rendering function call:', message.functionCallResponse);
                                         return (
                                             <div key={message.id} className="flex justify-start my-2">
                                                 <FunctionCallBubble
@@ -139,7 +162,7 @@ export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
                                             </div>
                                         );
                                     }
-                                    
+
                                     return null;
                                 })}
                                 <div ref={messagesEndRef} />
@@ -147,6 +170,17 @@ export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
                         )}
                     </div>
                 </ScrollArea>
+                
+                {/* Scroll to bottom button */}
+                {showScrollButton && (
+                    <button
+                        onClick={scrollToBottom}
+                        className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800 hover:bg-gray-700 text-white rounded-full p-2 shadow-lg transition-all duration-200 z-10"
+                        aria-label="Scroll to bottom"
+                    >
+                        <ChevronDown className="w-4 h-4" />
+                    </button>
+                )}
             </div>
 
             {/* Loading indicator */}

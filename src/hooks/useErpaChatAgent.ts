@@ -33,12 +33,8 @@ class ErpaChatAgent {
 
     private isTaskComplete(response: string): boolean {
         const completionIndicators = [
-            'task is complete',
-            'task complete',
-            'finished',
-            'final answer',
-            'in conclusion',
-            'to summarize',
+            '<|task_complete|>',
+            '<|task_complete|>\n'
         ];
 
         const lowerResponse = response.toLowerCase();
@@ -46,19 +42,30 @@ class ErpaChatAgent {
     }
 
     private parseAndSendMessages(content: string, iteration: number): void {
-        // Remove JSON blocks from content - we don't want to show them as separate messages
-        const cleanedContent = content.replace(/```json[\s\S]*?```/g, '');
+        // Check if content contains function calls - if so, don't send as text message
+        const hasFunctionCall = content.includes('```json') || 
+                               content.includes('functionCall') || 
+                               content.includes('<|task_complete|>') ||
+                               content.includes('</task_complete|>') ||
+                               content.includes('```');
+        
+        if (hasFunctionCall) {
+            // Don't send text messages when function calls are present
+            return;
+        }
 
         // Only send text content (no JSON blocks)
-        if (cleanedContent.trim()) {
+        if (content.trim()) {
             const messageId = `text-${iteration}`;
+            
+            // Always update the message with the current accumulated content
             this.onMessageUpdate?.({
                 id: messageId,
                 voiceMemo: {
                     id: messageId,
                     type: 'ai',
                     audioBlob: new Blob(),
-                    transcription: cleanedContent.trim(),
+                    transcription: content.trim(),
                     timestamp: Date.now()
                 },
                 createdAt: Date.now()
@@ -119,15 +126,31 @@ class ErpaChatAgent {
                     fullResponse += value;
                     currentStreamContent += value;
 
-                    // Parse for json blocks and create separate messages
-                    this.parseAndSendMessages(currentStreamContent, iteration);
+                    // Don't send messages during streaming - we'll handle the final response later
                 }
             } finally {
                 reader.releaseLock();
             }
 
             // Parse for function calls
-            const parsed = parseFunctionCall(fullResponse);
+            // First try to extract JSON from code blocks
+            let responseToParse = fullResponse;
+            const jsonBlockMatch = fullResponse.match(/```json\s*([\s\S]*?)\s*```/);
+            if (jsonBlockMatch) {
+                responseToParse = jsonBlockMatch[1].trim();
+            } else {
+                // If no code blocks, try to extract JSON from the response
+                // Look for JSON object that starts with { and ends with }
+                const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    responseToParse = jsonMatch[0];
+                }
+            }
+            
+            console.log('Full response:', fullResponse);
+            console.log('Parsing function call from:', responseToParse);
+            const parsed = parseFunctionCall(responseToParse);
+            console.log('Parsed result:', parsed);
 
             if (parsed.functionCall) {
                 // Send progress update
@@ -152,7 +175,14 @@ class ErpaChatAgent {
                 console.log(JSON.stringify(result.result || result.error, null, 2));
 
                 // Send function call result to UI
-                this.onMessageUpdate?.({
+                console.log('Sending function call to UI:', {
+                    id: `function-${iteration}`,
+                    functionCall: parsed.functionCall,
+                    result: result.result || result.error,
+                    success: result.success
+                });
+                
+                const functionCallMessage = {
                     id: `function-${iteration}`,
                     functionCallResponse: {
                         functionCall: parsed.functionCall,
@@ -160,7 +190,10 @@ class ErpaChatAgent {
                         success: result.success
                     },
                     createdAt: Date.now()
-                });
+                };
+                
+                console.log('Sending function call message:', functionCallMessage);
+                this.onMessageUpdate?.(functionCallMessage);
 
                 // Prepare next prompt
                 const formattedResult = formatFunctionResult(
@@ -180,10 +213,37 @@ class ErpaChatAgent {
                     console.log(`Final Answer:`);
                     console.log(fullResponse);
 
-                    // Parse final response for any remaining content
-                    this.parseAndSendMessages(fullResponse, iteration);
+                    // Send final response as a new message with unique ID
+                    const finalMessageId = `final-${iteration}-${Date.now()}`;
+                    console.log('Sending final message with ID:', finalMessageId);
+                    this.onMessageUpdate?.({
+                        id: finalMessageId,
+                        voiceMemo: {
+                            id: finalMessageId,
+                            type: 'ai',
+                            audioBlob: new Blob(),
+                            transcription: fullResponse.trim(),
+                            timestamp: Date.now()
+                        },
+                        createdAt: Date.now()
+                    });
                     break;
                 }
+
+                // Send intermediate response as a new message
+                const intermediateMessageId = `intermediate-${iteration}-${Date.now()}`;
+                console.log('Sending intermediate message with ID:', intermediateMessageId);
+                this.onMessageUpdate?.({
+                    id: intermediateMessageId,
+                    voiceMemo: {
+                        id: intermediateMessageId,
+                        type: 'ai',
+                        audioBlob: new Blob(),
+                        transcription: fullResponse.trim(),
+                        timestamp: Date.now()
+                    },
+                    createdAt: Date.now()
+                });
 
                 currentPrompt = 'Continue with the task.';
             }

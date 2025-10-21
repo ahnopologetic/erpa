@@ -10,6 +10,7 @@ import { ErpaChatAgent, useErpaChatAgent } from "~hooks/useErpaChatAgent"
 import { getContentFunction, navigateFunction, readOutFunction } from "~lib/functions/definitions"
 import "~style.css"
 import type { ChatMessage } from "~types/voice-memo"
+import systemPrompt from "~lib/prompt"
 
 function Sidepanel() {
     const [isListening, setIsListening] = React.useState(false)
@@ -29,8 +30,11 @@ function Sidepanel() {
 
     // Handle agent message updates
     const handleAgentMessageUpdate = React.useCallback((message: ChatMessage) => {
+        console.log('Received message update:', message);
+        
         setChatMessages(prev => {
-            // Always create new messages, don't replace existing ones
+            console.log('Current messages before update:', prev);
+            
             // Check if message already exists
             const existingIndex = prev.findIndex(m => m.id === message.id);
 
@@ -44,6 +48,7 @@ function Sidepanel() {
                     setCurrentStreamingMessageId(message.id);
                 }
 
+                console.log('Updated messages:', updated);
                 return updated;
             } else {
                 // Add new message
@@ -51,7 +56,9 @@ function Sidepanel() {
                     setCurrentStreamingMessageId(message.id);
                 }
 
-                return [...prev, message];
+                const newMessages = [...prev, message];
+                console.log('New messages:', newMessages);
+                return newMessages;
             }
         });
     }, []);
@@ -98,8 +105,8 @@ function Sidepanel() {
         const initializeErpaAgent = async () => {
             agent.current = new ErpaChatAgent({
                 functions: [navigateFunction, readOutFunction, getContentFunction],
-                systemPrompt: "You're a helpful AI browser agent who helps visually impaired users navigate and understand websites.",
-                maxIterations: 2,
+                systemPrompt: systemPrompt,
+                maxIterations: 10,
                 onMessageUpdate: handleAgentMessageUpdate,
                 onProgressUpdate: handleAgentProgressUpdate,
             })
