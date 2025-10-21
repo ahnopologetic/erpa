@@ -1,4 +1,4 @@
-import { SendIcon } from "lucide-react"
+import { MicIcon, PencilIcon, SendIcon } from "lucide-react"
 import React from "react"
 import { TocPopup } from "~components/toc-popup"
 import { Button } from "~components/ui/button"
@@ -256,6 +256,7 @@ function Sidepanel() {
     const handleKeyPress = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
+            agent.current.initialize()
             handleTextSubmit()
         }
     }
@@ -337,6 +338,11 @@ function Sidepanel() {
             <div className="action-panel flex z-10 bg-black">
                 <div className="toc h-full flex items-center justify-center px-2">
                     <TocPopup onTocGenerated={handleTocGenerated} />
+                    <button onClick={() => {
+                        setMode(mode === "voice" ? "text" : "voice")
+                    }}>
+                        {mode === "text" ? <MicIcon className="w-4 h-4" /> : <PencilIcon className="w-4 h-4" />}
+                    </button>
                 </div>
                 <div className="flex items-center justify-center bg-transparent py-4 w-full">
                     {mode === "voice" && (

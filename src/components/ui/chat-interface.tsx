@@ -96,7 +96,7 @@ export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
                                     // Render progress messages differently
                                     if (message.progressUpdate) {
                                         return (
-                                            <div key={message.id} className="flex justify-start my-2">
+                                            <div key={`${message.id}-${index}`} className="flex justify-start my-2">
                                                 <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg px-3 py-2 text-sm text-blue-200">
                                                     <div className="flex items-center space-x-2">
                                                         <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
@@ -129,7 +129,7 @@ export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
                                         
                                         // For user messages, use VoiceMemoBubble
                                         return (
-                                            <div key={message.id} className="relative">
+                                            <div key={`${message.id}-${index}`} className="relative">
                                                 <VoiceMemoBubble
                                                     voiceMemo={{
                                                         ...message.voiceMemo,
@@ -148,7 +148,7 @@ export const ChatInterface: React.FC<ChatInterfacePropsExtended> = ({
                                     if (message.functionCallResponse) {
                                         console.log('Rendering function call:', message.functionCallResponse);
                                         return (
-                                            <div key={message.id} className="flex justify-start my-2">
+                                            <div key={`${message.id}-${index}`} className="flex justify-start my-2">
                                                 <FunctionCallBubble
                                                     functionCall={{
                                                         functionName: message.functionCallResponse.functionCall.name,
