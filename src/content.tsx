@@ -176,6 +176,11 @@ const PlasmoOverlay = () => {
     }
   }, [sections])
 
+  const handleSectionChanged = useCallback((sectionIndex: number) => {
+    debug('[Queue] Section changed to:', sectionIndex)
+    queueManagerRef.current?.jumpToSection(sectionIndex)
+  }, [queueManagerRef])
+
 
 
   useEffect(() => {
@@ -459,6 +464,7 @@ const PlasmoOverlay = () => {
       <SectionHighlight
         sections={sections}
         onNavigateToSection={handleNavigateToSection}
+        onSectionChanged={handleSectionChanged}
       />
 
       <div className="pointer-events-auto z-10 absolute bottom-2 left-1/2 transform -translate-x-1/2 w-48 h-12 flex justify-center items-end">

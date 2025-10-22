@@ -240,6 +240,43 @@ describe('SectionHighlight', () => {
 
             expect(preventDefaultSpy).toHaveBeenCalled()
         })
+        it('should navigate next previously available section when arrow up is pressed', () => {
+            // Test fallback navigation to previous available section when one is missing in the DOM
+            const sections = createMockSections(3)
+            // Give correct IDs to the first and last, but make the middle section a wrong ID (so it's not valid)
+            sections[0].id = 'section-1'
+            sections[1].id = 'wrong-section-2' // Intentionally not "#section-2"
+            sections[2].id = 'section-3'
+            sections.forEach(section => document.body.appendChild(section))
+            // Only register the sections that actually exist in the DOM by their ID
+            mockQuerySelector(sections)
+            // Prepare the data to simulate 3 sections (including the "missing" one)
+            const sectionsData = [
+                { title: 'Section 1', cssSelector: '#section-1' },
+                { title: 'Section 2', cssSelector: '#section-2' }, // This selector will not match any DOM node
+                { title: 'Section 3', cssSelector: '#section-3' }
+            ]
+            render(
+                <SectionHighlight
+                    sections={sectionsData}
+                    onNavigateToSection={mockOnNavigateToSection}
+                />
+            )
+
+            // Simulate scroll so the current section becomes the last one, i.e. Section 3.
+            simulateScroll(1000)
+            // Wait for the DOM to reflect current section (3 / 3)
+            expect(screen.getByText('3 / 3')).toBeInTheDocument()
+
+            // Simulate Ctrl+Meta+ArrowUp to trigger "previous section" navigation
+            const event = createKeyboardEvent('ArrowUp', { ctrlKey: true, metaKey: true })
+            document.dispatchEvent(event)
+
+            // Since section-2 does not exist, it should try the next available (section-1)
+            expect(mockOnNavigateToSection).toHaveBeenCalledWith('#section-1')
+            // When moved, it should update UI: now at first section
+            expect(screen.getByText('1 / 3')).toBeInTheDocument()
+        })
     })
 
     describe('Scroll-based Section Detection', () => {
