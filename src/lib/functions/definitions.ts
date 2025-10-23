@@ -42,31 +42,40 @@ const readOutFunction = createFunctionDefinition('readOut', 'Read out a specific
     })
 })
 
-const getContentFunction = createFunctionDefinition('getContent', 'Get content from a specific section or node', {
+const semanticSearchFunction = createFunctionDefinition('semanticSearch', 'Perform semantic search on the current page', {
     type: 'object',
     properties: {
-        selector: { type: 'string', description: "Selector to get content from. Should be a valid css selector. e.g., '#campus', '.div:nth-of-type(2) > div', etc." }
+        query: { type: 'string', description: "The search query to find relevant content on the page" },
+        autoPlayFirst: { type: 'boolean', description: "Whether to automatically play the first result with TTS", default: false }
     },
-    required: ['selector']
-}, async ({ selector }: { selector: string }) => {
+    required: ['query']
+}, async ({ query, autoPlayFirst = false }: { query: string, autoPlayFirst?: boolean }) => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     const tab = tabs?.[0]
-    await chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'GET_CONTENT', selector })
-    return new Promise((resolve, reject) => {
-        chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'GET_CONTENT', selector }, (response) => {
-            if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message))
-            } else if (response?.ok) {
-                resolve(response.content)
-            } else {
-                reject(new Error(response?.error || 'Failed to get content'))
-            }
-        })
+    
+    log('Performing semantic search:', query, { tabId: tab?.id, autoPlayFirst })
+    
+    const response = await chrome.tabs.sendMessage(tab?.id ?? 0, { 
+        type: 'SEMANTIC_SEARCH', 
+        query,
+        autoPlayFirst
     })
+    
+    if (!response?.ok) {
+        throw new Error(response?.error || 'Failed to perform semantic search')
+    }
+    
+    return {
+        query,
+        results: response.results,
+        bestMatch: response.bestMatch,
+        totalResults: response.totalResults
+    }
 })
 
 export {
     navigateFunction,
     readOutFunction,
-    getContentFunction
+    getContentFunction,
+    semanticSearchFunction
 }

@@ -7,7 +7,7 @@ import { Textarea } from "~components/ui/textarea"
 import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
 import { err, log, warn } from "~lib/log"
 import { ErpaChatAgent, useErpaChatAgent } from "~hooks/useErpaChatAgent"
-import { getContentFunction, navigateFunction, readOutFunction } from "~lib/functions/definitions"
+import { getContentFunction, navigateFunction, readOutFunction, semanticSearchFunction } from "~lib/functions/definitions"
 import "~style.css"
 import type { ChatMessage } from "~types/voice-memo"
 import systemPrompt from "~lib/prompt"
@@ -104,7 +104,7 @@ function Sidepanel() {
 
         const initializeErpaAgent = async () => {
             agent.current = new ErpaChatAgent({
-                functions: [navigateFunction, readOutFunction, getContentFunction],
+                functions: [navigateFunction, readOutFunction, getContentFunction, semanticSearchFunction],
                 systemPrompt: systemPrompt,
                 maxIterations: 10,
                 onMessageUpdate: handleAgentMessageUpdate,

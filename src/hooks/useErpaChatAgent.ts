@@ -1,6 +1,6 @@
 import { FunctionRegistry, SessionManager, StreamProcessor, buildFunctionSystemPrompt, executeFunctionCall, formatFunctionResult, parseFunctionCall } from "@ahnopologetic/use-prompt-api";
 import { useEffect, useState } from "react";
-import { getContentFunction, navigateFunction, readOutFunction } from "~lib/functions/definitions";
+import { getContentFunction, navigateFunction, readOutFunction, semanticSearchFunction } from "~lib/functions/definitions";
 import { log } from "~lib/log";
 import type { ChatMessage } from "~types/voice-memo";
 
@@ -267,7 +267,7 @@ const useErpaChatAgent = (onMessageUpdate?: (message: ChatMessage) => void, onPr
 
     useEffect(() => {
         setAgent(new ErpaChatAgent({
-            functions: [navigateFunction, readOutFunction, getContentFunction],
+            functions: [navigateFunction, readOutFunction, getContentFunction, semanticSearchFunction],
             systemPrompt: "You're a helpful AI browser agent who helps visually impaired users navigate and understand websites.",
             maxIterations: 2,
             onMessageUpdate,
