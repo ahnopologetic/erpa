@@ -22,7 +22,9 @@ function generateUniqueSelector(el: Element): string {
   while (element && element.nodeType === Node.ELEMENT_NODE && element.tagName.toLowerCase() !== 'body') {
     let selector = element.nodeName.toLowerCase();
     if (element.id) {
-      selector += `#${element.id}`;
+      // Escape ID if it starts with a digit or contains special characters
+      const escapedId = CSS.escape(element.id);
+      selector += `#${escapedId}`;
       path.unshift(selector);
       break;
     }

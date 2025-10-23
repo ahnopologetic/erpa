@@ -1,6 +1,6 @@
 import { log, err } from "~lib/log";
 import { EmbeddingService } from "./embedding-service";
-import { EmbeddingCache } from "./cache";
+import { EmbeddingCache, type CachedEmbeddings } from "./cache";
 import { GeminiRanker } from "./gemini-ranker";
 import { segmentPageIntoSentences, filterMeaningfulSegments, type SentenceSegment } from "./sentence-segmenter";
 
@@ -96,8 +96,8 @@ export class SemanticSearchEngine {
 
       log('[semantic-search] Found', segments.length, 'meaningful sentences');
 
-      // Check cache for existing embeddings
-      let cachedEmbeddings = await this.cache.getCachedEmbeddings(url, segments);
+      // Check cache for existing embeddings via background worker
+      let cachedEmbeddings = await this.getCachedEmbeddingsFromBackground(url, segments);
       let sentenceEmbeddings: number[][];
 
       if (cachedEmbeddings) {
@@ -109,8 +109,8 @@ export class SemanticSearchEngine {
         const texts = segments.map(s => s.text);
         sentenceEmbeddings = await this.embeddingService.generateBatchEmbeddings(texts);
         
-        // Cache the embeddings
-        await this.cache.cacheEmbeddings(url, segments, sentenceEmbeddings);
+        // Cache the embeddings via background worker
+        await this.cacheEmbeddingsInBackground(url, segments, sentenceEmbeddings);
         log('[semantic-search] Cached new embeddings');
       }
 
@@ -191,6 +191,48 @@ export class SemanticSearchEngine {
         confidence: similarity
       };
     });
+  }
+
+  /**
+   * Get cached embeddings from background worker
+   */
+  private async getCachedEmbeddingsFromBackground(url: string, segments: SentenceSegment[]): Promise<CachedEmbeddings | null> {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'GET_CACHED_EMBEDDINGS',
+        url,
+        segments
+      });
+      
+      if (response?.success && response.cachedEmbeddings) {
+        return response.cachedEmbeddings;
+      }
+      return null;
+    } catch (error) {
+      log('[semantic-search] Error retrieving cached embeddings from background:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Cache embeddings via background worker
+   */
+  private async cacheEmbeddingsInBackground(url: string, segments: SentenceSegment[], embeddings: number[][]): Promise<void> {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'CACHE_EMBEDDINGS',
+        url,
+        segments,
+        embeddings
+      });
+      
+      if (!response?.success) {
+        throw new Error(response?.error || 'Failed to cache embeddings');
+      }
+    } catch (error) {
+      log('[semantic-search] Error caching embeddings in background:', error);
+      // Don't throw - caching failure shouldn't break search
+    }
   }
 
   /**

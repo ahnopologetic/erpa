@@ -5,84 +5,127 @@ import { err, log } from "~lib/log";
 // Open sidepanel on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
-// Embedding model management
-let embeddingModel: any = null;
-let modelLoadingPromise: Promise<any> | null = null;
+// Embedding offscreen document management
+const OFFSCREEN_DOCUMENT_PATH = 'tabs/offscreen.html';
+let creatingOffscreen: Promise<void> | null = null;
 
 // Cache cleanup interval
 let cacheCleanupInterval: NodeJS.Timeout | null = null;
 
 /**
- * Load the embedding model using dynamic import
+ * Ensure offscreen document for embedding generation exists
  */
-async function loadEmbeddingModel(): Promise<any> {
-    if (embeddingModel) {
-        return embeddingModel;
+async function ensureEmbeddingOffscreenDocument(): Promise<void> {
+    const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH);
+    
+    // Check if offscreen document already exists
+    const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT'],
+        documentUrls: [offscreenUrl]
+    });
+
+    if (existingContexts.length > 0) {
+        return;
     }
 
-    if (modelLoadingPromise) {
-        return modelLoadingPromise;
+    // Avoid creating multiple instances
+    if (creatingOffscreen) {
+        await creatingOffscreen;
+        return;
     }
 
-    modelLoadingPromise = (async () => {
-        try {
-            log('[semantic-search] Loading embedding model...');
-            
-            // Dynamic import to avoid bundling issues
-            const { pipeline, env } = await import('@xenova/transformers');
-            
-            // Configure environment
-            env.allowLocalModels = false; // Use CDN
-            env.allowRemoteModels = true;
-            
-            // Load the sentence transformer model
-            const model = await pipeline(
-                'feature-extraction',
-                'Xenova/all-MiniLM-L6-v2',
-                {
-                    quantized: true, // Use quantized model for smaller size
-                    progress_callback: (progress: any) => {
-                        if (progress.status === 'downloading') {
-                            log('[semantic-search] Model download progress:', Math.round(progress.progress * 100) + '%');
-                        }
-                    }
-                }
-            );
-
-            embeddingModel = model;
-            log('[semantic-search] Embedding model loaded successfully');
-            return model;
-        } catch (error) {
-            err('[semantic-search] Failed to load embedding model:', error);
-            modelLoadingPromise = null;
-            throw error;
-        }
-    })();
-
-    return modelLoadingPromise;
+    try {
+        creatingOffscreen = chrome.offscreen.createDocument({
+            url: OFFSCREEN_DOCUMENT_PATH,
+            reasons: ['DOM_PARSER' as chrome.offscreen.Reason],
+            justification: 'Load and run transformers.js model for semantic search embeddings'
+        });
+        
+        await creatingOffscreen;
+        creatingOffscreen = null;
+        
+        log('[semantic-search] Created offscreen document for embedding generation');
+    } catch (error) {
+        err('[semantic-search] Error creating offscreen document:', error);
+        creatingOffscreen = null;
+        throw error;
+    }
 }
 
 /**
- * Generate embedding for a single text
+ * Load embedding model in offscreen document
+ */
+async function loadEmbeddingModel(): Promise<void> {
+    try {
+        await ensureEmbeddingOffscreenDocument();
+        
+        log('[semantic-search] Loading embedding model...');
+        const response = await chrome.runtime.sendMessage({
+            target: 'offscreen',
+            type: 'LOAD_EMBEDDING_MODEL'
+        });
+
+        if (!response?.success) {
+            throw new Error(response?.error || 'Failed to load embedding model');
+        }
+
+        log('[semantic-search] Embedding model loaded successfully');
+    } catch (error) {
+        err('[semantic-search] Failed to load embedding model:', error);
+        throw error;
+    }
+}
+
+/**
+ * Generate embedding for a single text using offscreen document
  */
 async function generateEmbedding(text: string): Promise<number[]> {
-    const model = await loadEmbeddingModel();
-    
     try {
+        await ensureEmbeddingOffscreenDocument();
+        
         log('[semantic-search] Generating embedding for text:', text.substring(0, 100) + '...');
         
-        const result = await model(text, {
-            pooling: 'mean',
-            normalize: true
+        const response = await chrome.runtime.sendMessage({
+            target: 'offscreen',
+            type: 'GENERATE_EMBEDDING',
+            text
         });
-        
-        // Convert tensor to array
-        const embedding = Array.from(result.data);
-        log('[semantic-search] Generated embedding with dimension:', embedding.length);
-        
-        return embedding;
+
+        if (!response?.success || !response.embedding) {
+            throw new Error(response?.error || 'Failed to generate embedding');
+        }
+
+        log('[semantic-search] Generated embedding with dimension:', response.embedding.length);
+        return response.embedding;
     } catch (error) {
         err('[semantic-search] Error generating embedding:', error);
+        throw error;
+    }
+}
+
+/**
+ * Generate embeddings for multiple texts (batch) using offscreen document
+ */
+async function generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
+    try {
+        await ensureEmbeddingOffscreenDocument();
+        
+        log('[semantic-search] Generating embeddings for', texts.length, 'texts');
+        
+        const response = await chrome.runtime.sendMessage({
+            target: 'offscreen',
+            type: 'BATCH_GENERATE_EMBEDDINGS',
+            texts
+        });
+
+        if (!response?.success || !response.embeddings) {
+            throw new Error(response?.error || 'Failed to generate batch embeddings');
+        }
+
+        log('[semantic-search] Generated', response.embeddings.length, 'embeddings');
+        return response.embeddings;
+    } catch (error) {
+        err('[semantic-search] Error generating batch embeddings:', error);
         throw error;
     }
 }
@@ -256,6 +299,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             .catch((error) => {
                 sendResponse({ success: false, error: error.message });
             });
+        return true; // Keep message channel open for async response
+    }
+
+    if (message.type === 'GET_CACHED_EMBEDDINGS') {
+        (async () => {
+            try {
+                const { EmbeddingCache } = await import('~lib/semantic-search/cache');
+                const cache = new EmbeddingCache();
+                const cachedEmbeddings = await cache.getCachedEmbeddings(message.url, message.segments);
+                sendResponse({ success: true, cachedEmbeddings });
+            } catch (error) {
+                err('[semantic-search] Error getting cached embeddings:', error);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true; // Keep message channel open for async response
+    }
+
+    if (message.type === 'CACHE_EMBEDDINGS') {
+        (async () => {
+            try {
+                const { EmbeddingCache } = await import('~lib/semantic-search/cache');
+                const cache = new EmbeddingCache();
+                await cache.cacheEmbeddings(message.url, message.segments, message.embeddings);
+                sendResponse({ success: true });
+            } catch (error) {
+                err('[semantic-search] Error caching embeddings:', error);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
         return true; // Keep message channel open for async response
     }
 });
