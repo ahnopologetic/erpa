@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ahnopologetic/use-prompt-api": "workspace:*",
+    "@electric-sql/pglite": "^0.3.11",
     "@plasmohq/storage": "^1.15.0",
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-scroll-area": "^1.2.10",

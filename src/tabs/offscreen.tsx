@@ -1,4 +1,5 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
+import { countRows, getDB, initSchema } from "~lib/db"
 import { log, err } from "~lib/log"
 import { EmbeddingCache } from "~lib/semantic-search/cache"
 
@@ -116,6 +117,10 @@ async function generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
 
 // Offscreen component - runs in the offscreen document
 const Offscreen = () => {
+  const initailizing = useRef(false)
+  const worker = useRef(null)
+  const db = useRef(null)
+
   useEffect(() => {
     log('[semantic-search] Offscreen embedding worker initialized')
 
@@ -250,7 +255,25 @@ const Offscreen = () => {
       return false
     }
 
+    const setup = async () => {
+      initailizing.current = true
+      db.current = await getDB()
+      await initSchema(db.current)
+      let count = await countRows(db.current, 'embeddings')
+
+      if (count === 0) {
+        // TODO: seed the database.
+        log('[semantic-search] No embeddings found in the database, seeding...')
+      }
+      // Get Items
+      const items = await db.current.query('SELECT content FROM embeddings')
+      log('[semantic-search] Found', items.rows.length, 'embeddings in the database')
+    }
+
     chrome.runtime.onMessage.addListener(handleMessage)
+    if (!db.current && !initailizing.current) {
+      setup()
+    }
 
     return () => {
       chrome.runtime.onMessage.removeListener(handleMessage)
