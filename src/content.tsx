@@ -666,4 +666,80 @@ const PlasmoOverlay = () => {
 
 export default PlasmoOverlay
 
+// Expose cache debugging utilities to console
+if (typeof window !== 'undefined') {
+  // @ts-ignore - Global debugging utilities
+  window.erpaCacheDebug = {
+    async stats() {
+      const response = await chrome.runtime.sendMessage({ type: 'GET_CACHE_STATS' });
+      if (response?.success) {
+        console.log('📊 Semantic Search Cache Stats:');
+        console.log('  Total URLs cached:', response.stats.totalUrls);
+        console.log('  Total sentences:', response.stats.totalSentences);
+        console.log('  Total embeddings:', response.stats.totalEmbeddings);
+        if (response.stats.oldestEntry) {
+          console.log('  Oldest entry:', new Date(response.stats.oldestEntry).toLocaleString());
+        }
+        if (response.stats.newestEntry) {
+          console.log('  Newest entry:', new Date(response.stats.newestEntry).toLocaleString());
+        }
+        return response.stats;
+      } else {
+        console.error('❌ Failed to get cache stats:', response?.error);
+        return null;
+      }
+    },
+    async inspect() {
+      // Directly check chrome.storage.local
+      const { Storage } = await import('@plasmohq/storage');
+      const storage = new Storage({ area: 'local' });
+      const data = await storage.get('semantic_search_embeddings');
+      
+      if (!data) {
+        console.log('❌ No cache data found in chrome.storage.local');
+        console.log('   Key checked: "semantic_search_embeddings"');
+        return null;
+      }
+      
+      const urls = Object.keys(data);
+      console.log('🔍 Direct Storage Inspection:');
+      console.log('  Storage area: chrome.storage.local');
+      console.log('  Cache key: "semantic_search_embeddings"');
+      console.log('  URLs in cache:', urls.length);
+      
+      urls.forEach((url, i) => {
+        const entry = data[url];
+        console.log(`\n  [${i + 1}] URL: ${url}`);
+        console.log(`      Sentences: ${entry.sentences?.length || 0}`);
+        console.log(`      Embeddings: ${entry.embeddings?.length || 0}`);
+        console.log(`      Hash: ${entry.pageHash}`);
+        console.log(`      Age: ${Math.round((Date.now() - entry.timestamp) / 1000 / 60)} minutes`);
+      });
+      
+      return data;
+    },
+    async clear() {
+      const response = await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_CACHE' });
+      if (response?.success) {
+        console.log('✅ Cache cleared successfully');
+        return true;
+      } else {
+        console.error('❌ Failed to clear cache:', response?.error);
+        return false;
+      }
+    },
+    help() {
+      console.log('🔍 Erpa Cache Debug Utilities:');
+      console.log('  erpaCacheDebug.stats()    - Show cache statistics');
+      console.log('  erpaCacheDebug.inspect()  - Directly inspect chrome.storage.local');
+      console.log('  erpaCacheDebug.clear()    - Clear all cached embeddings');
+      console.log('  erpaCacheDebug.help()     - Show this help message');
+    }
+  };
+  
+  // Show help on load
+  console.log('💡 Erpa semantic search cache debugging is available!');
+  console.log('   Type "erpaCacheDebug.help()" for available commands');
+}
+
 // Handle requests from extension UI (e.g., sidepanel) to fetch the page's main content

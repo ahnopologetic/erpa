@@ -95,7 +95,7 @@ async function generateEmbedding(text: string): Promise<number[]> {
             throw new Error(response?.error || 'Failed to generate embedding');
         }
 
-        log('[semantic-search] Generated embedding with dimension:', response.embedding.length);
+        // log('[semantic-search] Generated embedding with dimension:', response.embedding.length);
         return response.embedding;
     } catch (error) {
         err('[semantic-search] Error generating embedding:', error);
@@ -131,18 +131,24 @@ async function generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
 }
 
 /**
- * Clean up expired cache entries
+ * Clean up expired cache entries via offscreen document
  */
 async function cleanupExpiredCacheEntries(): Promise<void> {
   try {
     log('[semantic-search] Cleaning up expired cache entries...');
     
-    // Dynamic import to avoid bundling issues
-    const { EmbeddingCache } = await import('~lib/semantic-search/cache');
-    const cache = new EmbeddingCache();
+    await ensureEmbeddingOffscreenDocument();
     
-    await cache.cleanupExpiredEntries();
-    log('[semantic-search] Cache cleanup completed');
+    const response = await chrome.runtime.sendMessage({
+      target: 'offscreen',
+      type: 'CLEANUP_CACHE'
+    });
+    
+    if (response?.success) {
+      log('[semantic-search] Cache cleanup completed');
+    } else {
+      throw new Error(response?.error || 'Failed to cleanup cache');
+    }
   } catch (error) {
     err('[semantic-search] Error during cache cleanup:', error);
   }
@@ -292,43 +298,108 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.type === 'CLEANUP_CACHE') {
-        cleanupExpiredCacheEntries()
-            .then(() => {
-                sendResponse({ success: true });
-            })
-            .catch((error) => {
-                sendResponse({ success: false, error: error.message });
-            });
-        return true; // Keep message channel open for async response
-    }
-
-    if (message.type === 'GET_CACHED_EMBEDDINGS') {
         (async () => {
             try {
-                const { EmbeddingCache } = await import('~lib/semantic-search/cache');
-                const cache = new EmbeddingCache();
-                const cachedEmbeddings = await cache.getCachedEmbeddings(message.url, message.segments);
-                sendResponse({ success: true, cachedEmbeddings });
+                await ensureEmbeddingOffscreenDocument();
+                log('[background] Forwarding CLEANUP_CACHE to offscreen');
+                
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    type: 'CLEANUP_CACHE'
+                });
+                
+                sendResponse(response);
             } catch (error) {
-                err('[semantic-search] Error getting cached embeddings:', error);
+                err('[background] ❌ Error forwarding cleanup cache request:', error);
                 sendResponse({ success: false, error: error.message });
             }
         })();
-        return true; // Keep message channel open for async response
+        return true;
+    }
+
+    // Forward cache operations to offscreen document
+    if (message.type === 'GET_CACHED_EMBEDDINGS') {
+        (async () => {
+            try {
+                await ensureEmbeddingOffscreenDocument();
+                log('[background] Forwarding GET_CACHED_EMBEDDINGS to offscreen');
+                
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    type: 'GET_CACHED_EMBEDDINGS',
+                    url: message.url,
+                    segments: message.segments
+                });
+                
+                sendResponse(response);
+            } catch (error) {
+                err('[background] ❌ Error forwarding cache request:', error);
+                sendResponse({ success: false, error: error.message, cachedEmbeddings: null });
+            }
+        })();
+        return true;
     }
 
     if (message.type === 'CACHE_EMBEDDINGS') {
         (async () => {
             try {
-                const { EmbeddingCache } = await import('~lib/semantic-search/cache');
-                const cache = new EmbeddingCache();
-                await cache.cacheEmbeddings(message.url, message.segments, message.embeddings);
-                sendResponse({ success: true });
+                await ensureEmbeddingOffscreenDocument();
+                log('[background] Forwarding CACHE_EMBEDDINGS to offscreen');
+                
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    type: 'CACHE_EMBEDDINGS',
+                    url: message.url,
+                    segments: message.segments,
+                    embeddings: message.embeddings
+                });
+                
+                sendResponse(response);
             } catch (error) {
-                err('[semantic-search] Error caching embeddings:', error);
+                err('[background] ❌ Error forwarding cache request:', error);
                 sendResponse({ success: false, error: error.message });
             }
         })();
-        return true; // Keep message channel open for async response
+        return true;
+    }
+
+    if (message.type === 'GET_CACHE_STATS') {
+        (async () => {
+            try {
+                await ensureEmbeddingOffscreenDocument();
+                log('[background] Forwarding GET_CACHE_STATS to offscreen');
+                
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    type: 'GET_CACHE_STATS'
+                });
+                
+                sendResponse(response);
+            } catch (error) {
+                err('[background] ❌ Error forwarding cache stats request:', error);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true;
+    }
+
+    if (message.type === 'CLEAR_ALL_CACHE') {
+        (async () => {
+            try {
+                await ensureEmbeddingOffscreenDocument();
+                log('[background] Forwarding CLEAR_ALL_CACHE to offscreen');
+                
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    type: 'CLEAR_ALL_CACHE'
+                });
+                
+                sendResponse(response);
+            } catch (error) {
+                err('[background] ❌ Error forwarding clear cache request:', error);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true;
     }
 });
