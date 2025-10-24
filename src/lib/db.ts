@@ -29,6 +29,13 @@ export const initSchema = async (db) => {
     );
     
     create index on embeddings using hnsw (embedding vector_ip_ops);
+    
+    -- Cache table for storing page-level embeddings
+    create table if not exists cached_pages (
+      url text primary key,
+      page_data jsonb not null,
+      created_at timestamp default now()
+    );
   `)
 }
 

@@ -5,9 +5,10 @@
   "description": "A basic Plasmo extension.",
   "author": "ahnopologetic <stahn1995@gmail.com>",
   "scripts": {
-    "dev": "plasmo dev",
-    "build": "plasmo build",
-    "package": "plasmo package"
+    "dev": "plasmo dev && npm run fix-underscores",
+    "build": "plasmo build && npm run fix-underscores",
+    "package": "plasmo package",
+    "fix-underscores": "node scripts/fix-underscores.js"
   },
   "dependencies": {
     "@ahnopologetic/use-prompt-api": "workspace:*",
@@ -30,6 +31,8 @@
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "4.1.1",
+    "@parcel/config-default": "^2.16.0",
+    "@parcel/transformer-typescript-tsc": "^2.16.0",
     "@types/chrome": "0.0.258",
     "@types/dom-speech-recognition": "^0.0.7",
     "@types/node": "20.11.5",

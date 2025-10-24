@@ -1,6 +1,6 @@
 import { log, err } from "~lib/log";
 import { EmbeddingService } from "./embedding-service";
-import { EmbeddingCache, type CachedEmbeddings } from "./cache";
+import type { CachedEmbeddings } from "./cache";
 import { GeminiRanker } from "./gemini-ranker";
 import { segmentPageIntoSentences, filterMeaningfulSegments, type SentenceSegment } from "./sentence-segmenter";
 
@@ -26,13 +26,11 @@ export interface SearchOptions {
 export class SemanticSearchEngine {
   private static instance: SemanticSearchEngine | null = null;
   private embeddingService: EmbeddingService;
-  private cache: EmbeddingCache;
   private ranker: GeminiRanker;
   private isInitialized = false;
 
   private constructor() {
     this.embeddingService = EmbeddingService.getInstance();
-    this.cache = new EmbeddingCache();
     this.ranker = GeminiRanker.getInstance();
   }
 
@@ -254,7 +252,20 @@ export class SemanticSearchEngine {
    * Get cache statistics
    */
   async getCacheStats() {
-    return await this.cache.getCacheStats();
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'GET_CACHE_STATS'
+      });
+      
+      if (response?.success) {
+        return response.stats;
+      } else {
+        throw new Error(response?.error || 'Failed to get cache stats');
+      }
+    } catch (error) {
+      err('[semantic-search] Error getting cache stats:', error);
+      throw error;
+    }
   }
 
   /**

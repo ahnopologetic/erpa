@@ -7,14 +7,22 @@ import { EmbeddingCache } from "~lib/semantic-search/cache"
 let embeddingModel: any = null
 let modelLoadingPromise: Promise<any> | null = null
 
-// Cache instance
+// Cache instance (initialized after db is ready)
 let cacheInstance: EmbeddingCache | null = null
 
-function getCacheInstance(): EmbeddingCache {
-  if (!cacheInstance) {
-    cacheInstance = new EmbeddingCache()
+/**
+ * Helper to wait for setup completion with timeout
+ */
+async function waitForSetup(setupComplete: React.MutableRefObject<boolean>): Promise<boolean> {
+  if (setupComplete.current) return true
+  
+  log('[offscreen] ⏳ Waiting for database setup to complete...')
+  const startTime = Date.now()
+  while (!setupComplete.current && Date.now() - startTime < 10000) {
+    await new Promise(resolve => setTimeout(resolve, 100))
   }
-  return cacheInstance
+  
+  return setupComplete.current
 }
 
 /**
@@ -118,6 +126,7 @@ async function generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
 // Offscreen component - runs in the offscreen document
 const Offscreen = () => {
   const initailizing = useRef(false)
+  const setupComplete = useRef(false)
   const worker = useRef(null)
   const db = useRef(null)
 
@@ -166,9 +175,21 @@ const Offscreen = () => {
       if (message.type === 'GET_CACHED_EMBEDDINGS') {
         (async () => {
           try {
+            // Wait for setup to complete
+            if (!(await waitForSetup(setupComplete))) {
+              err('[offscreen] ❌ Timeout waiting for database setup')
+              sendResponse({ success: false, error: 'Database setup timeout', cachedEmbeddings: null })
+              return
+            }
+            
+            if (!cacheInstance) {
+              err('[offscreen] ❌ Cache not initialized')
+              sendResponse({ success: false, error: 'Cache not initialized', cachedEmbeddings: null })
+              return
+            }
+            
             log('[offscreen] Getting cached embeddings for URL:', message.url)
-            const cache = getCacheInstance()
-            const cachedEmbeddings = await cache.getCachedEmbeddings(message.url, message.segments)
+            const cachedEmbeddings = await cacheInstance.getCachedEmbeddings(message.url, message.segments)
 
             if (cachedEmbeddings) {
               log('[offscreen] ✅ Found cached embeddings, returning to caller')
@@ -188,11 +209,23 @@ const Offscreen = () => {
       if (message.type === 'CACHE_EMBEDDINGS') {
         (async () => {
           try {
+            // Wait for setup to complete
+            if (!(await waitForSetup(setupComplete))) {
+              err('[offscreen] ❌ Timeout waiting for database setup')
+              sendResponse({ success: false, error: 'Database setup timeout' })
+              return
+            }
+            
+            if (!cacheInstance) {
+              err('[offscreen] ❌ Cache not initialized')
+              sendResponse({ success: false, error: 'Cache not initialized' })
+              return
+            }
+            
             log('[offscreen] 💾 Caching embeddings for URL:', message.url)
             log('[offscreen] Received', message.embeddings?.length, 'embeddings for', message.segments?.length, 'segments')
 
-            const cache = getCacheInstance()
-            await cache.cacheEmbeddings(message.url, message.segments, message.embeddings)
+            await cacheInstance.cacheEmbeddings(message.url, message.segments, message.embeddings)
 
             log('[offscreen] ✅ Successfully cached embeddings')
             sendResponse({ success: true })
@@ -207,8 +240,19 @@ const Offscreen = () => {
       if (message.type === 'GET_CACHE_STATS') {
         (async () => {
           try {
-            const cache = getCacheInstance()
-            const stats = await cache.getCacheStats()
+            if (!(await waitForSetup(setupComplete))) {
+              err('[offscreen] ❌ Timeout waiting for database setup')
+              sendResponse({ success: false, error: 'Database setup timeout' })
+              return
+            }
+            
+            if (!cacheInstance) {
+              err('[offscreen] ❌ Cache not initialized')
+              sendResponse({ success: false, error: 'Cache not initialized' })
+              return
+            }
+            
+            const stats = await cacheInstance.getCacheStats()
 
             log('[offscreen] 📊 Cache stats:', stats)
             sendResponse({ success: true, stats })
@@ -223,8 +267,19 @@ const Offscreen = () => {
       if (message.type === 'CLEAR_ALL_CACHE') {
         (async () => {
           try {
-            const cache = getCacheInstance()
-            await cache.clearAllCachedEmbeddings()
+            if (!(await waitForSetup(setupComplete))) {
+              err('[offscreen] ❌ Timeout waiting for database setup')
+              sendResponse({ success: false, error: 'Database setup timeout' })
+              return
+            }
+            
+            if (!cacheInstance) {
+              err('[offscreen] ❌ Cache not initialized')
+              sendResponse({ success: false, error: 'Cache not initialized' })
+              return
+            }
+            
+            await cacheInstance.clearAllCachedEmbeddings()
 
             log('[offscreen] 🗑️ Cleared all cached embeddings')
             sendResponse({ success: true })
@@ -239,8 +294,19 @@ const Offscreen = () => {
       if (message.type === 'CLEANUP_CACHE') {
         (async () => {
           try {
-            const cache = getCacheInstance()
-            await cache.cleanupExpiredEntries()
+            if (!(await waitForSetup(setupComplete))) {
+              err('[offscreen] ❌ Timeout waiting for database setup')
+              sendResponse({ success: false, error: 'Database setup timeout' })
+              return
+            }
+            
+            if (!cacheInstance) {
+              err('[offscreen] ❌ Cache not initialized')
+              sendResponse({ success: false, error: 'Cache not initialized' })
+              return
+            }
+            
+            await cacheInstance.cleanupExpiredEntries()
 
             log('[offscreen] 🧹 Cleaned up expired cache entries')
             sendResponse({ success: true })
@@ -256,18 +322,32 @@ const Offscreen = () => {
     }
 
     const setup = async () => {
-      initailizing.current = true
-      db.current = await getDB()
-      await initSchema(db.current)
-      let count = await countRows(db.current, 'embeddings')
+      try {
+        initailizing.current = true
+        db.current = await getDB()
+        await initSchema(db.current)
+        
+        // Initialize cache with db instance
+        cacheInstance = new EmbeddingCache(db.current)
+        log('[semantic-search] Initialized cache with database instance')
+        
+        let count = await countRows(db.current, 'embeddings')
 
-      if (count === 0) {
-        // TODO: seed the database.
-        log('[semantic-search] No embeddings found in the database, seeding...')
+        if (count === 0) {
+          // TODO: seed the database.
+          log('[semantic-search] No embeddings found in the database, seeding...')
+        }
+        // Get Items
+        const items = await db.current.query('SELECT content FROM embeddings')
+        log('[semantic-search] Found', items.rows.length, 'embeddings in the database')
+        
+        // Mark setup as complete
+        setupComplete.current = true
+        log('[semantic-search] ✅ Database and cache setup complete')
+      } catch (error) {
+        err('[semantic-search] ❌ Failed to setup database and cache:', error)
+        setupComplete.current = false
       }
-      // Get Items
-      const items = await db.current.query('SELECT content FROM embeddings')
-      log('[semantic-search] Found', items.rows.length, 'embeddings in the database')
     }
 
     chrome.runtime.onMessage.addListener(handleMessage)

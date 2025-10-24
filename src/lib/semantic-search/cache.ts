@@ -1,6 +1,6 @@
-import { Storage } from "@plasmohq/storage";
 import { log, err } from "~lib/log";
 import type { SentenceSegment } from "./sentence-segmenter";
+import type { PGlite } from '@electric-sql/pglite';
 
 // Serializable version of SentenceSegment (without DOM elements)
 export interface SerializableSentenceSegment {
@@ -19,23 +19,17 @@ export interface CachedEmbeddings {
   pageHash: string;
 }
 
-export interface CacheEntry {
-  [url: string]: CachedEmbeddings;
-}
-
 /**
- * Service for caching sentence embeddings using Plasmo Storage
+ * Service for caching sentence embeddings using PGlite database
  */
 export class EmbeddingCache {
-  private static readonly CACHE_KEY = 'semantic_search_embeddings';
-  private static readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-  private storage: Storage;
+  private db: PGlite;
 
-  constructor() {
-    // Use local storage for persistent caching (more reliable than session)
-    this.storage = new Storage({
-      area: "local"
-    });
+  constructor(db: PGlite) {
+    if (!db) {
+      throw new Error('Database instance is required for EmbeddingCache');
+    }
+    this.db = db;
   }
 
   /**
@@ -62,15 +56,10 @@ export class EmbeddingCache {
 
   /**
    * Check if cached embeddings are still valid
+   * Only validates page content hash (no time-based expiration)
    */
   private isCacheValid(cached: CachedEmbeddings, currentHash: string): boolean {
-    const now = Date.now();
-    const age = now - cached.timestamp;
-
-    return (
-      age < EmbeddingCache.CACHE_DURATION &&
-      cached.pageHash === currentHash
-    );
+    return cached.pageHash === currentHash;
   }
 
   /**
@@ -82,31 +71,21 @@ export class EmbeddingCache {
   ): Promise<CachedEmbeddings | null> {
     try {
       log('[semantic-search] 🔍 Checking cache for URL:', url);
-      log('[semantic-search] Using cache key:', EmbeddingCache.CACHE_KEY);
 
-      const cache: CacheEntry = await this.storage.get(EmbeddingCache.CACHE_KEY) || {};
+      const result = await this.db.query<{ page_data: CachedEmbeddings }>(
+        'SELECT page_data FROM cached_pages WHERE url = $1',
+        [url]
+      );
 
-      const cacheKeys = Object.keys(cache);
-      log('[semantic-search] 📦 Cache contains', cacheKeys.length, 'URLs');
-
-      if (cacheKeys.length > 0) {
-        log('[semantic-search] 📋 Cached URLs:', cacheKeys);
-        log('[semantic-search] 🔎 Looking for exact URL:', url);
-        log('[semantic-search] 🔎 URL match found?', cacheKeys.includes(url));
-      }
-
-      const cached = cache[url];
-      if (!cached) {
+      if (result.rows.length === 0) {
         log('[semantic-search] ❌ No cached embeddings found for URL:', url);
-        log('[semantic-search] 💡 Available cache keys:', cacheKeys);
         return null;
       }
 
+      const cached: CachedEmbeddings = result.rows[0].page_data;
       const currentHash = this.generatePageHash(sentences);
-      const cachedAge = Date.now() - cached.timestamp;
 
       log('[semantic-search] ✅ Found cached entry:', {
-        age: Math.round(cachedAge / 1000 / 60) + ' minutes',
         sentenceCount: cached.sentences.length,
         embeddingCount: cached.embeddings.length,
         currentHash,
@@ -118,13 +97,7 @@ export class EmbeddingCache {
         log('[semantic-search] ✅ Using cached embeddings for URL:', url, '(', cached.embeddings.length, 'embeddings )');
         return cached;
       } else {
-        const ageHours = Math.round(cachedAge / 1000 / 60 / 60);
-        log('[semantic-search] ⚠️ Cached embeddings expired or invalid for URL:', url);
-        log('[semantic-search] ⚠️ Reason:', {
-          ageHours,
-          expired: cachedAge >= EmbeddingCache.CACHE_DURATION,
-          hashMismatch: currentHash !== cached.pageHash
-        });
+        log('[semantic-search] ⚠️ Cached embeddings invalid (hash mismatch) for URL:', url);
         await this.clearCachedEmbeddings(url);
         return null;
       }
@@ -157,41 +130,32 @@ export class EmbeddingCache {
   ): Promise<void> {
     try {
       log('[semantic-search] 💾 Caching embeddings for URL:', url);
-      log('[semantic-search] Using cache key:', EmbeddingCache.CACHE_KEY);
-
-      const cache: CacheEntry = await this.storage.get(EmbeddingCache.CACHE_KEY) || {};
-
-      const existingKeys = Object.keys(cache);
-      log('[semantic-search] 📦 Cache currently has', existingKeys.length, 'URLs');
 
       const pageHash = this.generatePageHash(sentences);
 
       // Convert sentences to serializable format (remove DOM elements)
       const serializableSentences = sentences.map(s => this.toSerializable(s));
 
-      cache[url] = {
+      const pageData: CachedEmbeddings = {
         url,
         timestamp: Date.now(),
-        sentences: serializableSentences,  // Store without DOM elements
+        sentences: serializableSentences,
         embeddings,
         pageHash
       };
 
-      log('[semantic-search] 💾 Writing to storage with key:', EmbeddingCache.CACHE_KEY);
       log('[semantic-search] 💾 Serialized', sentences.length, 'sentences (removed DOM elements)');
-      await this.storage.set(EmbeddingCache.CACHE_KEY, cache);
-      debugger;
 
-      // Verify write
-      const verification = await this.storage.get(EmbeddingCache.CACHE_KEY);
-      const verifyKeys = Object.keys(verification || {});
+      // Insert or update cache entry
+      await this.db.query(
+        `INSERT INTO cached_pages (url, page_data) 
+         VALUES ($1, $2) 
+         ON CONFLICT (url) 
+         DO UPDATE SET page_data = $2, created_at = now()`,
+        [url, JSON.stringify(pageData)]
+      );
+
       log('[semantic-search] ✅ Successfully cached', embeddings.length, 'embeddings for', sentences.length, 'sentences (hash:', pageHash + ')');
-      log('[semantic-search] ✅ Verification: Cache now has', verifyKeys.length, 'URLs');
-      log('[semantic-search] ✅ URL is in cache?', verifyKeys.includes(url));
-
-      if (!verifyKeys.includes(url)) {
-        err('[semantic-search] ⚠️ WARNING: Verification failed! URL not found in cache after write');
-      }
     } catch (error) {
       err('[semantic-search] ❌ Error caching embeddings:', error);
       throw error; // Re-throw to let caller know caching failed
@@ -203,12 +167,7 @@ export class EmbeddingCache {
    */
   async clearCachedEmbeddings(url: string): Promise<void> {
     try {
-      const cache: CacheEntry = await this.storage.get(EmbeddingCache.CACHE_KEY) || {};
-
-      delete cache[url];
-
-      await this.storage.set(EmbeddingCache.CACHE_KEY, cache);
-
+      await this.db.query('DELETE FROM cached_pages WHERE url = $1', [url]);
       log('[semantic-search] Cleared cached embeddings for URL:', url);
     } catch (error) {
       err('[semantic-search] Error clearing cached embeddings:', error);
@@ -220,7 +179,7 @@ export class EmbeddingCache {
    */
   async clearAllCachedEmbeddings(): Promise<void> {
     try {
-      await this.storage.remove(EmbeddingCache.CACHE_KEY);
+      await this.db.query('DELETE FROM cached_pages');
       log('[semantic-search] Cleared all cached embeddings');
     } catch (error) {
       err('[semantic-search] Error clearing all cached embeddings:', error);
@@ -238,16 +197,15 @@ export class EmbeddingCache {
     newestEntry: number | null;
   }> {
     try {
-      const cache: CacheEntry = await this.storage.get(EmbeddingCache.CACHE_KEY) || {};
+      const result = await this.db.query<{ page_data: CachedEmbeddings }>('SELECT page_data FROM cached_pages');
 
-      const urls = Object.keys(cache);
       let totalSentences = 0;
       let totalEmbeddings = 0;
       let oldestEntry: number | null = null;
       let newestEntry: number | null = null;
 
-      for (const url of urls) {
-        const entry = cache[url];
+      for (const row of result.rows) {
+        const entry: CachedEmbeddings = row.page_data;
         totalSentences += entry.sentences.length;
         totalEmbeddings += entry.embeddings.length;
 
@@ -260,7 +218,7 @@ export class EmbeddingCache {
       }
 
       return {
-        totalUrls: urls.length,
+        totalUrls: result.rows.length,
         totalSentences,
         totalEmbeddings,
         oldestEntry,
@@ -280,28 +238,12 @@ export class EmbeddingCache {
 
   /**
    * Clean up expired cache entries
+   * Note: With PGlite storage, we rely on manual cache invalidation via hash mismatch
+   * This method is kept for backwards compatibility but is a no-op
    */
   async cleanupExpiredEntries(): Promise<void> {
     try {
-      const cache: CacheEntry = await this.storage.get(EmbeddingCache.CACHE_KEY) || {};
-
-      const now = Date.now();
-      let cleanedCount = 0;
-
-      for (const url of Object.keys(cache)) {
-        const entry = cache[url];
-        const age = now - entry.timestamp;
-
-        if (age >= EmbeddingCache.CACHE_DURATION) {
-          delete cache[url];
-          cleanedCount++;
-        }
-      }
-
-      if (cleanedCount > 0) {
-        await this.storage.set(EmbeddingCache.CACHE_KEY, cache);
-        log('[semantic-search] Cleaned up', cleanedCount, 'expired cache entries');
-      }
+      log('[semantic-search] Cleanup called (no-op with PGlite - using hash-based invalidation)');
     } catch (error) {
       err('[semantic-search] Error cleaning up expired entries:', error);
     }
