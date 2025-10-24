@@ -5,10 +5,11 @@
   "description": "A basic Plasmo extension.",
   "author": "ahnopologetic <stahn1995@gmail.com>",
   "scripts": {
-    "dev": "plasmo dev && npm run fix-underscores",
-    "build": "plasmo build && npm run fix-underscores",
-    "package": "plasmo package",
-    "fix-underscores": "node scripts/fix-underscores.js"
+    "dev": "plasmo dev",
+    "build": "pnpm with-env plasmo build",
+    "package": "pnpm with-env plasmo package",
+    "with-env": "dotenv -e .env --",
+    "fix-underscores": "node postbuild/sed.js"
   },
   "dependencies": {
     "@ahnopologetic/use-prompt-api": "workspace:*",
@@ -38,6 +39,7 @@
     "@types/node": "20.11.5",
     "@types/react": "18.2.48",
     "@types/react-dom": "18.2.18",
+    "dotenv-cli": "^10.0.0",
     "postcss": "8.4.33",
     "prettier": "3.2.4",
     "typescript": "5.3.3"

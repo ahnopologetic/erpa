@@ -118,11 +118,11 @@ ${limitedCandidates.map((candidate, i) => `${i}: ${candidate.text}`).join("\n")}
 Select the index of the most relevant sentence that best answers the question. Provide a brief explanation of why this sentence is relevant, and a confidence score between 0.0 and 1.0.`;
 
             // Use structured output with Zod schema
-            const result = await promptWithStructure<RankingResult>(
+            const result = await promptWithStructure(
                 this.session,
                 userPrompt,
                 {
-                    schema: rankingResultSchema as z.ZodType<RankingResult>,
+                    schema: rankingResultSchema,
                     maxRetries: 2
                 }
             );
