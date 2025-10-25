@@ -8,7 +8,7 @@ import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
 import { Select, SelectContent, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "~components/ui/select"
 import { err, log, warn } from "~lib/log"
 import { ErpaChatAgent, useErpaChatAgent } from "~hooks/useErpaChatAgent"
-import { getContentFunction, navigateFunction, readOutFunction, semanticSearchFunction } from "~lib/functions/definitions"
+import { getContentFunction, navigateFunction, readOutFunction, semanticSearchFunction, summarizePageFunction } from "~lib/functions/definitions"
 import "~style.css"
 import type { ChatMessage } from "~types/voice-memo"
 import systemPrompt from "~lib/prompt"
@@ -26,6 +26,8 @@ function Sidepanel() {
     const [chatMessages, setChatMessages] = React.useState<ChatMessage[]>([])
     const [chatLoading, setChatLoading] = React.useState(false)
     const [currentStreamingMessageId, setCurrentStreamingMessageId] = React.useState<string | null>(null)
+    const [agentInitialized, setAgentInitialized] = React.useState(false)
+    const [agentInitializing, setAgentInitializing] = React.useState(true)
 
     const agent = React.useRef<ErpaChatAgent | null>(null)
 
@@ -120,13 +122,30 @@ function Sidepanel() {
 
 
         const initializeErpaAgent = async () => {
-            agent.current = new ErpaChatAgent({
-                functions: [navigateFunction, readOutFunction, getContentFunction, semanticSearchFunction],
-                systemPrompt: systemPrompt,
-                maxIterations: 10,
-                onMessageUpdate: handleAgentMessageUpdate,
-                onProgressUpdate: handleAgentProgressUpdate,
-            })
+            try {
+                log('Initializing Erpa agent...')
+                setAgentInitializing(true)
+                setAgentInitialized(false)
+
+                agent.current = new ErpaChatAgent({
+                    functions: [navigateFunction, readOutFunction, getContentFunction, semanticSearchFunction, summarizePageFunction],
+                    systemPrompt: systemPrompt,
+                    maxIterations: 10,
+                    onMessageUpdate: handleAgentMessageUpdate,
+                    onProgressUpdate: handleAgentProgressUpdate,
+                })
+                await agent.current.initialize()
+
+                setAgentInitialized(true)
+                setAgentInitializing(false)
+                log('Erpa agent initialized successfully')
+            } catch (error) {
+                err('Failed to initialize Erpa agent:', error)
+                // Clear the agent reference if initialization failed
+                agent.current = null
+                setAgentInitialized(false)
+                setAgentInitializing(false)
+            }
         }
 
         initializeErpaAgent()
@@ -245,7 +264,12 @@ function Sidepanel() {
     }, [])
 
     const handleTextSubmit = async () => {
-        if (!textInput.trim() || !agent.current) {
+        if (!textInput.trim()) {
+            log('No text input provided')
+            return
+        }
+
+        if (!agentInitialized || !agent.current) {
             log('Agent not initialized')
             return
         }
@@ -370,8 +394,10 @@ function Sidepanel() {
                     <h1 className="text-xl font-semibold">Erpa</h1>
                 </div>
                 <p className="mt-2 text-sm text-gray-400">
-                    {(isProcessingText) ? "Processing your message..." :
-                        "Type your message below to start a conversation, or use speech recognition from the content script."}
+                    {agentInitializing ? "Agent is initializing..." :
+                        !agentInitialized ? "Agent failed to initialize. Please reload the extension." :
+                            isProcessingText ? "Processing your message..." :
+                                "Type your message below to start a conversation, or use speech recognition from the content script."}
                 </p>
             </div>
 
