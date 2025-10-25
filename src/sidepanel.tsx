@@ -469,10 +469,6 @@ function Sidepanel() {
                                     responsive={true}
                                     className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 w-full h-full"
                                 />
-                                {/* Debug info */}
-                                <div className="absolute top-0 left-0 text-xs text-white bg-black bg-opacity-50 p-1 rounded">
-                                    isListening: {isListening ? 'true' : 'false'}
-                                </div>
                             </div>
                         </div>
                     )}
