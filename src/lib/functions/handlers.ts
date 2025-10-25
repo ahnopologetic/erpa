@@ -20,7 +20,7 @@ const handleGetContent = async (selector: string) => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     const tab = tabs?.[0]
     log('[AI] Getting content for selector', { selector, tabId: tab?.id })
-    
+
     return new Promise((resolve, reject) => {
         chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'GET_CONTENT', selector }, (response) => {
             if (chrome.runtime.lastError) {

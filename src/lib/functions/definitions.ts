@@ -29,7 +29,7 @@ const readOutFunction = createFunctionDefinition('readOut', 'Read out a specific
 }, async ({ targetType, target }: { targetType: string, target: string }) => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     const tab = tabs?.[0]
-    
+
     return new Promise((resolve, reject) => {
         chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'READ_OUT', targetType: targetType, target: target }, (response) => {
             if (chrome.runtime.lastError) {
@@ -53,19 +53,19 @@ const semanticSearchFunction = createFunctionDefinition('semanticSearch', 'Perfo
 }, async ({ query, autoPlayFirst = false }: { query: string, autoPlayFirst?: boolean }) => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     const tab = tabs?.[0]
-    
+
     log('Performing semantic search:', query, { tabId: tab?.id, autoPlayFirst })
-    
-    const response = await chrome.tabs.sendMessage(tab?.id ?? 0, { 
-        type: 'SEMANTIC_SEARCH', 
+
+    const response = await chrome.tabs.sendMessage(tab?.id ?? 0, {
+        type: 'SEMANTIC_SEARCH',
         query,
         autoPlayFirst
     })
-    
+
     if (!response?.ok) {
         throw new Error(response?.error || 'Failed to perform semantic search')
     }
-    
+
     return {
         query,
         results: response.results,

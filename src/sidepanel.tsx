@@ -1,4 +1,4 @@
-import { SendIcon } from "lucide-react"
+import { MicIcon, PencilIcon, SendIcon } from "lucide-react"
 import React from "react"
 import { TocPopup } from "~components/toc-popup"
 import { Button } from "~components/ui/button"
@@ -399,6 +399,30 @@ function Sidepanel() {
                             isProcessingText ? "Processing your message..." :
                                 "Type your message below to start a conversation, or use speech recognition from the content script."}
                 </p>
+                <div className="flex items-center mt-2">
+                    <span
+                        className={`inline-block w-3 h-3 rounded-full mr-2 ${agentInitializing
+                            ? 'bg-yellow-400 animate-pulse'
+                            : agentInitialized
+                                ? 'bg-green-500'
+                                : 'bg-red-500'
+                            }`}
+                        aria-label={
+                            agentInitializing
+                                ? "Agent is initializing"
+                                : agentInitialized
+                                    ? "Agent is online"
+                                    : "Agent failed"
+                        }
+                    />
+                    <span className="text-xs text-gray-400">
+                        {agentInitializing
+                            ? "Initializing..."
+                            : agentInitialized
+                                ? "Agent online"
+                                : "Agent failed"}
+                    </span>
+                </div>
             </div>
 
             {/* Main Content Area */}
@@ -449,6 +473,17 @@ function Sidepanel() {
                     </div>
                     <div className="toc h-full flex items-center justify-center px-2">
                         <TocPopup onTocGenerated={handleTocGenerated} />
+                        {
+                            mode === "text" ? (
+                                <Button variant="ghost" size="sm" onClick={() => setMode("voice")}>
+                                    <MicIcon className="w-4 h-4" />
+                                </Button>
+                            ) : (
+                                <Button variant="ghost" size="sm" onClick={() => setMode("text")}>
+                                    <PencilIcon className="w-4 h-4" />
+                                </Button>
+                            )
+                        }
                     </div>
                 </div>
                 <div className="flex items-center justify-center bg-transparent py-4 flex-1 pr-4">
@@ -458,19 +493,19 @@ function Sidepanel() {
                                 onClick={async () => {
                                     log('[toggle-mic] Clicked')
                                     log('[toggle-mic] Sending toggle command to content script')
-                                    
+
                                     // Send message to the active tab's content script
                                     if (currentTabId) {
                                         try {
-                                            log('[toggle-mic] Sending message to tab', currentTabId, 'with payload:', { 
-                                                type: 'toggle-mic', 
-                                                target: 'content', 
-                                                isListening: !isListening 
+                                            log('[toggle-mic] Sending message to tab', currentTabId, 'with payload:', {
+                                                type: 'toggle-mic',
+                                                target: 'content',
+                                                isListening: !isListening
                                             })
-                                            await chrome.tabs.sendMessage(currentTabId, { 
-                                                type: 'toggle-mic', 
-                                                target: 'content', 
-                                                isListening: !isListening 
+                                            await chrome.tabs.sendMessage(currentTabId, {
+                                                type: 'toggle-mic',
+                                                target: 'content',
+                                                isListening: !isListening
                                             })
                                             log('[toggle-mic] Message sent to content script successfully')
                                         } catch (error) {
