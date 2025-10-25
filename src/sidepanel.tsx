@@ -5,6 +5,7 @@ import { Button } from "~components/ui/button"
 import { ChatInterface } from "~components/ui/chat-interface"
 import { Textarea } from "~components/ui/textarea"
 import { VoicePoweredOrb } from "~components/ui/voice-powered-orb"
+import { Select, SelectContent, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "~components/ui/select"
 import { err, log, warn } from "~lib/log"
 import { ErpaChatAgent, useErpaChatAgent } from "~hooks/useErpaChatAgent"
 import { getContentFunction, navigateFunction, readOutFunction, semanticSearchFunction } from "~lib/functions/definitions"
@@ -14,11 +15,11 @@ import systemPrompt from "~lib/prompt"
 
 function Sidepanel() {
     const [isListening, setIsListening] = React.useState(false)
-    const [contextChanged, setContextChanged] = React.useState(false)
     const [isTranscribing, setIsTranscribing] = React.useState(false)
     const [isSidepanelEnabled, setIsSidepanelEnabled] = React.useState(true)
     const [currentTabId, setCurrentTabId] = React.useState<number | null>(null)
     const [currentUrl, setCurrentUrl] = React.useState<string>('')
+    const [availableTabs, setAvailableTabs] = React.useState<Array<{ id: number, title: string, url: string }>>([])
     const [mode, setMode] = React.useState<"voice" | "text">("voice")
     const [textInput, setTextInput] = React.useState("")
     const [isProcessingText, setIsProcessingText] = React.useState(false)
@@ -31,10 +32,10 @@ function Sidepanel() {
     // Handle agent message updates
     const handleAgentMessageUpdate = React.useCallback((message: ChatMessage) => {
         console.log('Received message update:', message);
-        
+
         setChatMessages(prev => {
             console.log('Current messages before update:', prev);
-            
+
             // Check if message already exists
             const existingIndex = prev.findIndex(m => m.id === message.id);
 
@@ -101,6 +102,22 @@ function Sidepanel() {
             }
         };
 
+        const getAllTabs = async () => {
+            try {
+                const tabs = await chrome.tabs.query({ currentWindow: true });
+                const tabList = tabs
+                    .filter(tab => tab.id && tab.title && tab.url)
+                    .map(tab => ({
+                        id: tab.id!,
+                        title: tab.title || 'Untitled',
+                        url: tab.url || ''
+                    }));
+                setAvailableTabs(tabList);
+            } catch (error) {
+                log('Failed to get all tabs', error);
+            }
+        };
+
 
         const initializeErpaAgent = async () => {
             agent.current = new ErpaChatAgent({
@@ -114,22 +131,14 @@ function Sidepanel() {
 
         initializeErpaAgent()
         getCurrentTab()
+        getAllTabs()
     }, [])
 
     React.useEffect(() => {
         const handleMessage = async (message: any) => {
-            if (message.type === 'CLOSE_SIDEPANEL_ON_TAB_SWITCH' ||
-                message.type === 'CLOSE_SIDEPANEL_ON_PAGE_NAVIGATION') {
-                log(`Received close message: ${message.type} for tab ${message.tabId}`);
-                // Show notification that context has changed
-                setIsSidepanelEnabled(false);
-                setContextChanged(true);
-                log('Context changed - showing notification');
-            }
             if (message.type === "close-sidepanel") {
                 log(`Received close message: ${message.type}`);
                 setIsSidepanelEnabled(false);
-                setContextChanged(true);
             }
 
             if (message.type === "speech-recognition-started") {
@@ -177,6 +186,39 @@ function Sidepanel() {
             chrome.runtime.onMessage.removeListener(handleMessage);
         };
     }, [agent.current, isListening]);
+
+    // Listen for tab updates to refresh the tab list
+    React.useEffect(() => {
+        const handleTabUpdate = () => {
+            chrome.tabs.query({ currentWindow: true }).then(tabs => {
+                const tabList = tabs
+                    .filter(tab => tab.id && tab.title && tab.url)
+                    .map(tab => ({
+                        id: tab.id!,
+                        title: tab.title || 'Untitled',
+                        url: tab.url || ''
+                    }));
+                setAvailableTabs(tabList);
+            }).catch(error => {
+                log('Failed to refresh tabs', error);
+            });
+        };
+
+        const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
+            setCurrentTabId(activeInfo.tabId);
+            handleTabUpdate();
+        };
+
+        chrome.tabs.onUpdated.addListener(handleTabUpdate);
+        chrome.tabs.onActivated.addListener(handleTabActivated);
+        chrome.tabs.onRemoved.addListener(handleTabUpdate);
+
+        return () => {
+            chrome.tabs.onUpdated.removeListener(handleTabUpdate);
+            chrome.tabs.onActivated.removeListener(handleTabActivated);
+            chrome.tabs.onRemoved.removeListener(handleTabUpdate);
+        };
+    }, []);
 
 
     const handleTocGenerated = React.useCallback(async (sections: Array<{ title: string; cssSelector: string }>) => {
@@ -260,21 +302,38 @@ function Sidepanel() {
         }
     }
 
+    const handleTabChange = async (tabId: string) => {
+        try {
+            const targetTabId = parseInt(tabId);
+            await chrome.tabs.update(targetTabId, { active: true });
+            setCurrentTabId(targetTabId);
+
+            // Update current URL
+            const tab = await chrome.tabs.get(targetTabId);
+            if (tab.url) {
+                setCurrentUrl(tab.url);
+            }
+
+            log(`Switched to tab ${targetTabId}`);
+        } catch (error) {
+            err('Failed to switch tab:', error);
+        }
+    }
+
+    const abbreviateText = (text: string, maxLength: number = 8) => {
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
+    }
+
+    const getCurrentTabDisplayText = () => {
+        const currentTab = availableTabs.find(tab => tab.id === currentTabId);
+        if (!currentTab) return "Select tab";
+        return abbreviateText(currentTab.title, 6);
+    }
+
     if (!isSidepanelEnabled) {
         return (
             <div className="dark h-screen flex flex-col bg-gray-900 text-white">
-                {contextChanged && (
-                    <div className="bg-yellow-600 text-white p-3 text-center text-sm">
-                        <p className="font-medium">Context Changed</p>
-                        <p className="text-xs mt-1">Tab or page changed. Context preserved for each tab.</p>
-                        <button
-                            onClick={() => setContextChanged(false)}
-                            className="mt-2 px-3 py-1 bg-yellow-700 hover:bg-yellow-800 rounded text-xs"
-                        >
-                            Dismiss
-                        </button>
-                    </div>
-                )}
                 <div className="flex-1 overflow-auto p-4 relative z-10">
                     <h1 className="text-xl font-semibold">Sidepanel is disabled</h1>
                     <p className="mt-2 text-sm text-muted-foreground">
@@ -287,18 +346,6 @@ function Sidepanel() {
 
     return (
         <div className="dark h-screen flex flex-col bg-gray-900 text-white">
-            {contextChanged && (
-                <div className="bg-yellow-600 text-white p-3 text-center text-sm">
-                    <p className="font-medium">Context Changed</p>
-                    <p className="text-xs mt-1">Tab or page changed. Context preserved for each tab.</p>
-                    <button
-                        onClick={() => setContextChanged(false)}
-                        className="mt-2 px-3 py-1 bg-yellow-700 hover:bg-yellow-800 rounded text-xs"
-                    >
-                        Dismiss
-                    </button>
-                </div>
-            )}
             {/* Background animated Spline */}
             <div className="spline-container absolute top-0 left-0 w-full h-full z-0 pointer-events-none">
                 <iframe
@@ -335,19 +382,58 @@ function Sidepanel() {
             </div>
 
             <div className="action-panel flex z-10 bg-black">
-                <div className="toc h-full flex items-center justify-center px-2">
-                    <TocPopup onTocGenerated={handleTocGenerated} />
+                <div className="action-panel-indicators flex flex-col items-center justify-center">
+                    <div className="tab-selector h-full flex flex-col items-start justify-center px-2">
+                        <Select value={currentTabId?.toString()} onValueChange={handleTabChange}>
+                            <SelectTrigger className="w-32 h-8 text-xs border-gray-600 text-white px-2">
+                                <SelectValue placeholder="Select tab">
+                                    {getCurrentTabDisplayText()}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="bg-gray-800 border-gray-600">
+                                {availableTabs.map((tab) => (
+                                    <SelectItem
+                                        key={tab.id}
+                                        value={tab.id.toString()}
+                                        className="text-white hover:bg-gray-700 focus:bg-gray-700"
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium truncate max-w-32">
+                                                {tab.title}
+                                            </span>
+                                            <span className="text-xs text-gray-400 truncate max-w-32">
+                                                {(() => {
+                                                    try {
+                                                        return new URL(tab.url).hostname;
+                                                    } catch {
+                                                        return tab.url;
+                                                    }
+                                                })()}
+                                            </span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="toc h-full flex items-center justify-center px-2">
+                        <TocPopup onTocGenerated={handleTocGenerated} />
+                    </div>
                 </div>
-                <div className="flex items-center justify-center bg-transparent py-4 w-full">
+                <div className="flex items-center justify-center bg-transparent py-4 flex-1 pr-4">
                     {mode === "voice" && (
                         <div className="px-2" onClick={(e) => e.stopPropagation()}>
-                            <div onClick={() => {
-                                chrome.runtime.sendMessage({ type: 'toggle-mic', target: 'content' })
-                            }} className="cursor-pointer">
+                            <div
+                                onClick={() => {
+                                    chrome.runtime.sendMessage({ type: 'toggle-mic', target: 'content' })
+                                }}
+                                className="cursor-pointer w-20 h-20 flex items-center justify-center"
+                            >
                                 <VoicePoweredOrb
                                     enableVoiceControl={false}
                                     isRecording={isListening}
-                                    className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 max-h-24"
+                                    responsive={true}
+                                    className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 w-full h-full"
                                 />
                             </div>
                         </div>
