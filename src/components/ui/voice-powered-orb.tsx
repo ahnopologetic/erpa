@@ -441,6 +441,7 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
         lastTime = t;
         program.uniforms.iTime.value = t * 0.001;
         program.uniforms.hue.value = hue;
+        program.uniforms.isRecording.value = isRecording ? 1.0 : 0.0;
 
         // Handle voice input
         if (enableVoiceControl && isMicrophoneInitialized) {
@@ -529,6 +530,7 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
     width,
     height,
     responsive,
+    isRecording,
     vert,
     frag
   ]);
@@ -554,6 +556,12 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
       // Don't stop microphone here as it will be handled by the main cleanup
     };
   }, [enableVoiceControl]);
+
+  // Update isRecording uniform when prop changes
+  useEffect(() => {
+    // This will be handled in the main render loop where the program is accessible
+    console.log('[VoicePoweredOrb] isRecording prop changed to:', isRecording);
+  }, [isRecording]);
 
   return (
     <div
