@@ -233,9 +233,9 @@ const PlasmoOverlay = () => {
       queueManagerRef.current?.clear()
       queueManagerRef.current?.enqueue(elements)
 
-      // Start playback
+      // Start playback with auto-progression (for semantic search)
       setTimeout(() => {
-        queueManagerRef.current?.start()
+        queueManagerRef.current?.startWithAutoProgress()
       }, 100)
 
       log('[semantic-search] Started TTS playback for search result')
@@ -252,6 +252,10 @@ const PlasmoOverlay = () => {
     currentElement: null as any
   })
 
+  // Focused section state - managed here instead of in SectionHighlight
+  const [focusedSectionIndex, setFocusedSectionIndex] = useState(0)
+  const [hasReadableContent, setHasReadableContent] = useState(false)
+
   // Initialize queue manager
   useEffect(() => {
     if (!queueManagerRef.current) {
@@ -259,7 +263,7 @@ const PlasmoOverlay = () => {
         rate: 1.0,
         pitch: 1.0,
         volume: 1.0,
-        autoProgress: true,
+        autoProgress: false,
         onQueueStart: () => {
           setQueueState(prev => ({ ...prev, isPlaying: true }))
           debug('[Queue] Queue started')
@@ -410,9 +414,9 @@ const PlasmoOverlay = () => {
           queueManagerRef.current?.clear()
           queueManagerRef.current?.enqueue(elements)
 
-          // Start playback
+          // Start playback with auto-progression (for READ_OUT)
           setTimeout(() => {
-            queueManagerRef.current?.start()
+            queueManagerRef.current?.startWithAutoProgress()
           }, 100)
 
           sendResponse({ ok: true })
@@ -532,6 +536,19 @@ const PlasmoOverlay = () => {
         if (newSectionIndex !== queueState.currentSectionIndex) {
           setQueueState(prev => ({ ...prev, currentSectionIndex: newSectionIndex }))
         }
+
+        // Update focused section index
+        if (newSectionIndex !== focusedSectionIndex) {
+          setFocusedSectionIndex(newSectionIndex)
+          
+          // Reset queue manager to handle section change
+          if (queueManagerRef.current) {
+            queueManagerRef.current.currentSectionIndex = newSectionIndex
+            // Clear existing queue elements to allow fresh start in new section
+            queueManagerRef.current.clear()
+            setHasReadableContent(false)
+          }
+        }
       }, 150)
     }
 
@@ -540,7 +557,7 @@ const PlasmoOverlay = () => {
       window.removeEventListener('scroll', handleScroll)
       if (scrollTimeout) clearTimeout(scrollTimeout)
     }
-  }, [sections, queueState.currentSectionIndex])
+  }, [sections, queueState.currentSectionIndex, focusedSectionIndex])
 
 
   const handlePlayPause = useCallback(() => {
@@ -573,42 +590,51 @@ const PlasmoOverlay = () => {
   }, [speechRecognition])
 
 
-  // Tab key listener for testing TTS cursor-following functionality
+  // Tab key listener for single-element navigation within sections
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Tab') {
         e.preventDefault()
-        debug('[TTS] Tab key pressed')
+        debug('[TTS] Tab key pressed - navigating to next readable element')
 
         if (!queueManagerRef.current) return
 
-        // If queue is empty, populate it with current section content
-        if (queueManagerRef.current.elements.length === 0) {
-          // Find current section element
-          const currentSection = sections[queueState.currentSectionIndex]
-          if (!currentSection) return
+        const focusedSection = sections[focusedSectionIndex]
+        if (!focusedSection) return
 
-          const sectionElement = document.querySelector(currentSection.cssSelector) as HTMLElement
+        // If queue is empty or doesn't have content for current section, populate it
+        if (!hasReadableContent || queueManagerRef.current.elements.length === 0) {
+          const sectionElement = document.querySelector(focusedSection.cssSelector) as HTMLElement
           if (!sectionElement) return
 
-          // Find readable nodes from current section
+          // Find readable nodes from focused section
           const nodes = findReadableNodesUntilNextSection(sectionElement, document)
           if (nodes.length === 0) {
-            debug('[TTS] No readable content found in current section')
+            debug('[TTS] No readable content found in focused section')
             return
           }
 
           // Create ErpaReadableElements and enqueue them
-          const elements = createFromReadableNodes(nodes, queueState.currentSectionIndex, currentSection.title)
+          const elements = createFromReadableNodes(nodes, focusedSectionIndex, focusedSection.title)
+          queueManagerRef.current.clear()
           queueManagerRef.current.enqueue(elements)
+          queueManagerRef.current.currentSectionIndex = focusedSectionIndex
+          setHasReadableContent(true)
 
-          debug('[TTS] Populated queue with', elements.length, 'elements from current section')
+          debug('[TTS] Populated queue with', elements.length, 'elements from focused section')
+
+          // Start reading the first element
+          queueManagerRef.current.startCurrentSection()
+          return
         }
 
-        // If queue is already playing, don't interrupt - let it continue naturally
-        // If queue is not playing, start it
-        if (queueManagerRef.current.elements.length > 0 && !queueManagerRef.current.isPlaying) {
-          queueManagerRef.current.start()
+        // Try to navigate to next element within the current section
+        const navigated = queueManagerRef.current.nextInSection()
+        
+        if (!navigated) {
+          debug('[TTS] No more elements in current section')
+          // Could implement auto-advance to next section here if desired
+          // For now, just log that we've reached the end of the section
         }
       }
 
@@ -629,7 +655,7 @@ const PlasmoOverlay = () => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [sections, queueState.currentSectionIndex, handleToggleMic, speechRecognition.isListening])
+  }, [sections, focusedSectionIndex, hasReadableContent, handleToggleMic, speechRecognition.isListening])
 
   return (
     <div
@@ -639,6 +665,8 @@ const PlasmoOverlay = () => {
       <SectionHighlight
         sections={sections}
         onNavigateToSection={handleNavigateToSection}
+        currentSectionIndex={focusedSectionIndex}
+        onSectionChange={setFocusedSectionIndex}
       />
 
       {/* Semantic Search Bar */}

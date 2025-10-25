@@ -5,13 +5,16 @@ import { log } from '~lib/log'
 interface SectionHighlightProps {
     sections: Array<{ title: string; cssSelector: string }>
     onNavigateToSection: (selector: string) => void
+    currentSectionIndex: number
+    onSectionChange: (index: number) => void
 }
 
 export const SectionHighlight: React.FC<SectionHighlightProps> = ({
     sections,
-    onNavigateToSection
+    onNavigateToSection,
+    currentSectionIndex,
+    onSectionChange
 }) => {
-    const [currentSectionIndex, setCurrentSectionIndex] = useState(0)
     const [highlightedSection, setHighlightedSection] = useState<HTMLElement | null>(null)
     const [isNavigating, setIsNavigating] = useState(false)
 
@@ -29,9 +32,9 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
     // Update current section index if it's now invalid
     useEffect(() => {
         if (currentSectionIndex >= validSections.length && validSections.length > 0) {
-            setCurrentSectionIndex(0)
+            onSectionChange(0)
         }
-    }, [validSections.length, currentSectionIndex])
+    }, [validSections.length, currentSectionIndex, onSectionChange])
 
     // Get current visible section based on scroll position
     // Change section when the next section reaches the top 20% of the viewport
@@ -63,13 +66,13 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
             
             const newIndex = getCurrentSection()
             if (newIndex !== currentSectionIndex) {
-                setCurrentSectionIndex(newIndex)
+                onSectionChange(newIndex)
             }
         }
 
         window.addEventListener('scroll', handleScroll, { passive: true })
         return () => window.removeEventListener('scroll', handleScroll)
-    }, [getCurrentSection, currentSectionIndex, isNavigating])
+    }, [getCurrentSection, currentSectionIndex, isNavigating, onSectionChange])
 
     // Highlight the current section
     useEffect(() => {
@@ -115,14 +118,14 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
         if (section) {
             setIsNavigating(true)
             onNavigateToSection(section.cssSelector)
-            setCurrentSectionIndex(prevIndex)
+            onSectionChange(prevIndex)
             
             // Re-enable scroll listener after animation completes (typical smooth scroll is ~500-1000ms)
             setTimeout(() => {
                 setIsNavigating(false)
             }, 1000)
         }
-    }, [currentSectionIndex, validSections, onNavigateToSection])
+    }, [currentSectionIndex, validSections, onNavigateToSection, onSectionChange])
 
     // Navigate to next section
     const navigateDown = useCallback(() => {
@@ -133,14 +136,14 @@ export const SectionHighlight: React.FC<SectionHighlightProps> = ({
         if (section) {
             setIsNavigating(true)
             onNavigateToSection(section.cssSelector)
-            setCurrentSectionIndex(nextIndex)
+            onSectionChange(nextIndex)
             
             // Re-enable scroll listener after animation completes (typical smooth scroll is ~500-1000ms)
             setTimeout(() => {
                 setIsNavigating(false)
             }, 1000)
         }
-    }, [currentSectionIndex, validSections, onNavigateToSection])
+    }, [currentSectionIndex, validSections, onNavigateToSection, onSectionChange])
 
     // Keyboard navigation
     useEffect(() => {

@@ -15,7 +15,7 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
   private config: ErpaReadableConfig;
   private currentUtterance?: SpeechSynthesisUtterance;
   private isAutoProgressing: boolean = false;
-  private currentSectionIndex: number = 0;
+  public currentSectionIndex: number = 0;
 
   constructor(config: ErpaReadableConfig = {}) {
     this.config = {
@@ -207,6 +207,78 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
       this.config.onSectionChange?.(sectionIndex);
     } else {
       console.warn(`Section not found: ${sectionIndex}`);
+    }
+  }
+
+  /**
+   * Get the next unread element within the current section
+   */
+  getNextElementInCurrentSection(): ErpaReadableElement | null {
+    if (this.elements.length === 0) return null;
+    
+    const currentSectionIndex = this.currentElement?.sectionIndex ?? this.currentSectionIndex;
+    const currentOrder = this.currentElement?.order ?? -1;
+    
+    // Find the next element in the same section that hasn't been completed
+    const nextElement = this.elements.find(element => 
+      element.sectionIndex === currentSectionIndex && 
+      element.order > currentOrder && 
+      !element.isCompleted
+    );
+    
+    return nextElement || null;
+  }
+
+  /**
+   * Get the first unread element in the current section
+   */
+  getFirstElementInCurrentSection(): ErpaReadableElement | null {
+    if (this.elements.length === 0) return null;
+    
+    const currentSectionIndex = this.currentElement?.sectionIndex ?? this.currentSectionIndex;
+    
+    // Find the first element in the current section that hasn't been completed
+    const firstElement = this.elements.find(element => 
+      element.sectionIndex === currentSectionIndex && 
+      !element.isCompleted
+    );
+    
+    return firstElement || null;
+  }
+
+  /**
+   * Navigate to the next element within the current section only
+   * Returns true if navigation occurred, false if no more elements in section
+   */
+  nextInSection(): boolean {
+    const nextElement = this.getNextElementInCurrentSection();
+    
+    if (nextElement) {
+      // Stop current playback properly
+      this.stop();
+      
+      // Jump to the next element and start playing it
+      this.jumpToElement(nextElement.id);
+      this.start();
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Start reading from the first element of the current section
+   */
+  startCurrentSection(): void {
+    const firstElement = this.getFirstElementInCurrentSection();
+    
+    if (firstElement) {
+      // Stop current playback properly
+      this.stop();
+      
+      // Jump to first element and start playing it
+      this.jumpToElement(firstElement.id);
+      this.start();
     }
   }
 
@@ -439,5 +511,28 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
    */
   updateConfig(newConfig: Partial<ErpaReadableConfig>): void {
     this.config = { ...this.config, ...newConfig };
+  }
+
+  /**
+   * Start playback with auto-progression enabled (for READ_OUT functionality)
+   */
+  startWithAutoProgress(): void {
+    // Temporarily enable auto-progression
+    const originalAutoProgress = this.config.autoProgress;
+    this.config.autoProgress = true;
+
+    // Start normal playback
+    this.start();
+
+    // Set up a handler to restore original setting when queue ends
+    const originalOnQueueEnd = this.config.onQueueEnd;
+    this.config.onQueueEnd = () => {
+      // Restore original auto-progression setting
+      this.config.autoProgress = originalAutoProgress;
+      this.config.onQueueEnd = originalOnQueueEnd;
+      
+      // Call original onQueueEnd if it exists
+      originalOnQueueEnd?.();
+    };
   }
 }
