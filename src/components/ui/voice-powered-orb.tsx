@@ -13,6 +13,9 @@ interface VoicePoweredOrbProps {
   maxHoverIntensity?: number;
   onVoiceDetected?: (detected: boolean) => void;
   isRecording?: boolean;
+  width?: number | string;
+  height?: number | string;
+  responsive?: boolean;
 }
 
 export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
@@ -24,6 +27,9 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
   maxHoverIntensity = 0.8,
   onVoiceDetected,
   isRecording = false,
+  width,
+  height,
+  responsive = true,
 }) => {
   const ctnDom = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -32,6 +38,7 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
   const dataArrayRef = useRef<Uint8Array | null>(null);
   const animationFrameRef = useRef<number>();
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
   const vert = /* glsl */ `
     precision highp float;
@@ -362,14 +369,29 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
       const resize = () => {
         if (!container || !rendererInstance || !glContext) return;
         const dpr = window.devicePixelRatio || 1;
-        const width = container.clientWidth;
-        const height = container.clientHeight;
+        
+        let containerWidth = container.clientWidth;
+        let containerHeight = container.clientHeight;
 
-        if (width === 0 || height === 0) return;
+        // Apply custom width/height if provided
+        if (width !== undefined) {
+          containerWidth = typeof width === 'number' ? width : parseInt(width.toString());
+        }
+        if (height !== undefined) {
+          containerHeight = typeof height === 'number' ? height : parseInt(height.toString());
+        }
 
-        rendererInstance.setSize(width * dpr, height * dpr);
-        glContext.canvas.style.width = width + "px";
-        glContext.canvas.style.height = height + "px";
+        // If responsive mode, use container dimensions
+        if (responsive && width === undefined && height === undefined) {
+          containerWidth = container.clientWidth;
+          containerHeight = container.clientHeight;
+        }
+
+        if (containerWidth === 0 || containerHeight === 0) return;
+
+        rendererInstance.setSize(containerWidth * dpr, containerHeight * dpr);
+        glContext.canvas.style.width = containerWidth + "px";
+        glContext.canvas.style.height = containerHeight + "px";
 
         if (program) {
           program.uniforms.iResolution.value.set(
@@ -381,6 +403,18 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
       };
       window.addEventListener("resize", resize);
       resize();
+
+      // Set up ResizeObserver for dynamic container sizing
+      if (responsive && window.ResizeObserver) {
+        resizeObserverRef.current = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            if (entry.target === container) {
+              resize();
+            }
+          }
+        });
+        resizeObserverRef.current.observe(container);
+      }
 
       let lastTime = 0;
       let currentRot = 0;
@@ -452,6 +486,12 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
         cancelAnimationFrame(rafId);
         window.removeEventListener("resize", resize);
 
+        // Clean up ResizeObserver
+        if (resizeObserverRef.current) {
+          resizeObserverRef.current.disconnect();
+          resizeObserverRef.current = null;
+        }
+
         // Clean up canvas safely
         if (container && glContext && glContext.canvas) {
           try {
@@ -486,6 +526,9 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
     voiceSensitivity,
     maxRotationSpeed,
     maxHoverIntensity,
+    width,
+    height,
+    responsive,
     vert,
     frag
   ]);
