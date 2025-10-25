@@ -768,7 +768,7 @@ const PlasmoOverlay = () => {
           onPlayPause={handlePlayPause}
           onStop={handleStop}
           onHandsUp={handleToggleMic}
-          className="w-full h-full border-2 border-white backdrop-blur-xl bg-black/20 rounded-lg py-2 px-4 flex items-center justify-center"
+          className="w-full h-full backdrop-blur-sm bg-black/20 rounded-full py-2 px-4 flex items-center justify-center border border-gradient-to-r from-white to-transparent"
         />
       </div>
     </div>
