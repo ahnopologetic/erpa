@@ -1,4 +1,4 @@
-import { MicIcon, PencilIcon, SendIcon } from "lucide-react"
+import { MicIcon, PencilIcon, SendIcon, SettingsIcon } from "lucide-react"
 import React from "react"
 import { TocPopup } from "~components/toc-popup"
 import { Button } from "~components/ui/button"
@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectLabel, SelectTrigger, SelectVa
 import { err, log, warn } from "~lib/log"
 import { ErpaChatAgent, useErpaChatAgent } from "~hooks/useErpaChatAgent"
 import { getContentFunction, navigateFunction, readOutFunction, semanticSearchFunction, summarizePageFunction } from "~lib/functions/definitions"
+import { UserConfigProvider } from "~contexts/UserConfigContext"
+import { SettingsDialog } from "~components/settings/settings-dialog"
 import "~style.css"
 import type { ChatMessage } from "~types/voice-memo"
 import systemPrompt from "~lib/prompt"
@@ -28,6 +30,7 @@ function Sidepanel() {
     const [currentStreamingMessageId, setCurrentStreamingMessageId] = React.useState<string | null>(null)
     const [agentInitialized, setAgentInitialized] = React.useState(false)
     const [agentInitializing, setAgentInitializing] = React.useState(true)
+    const [settingsOpen, setSettingsOpen] = React.useState(false)
 
     const agent = React.useRef<ErpaChatAgent | null>(null)
 
@@ -392,6 +395,15 @@ function Sidepanel() {
             <div className="relative z-10 p-4 border-b border-gray-700">
                 <div className="flex items-center justify-between">
                     <h1 className="text-xl font-semibold">Erpa</h1>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setSettingsOpen(true)}
+                        className="hover:bg-gray-800"
+                        aria-label="Settings"
+                    >
+                        <SettingsIcon className="w-5 h-5" />
+                    </Button>
                 </div>
                 <p className="mt-2 text-sm text-gray-400">
                     {agentInitializing ? "Agent is initializing..." :
@@ -564,8 +576,17 @@ function Sidepanel() {
                     )}
                 </div>
             </div>
+            
+            {/* Settings Dialog */}
+            <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         </div>
     )
 }
 
-export default Sidepanel
+export default function SidepanelWithProvider() {
+    return (
+        <UserConfigProvider>
+            <Sidepanel />
+        </UserConfigProvider>
+    )
+}
