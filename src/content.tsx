@@ -499,6 +499,7 @@ const PlasmoOverlay = () => {
   }, [sections, searchEngine, highlightSentence, handlePlayResult])
 
   // Scroll-based content refresh detection
+  // Change section when the next section reaches the top 20% of the viewport
   useEffect(() => {
     let scrollTimeout: NodeJS.Timeout
 
@@ -508,24 +509,25 @@ const PlasmoOverlay = () => {
       scrollTimeout = setTimeout(() => {
         if (sections.length === 0 || !queueManagerRef.current) return
 
-        const scrollPosition = window.scrollY + window.innerHeight / 2
-        let newSectionIndex = 0
-        let closestDistance = Infinity
+        const viewportTop = window.scrollY
+        const viewportHeight = window.innerHeight
+        const thresholdPosition = viewportTop + viewportHeight * 0.2 // Top 20% of viewport
 
-        sections.forEach((section, index) => {
+        let newSectionIndex = 0
+
+        // Start from the last section and work backwards to find the first section whose top
+        // has passed the threshold position
+        for (let i = sections.length - 1; i >= 0; i--) {
           try {
-            const element = document.querySelector(section.cssSelector) as HTMLElement
-            if (element) {
-              const distance = Math.abs(scrollPosition - element.offsetTop)
-              if (distance < closestDistance) {
-                closestDistance = distance
-                newSectionIndex = index
-              }
+            const element = document.querySelector(sections[i].cssSelector) as HTMLElement
+            if (element && element.offsetTop <= thresholdPosition) {
+              newSectionIndex = i
+              break
             }
           } catch (e) {
             warn('[Scroll] Error getting element:', e)
           }
-        })
+        }
 
         if (newSectionIndex !== queueState.currentSectionIndex) {
           setQueueState(prev => ({ ...prev, currentSectionIndex: newSectionIndex }))
