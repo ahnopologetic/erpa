@@ -1,5 +1,6 @@
 import { createFunctionDefinition } from "@ahnopologetic/use-prompt-api";
 import { log } from "~lib/log";
+import { handleGetContent, handleSummarizePage } from "./handlers";
 
 const navigateFunction = createFunctionDefinition('navigate', 'Navigate to a specific location on the page', {
     type: 'object',
@@ -28,7 +29,7 @@ const readOutFunction = createFunctionDefinition('readOut', 'Read out a specific
 }, async ({ targetType, target }: { targetType: string, target: string }) => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     const tab = tabs?.[0]
-    
+
     return new Promise((resolve, reject) => {
         chrome.tabs.sendMessage(tab?.id ?? 0, { type: 'READ_OUT', targetType: targetType, target: target }, (response) => {
             if (chrome.runtime.lastError) {
@@ -46,25 +47,25 @@ const semanticSearchFunction = createFunctionDefinition('semanticSearch', 'Perfo
     type: 'object',
     properties: {
         query: { type: 'string', description: "The search query to find relevant content on the page" },
-        autoPlayFirst: { type: 'boolean', description: "Whether to automatically play the first result with TTS", default: false }
+        autoPlayFirst: { type: 'boolean', description: "Whether to automatically play the first result with TTS" }
     },
     required: ['query']
 }, async ({ query, autoPlayFirst = false }: { query: string, autoPlayFirst?: boolean }) => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     const tab = tabs?.[0]
-    
+
     log('Performing semantic search:', query, { tabId: tab?.id, autoPlayFirst })
-    
-    const response = await chrome.tabs.sendMessage(tab?.id ?? 0, { 
-        type: 'SEMANTIC_SEARCH', 
+
+    const response = await chrome.tabs.sendMessage(tab?.id ?? 0, {
+        type: 'SEMANTIC_SEARCH',
         query,
         autoPlayFirst
     })
-    
+
     if (!response?.ok) {
         throw new Error(response?.error || 'Failed to perform semantic search')
     }
-    
+
     return {
         query,
         results: response.results,
@@ -73,9 +74,28 @@ const semanticSearchFunction = createFunctionDefinition('semanticSearch', 'Perfo
     }
 })
 
+const getContentFunction = createFunctionDefinition('getContent', 'Get content from a specific element on the page', {
+    type: 'object',
+    properties: {
+        selector: { type: 'string', description: "CSS selector for the element to get content from" }
+    },
+    required: ['selector']
+}, async ({ selector }: { selector: string }) => {
+    return await handleGetContent(selector)
+})
+
+const summarizePageFunction = createFunctionDefinition('summarizePage', 'Analyze and summarize the entire current page content using incremental processing to respect token limits. Extracts all meaningful content, identifies key themes, and creates comprehensive summaries at both section and page level.', {
+    type: 'object',
+    properties: {},
+    required: []
+}, async () => {
+    return await handleSummarizePage();
+})
+
 export {
     navigateFunction,
     readOutFunction,
     getContentFunction,
-    semanticSearchFunction
+    semanticSearchFunction,
+    summarizePageFunction
 }

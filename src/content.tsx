@@ -1,5 +1,4 @@
 import cssText from "data-text:~style.css"
-import { MicIcon } from "lucide-react"
 import type { PlasmoCSConfig } from "plasmo"
 import { useCallback, useEffect, useRef, useState } from "react"
 
@@ -315,10 +314,10 @@ const PlasmoOverlay = () => {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
       if (message?.type === "SCROLL_TO_SECTION") {
-        debug('[Erpa] Scrolling to section message received', message)
+        debug('Scrolling to section message received', message)
         const section = document.querySelector(message.selector) as HTMLElement | null
         if (!section) {
-          err('[Erpa] Section not found for selector:', message.selector)
+          err('Section not found for selector:', message.selector)
           sendResponse({ ok: false, error: `Section not found for selector: ${message.selector}` })
           return false
         }
