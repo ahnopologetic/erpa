@@ -14,6 +14,8 @@ import { SettingsDialog } from "~components/settings/settings-dialog"
 import "~style.css"
 import type { ChatMessage } from "~types/voice-memo"
 import systemPrompt from "~lib/prompt"
+import icon from "data-base64:/assets/logo.png"
+
 
 function Sidepanel() {
     const [isListening, setIsListening] = React.useState(false)
@@ -394,7 +396,14 @@ function Sidepanel() {
             {/* Header */}
             <div className="relative z-10 p-4 border-b border-gray-700">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-xl font-semibold">Erpa</h1>
+                    <div className="flex items-center gap-3">
+                        <img 
+                            src={icon} 
+                            alt="Erpa Logo" 
+                            className="w-8 h-8 rounded-lg"
+                        />
+                        <h1 className="text-xl font-semibold">Erpa</h1>
+                    </div>
                     <Button
                         variant="ghost"
                         size="icon"
@@ -449,8 +458,8 @@ function Sidepanel() {
             </div>
 
             <div className="action-panel flex z-10 bg-black">
-                <div className="action-panel-indicators flex flex-col items-center justify-center">
-                    <div className="tab-selector h-full flex flex-col items-start justify-center px-2">
+                <div className="action-panel-indicators flex flex-col items-center justify-center gap-1 px-2">
+                    <div className="tab-selector">
                         <Select value={currentTabId?.toString()} onValueChange={handleTabChange}>
                             <SelectTrigger className="w-32 h-8 text-xs border-gray-600 text-white px-2">
                                 <SelectValue placeholder="Select tab">
@@ -483,7 +492,7 @@ function Sidepanel() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="toc h-full flex items-center justify-center px-2">
+                    <div className="toc flex items-center gap-1">
                         <TocPopup onTocGenerated={handleTocGenerated} />
                         {
                             mode === "text" ? (
@@ -498,9 +507,9 @@ function Sidepanel() {
                         }
                     </div>
                 </div>
-                <div className="flex items-center justify-center bg-transparent py-4 flex-1 pr-4">
+                <div className="flex items-center justify-center bg-transparent py-2 flex-1 pl-2">
                     {mode === "voice" && (
-                        <div className="px-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="px-1" onClick={(e) => e.stopPropagation()}>
                             <div
                                 onClick={async () => {
                                     log('[toggle-mic] Clicked')
@@ -546,7 +555,7 @@ function Sidepanel() {
                         </div>
                     )}
                     {mode === "text" && (
-                        <div className="w-full px-2 flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="w-full px-1 flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
                             <Textarea
                                 value={textInput}
                                 onChange={(e) => setTextInput(e.target.value)}

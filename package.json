@@ -88,7 +88,8 @@
         "resources": [
           "offscreen.html",
           "permission.html",
-          "audio-test.html"
+          "audio-test.html",
+          "assets/logo.png"
         ],
         "matches": [
           "<all_urls>"
