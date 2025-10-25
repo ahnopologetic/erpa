@@ -115,18 +115,31 @@ const PlasmoOverlay = () => {
   // Listen for sidepanel mic toggle commands
   useEffect(() => {
     const handleMessage = (message: any) => {
+      log('[Content] Message received:', message)
       if (message?.type === 'toggle-mic' && message.target === 'content') {
+        log('[toggle-mic] Content script received toggle-mic command, isListening:', message.isListening)
+        const wasListening = speechRecognition.isListening
         speechRecognition.toggleListening()
+        log('[toggle-mic] Speech recognition toggled from', wasListening, 'to', speechRecognition.isListening)
+        
+        // Send back the current state to the sidepanel
+        chrome.runtime.sendMessage({
+          type: "speech-recognition-state-update",
+          isListening: speechRecognition.isListening,
+          target: "sidepanel"
+        })
       }
-      
+
       if (message?.type === 'FOCUS_SEMANTIC_SEARCH') {
         // Focus will be handled by the SearchBar component's keyboard listener
         log('[semantic-search] Received focus semantic search command')
       }
     }
 
+    log('[Content] Setting up message listener for sidepanel communication')
     chrome.runtime.onMessage.addListener(handleMessage)
     return () => {
+      log('[Content] Removing message listener')
       chrome.runtime.onMessage.removeListener(handleMessage)
     }
   }, [speechRecognition])
@@ -176,12 +189,12 @@ const PlasmoOverlay = () => {
   const handleNavigateResult = useCallback((direction: 'prev' | 'next') => {
     if (searchResults.length <= 1) return
 
-    const newIndex = direction === 'prev' 
+    const newIndex = direction === 'prev'
       ? (currentResultIndex - 1 + searchResults.length) % searchResults.length
       : (currentResultIndex + 1) % searchResults.length
 
     setCurrentResultIndex(newIndex)
-    
+
     const result = searchResults[newIndex]
     highlightSentence(result.sentence.text, result.element, result.selector)
     log('[semantic-search] Navigated to result', newIndex + 1, 'of', searchResults.length)
@@ -296,6 +309,7 @@ const PlasmoOverlay = () => {
 
   useEffect(() => {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+
       if (message?.type === "SCROLL_TO_SECTION") {
         debug('[Erpa] Scrolling to section message received', message)
         const section = document.querySelector(message.selector) as HTMLElement | null
@@ -439,7 +453,7 @@ const PlasmoOverlay = () => {
         (async () => {
           try {
             debug('[semantic-search] Performing semantic search:', message.query)
-            
+
             const results = await searchEngine.search(message.query, {
               maxCandidates: 10,
               useGeminiRanking: true,
@@ -449,7 +463,7 @@ const PlasmoOverlay = () => {
             if (results.length > 0) {
               const firstResult = results[0]
               highlightSentence(firstResult.sentence.text, firstResult.element, firstResult.selector)
-              
+
               // Auto-play if requested
               if (message.autoPlayFirst) {
                 setTimeout(() => {
@@ -458,8 +472,8 @@ const PlasmoOverlay = () => {
               }
             }
 
-            sendResponse({ 
-              ok: true, 
+            sendResponse({
+              ok: true,
               results: results.map(r => ({
                 text: r.sentence.text,
                 score: r.score,
@@ -694,19 +708,19 @@ if (typeof window !== 'undefined') {
       const { Storage } = await import('@plasmohq/storage');
       const storage = new Storage({ area: 'local' });
       const data = await storage.get('semantic_search_embeddings');
-      
+
       if (!data) {
         console.log('❌ No cache data found in chrome.storage.local');
         console.log('   Key checked: "semantic_search_embeddings"');
         return null;
       }
-      
+
       const urls = Object.keys(data);
       console.log('🔍 Direct Storage Inspection:');
       console.log('  Storage area: chrome.storage.local');
       console.log('  Cache key: "semantic_search_embeddings"');
       console.log('  URLs in cache:', urls.length);
-      
+
       urls.forEach((url, i) => {
         const entry = data[url];
         console.log(`\n  [${i + 1}] URL: ${url}`);
@@ -715,7 +729,7 @@ if (typeof window !== 'undefined') {
         console.log(`      Hash: ${entry.pageHash}`);
         console.log(`      Age: ${Math.round((Date.now() - entry.timestamp) / 1000 / 60)} minutes`);
       });
-      
+
       return data;
     },
     async clear() {
@@ -736,7 +750,7 @@ if (typeof window !== 'undefined') {
       console.log('  erpaCacheDebug.help()     - Show this help message');
     }
   };
-  
+
   // Show help on load
   console.log('💡 Erpa semantic search cache debugging is available!');
   console.log('   Type "erpaCacheDebug.help()" for available commands');

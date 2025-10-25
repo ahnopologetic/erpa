@@ -178,6 +178,11 @@ function Sidepanel() {
                 log('[speech-recognition-ended] Speech recognition ended', { message })
                 setIsListening(false)
             }
+            if (message.type === "speech-recognition-state-update") {
+                log('[speech-recognition-state-update] Received state update', { message })
+                log('[speech-recognition-state-update] Updating isListening from', isListening, 'to', message.isListening)
+                setIsListening(message.isListening)
+            }
         };
 
         chrome.runtime.onMessage.addListener(handleMessage);
@@ -424,8 +429,37 @@ function Sidepanel() {
                     {mode === "voice" && (
                         <div className="px-2" onClick={(e) => e.stopPropagation()}>
                             <div
-                                onClick={() => {
-                                    chrome.runtime.sendMessage({ type: 'toggle-mic', target: 'content' })
+                                onClick={async () => {
+                                    log('[toggle-mic] Clicked')
+                                    log('[toggle-mic] Sending toggle command to content script')
+                                    
+                                    // Send message to the active tab's content script
+                                    if (currentTabId) {
+                                        try {
+                                            log('[toggle-mic] Sending message to tab', currentTabId, 'with payload:', { 
+                                                type: 'toggle-mic', 
+                                                target: 'content', 
+                                                isListening: !isListening 
+                                            })
+                                            await chrome.tabs.sendMessage(currentTabId, { 
+                                                type: 'toggle-mic', 
+                                                target: 'content', 
+                                                isListening: !isListening 
+                                            })
+                                            log('[toggle-mic] Message sent to content script successfully')
+                                        } catch (error) {
+                                            err('[toggle-mic] Failed to send message to content script:', error)
+                                            // Try to get tab info for debugging
+                                            try {
+                                                const tab = await chrome.tabs.get(currentTabId)
+                                                log('[toggle-mic] Tab info:', { id: tab.id, url: tab.url, status: tab.status })
+                                            } catch (tabError) {
+                                                err('[toggle-mic] Could not get tab info:', tabError)
+                                            }
+                                        }
+                                    } else {
+                                        warn('[toggle-mic] No current tab ID available')
+                                    }
                                 }}
                                 className="cursor-pointer w-20 h-20 flex items-center justify-center"
                             >
@@ -435,6 +469,10 @@ function Sidepanel() {
                                     responsive={true}
                                     className="rounded-xl overflow-hidden shadow-2xl hover:scale-120 transition-all duration-300 w-full h-full"
                                 />
+                                {/* Debug info */}
+                                <div className="absolute top-0 left-0 text-xs text-white bg-black bg-opacity-50 p-1 rounded">
+                                    isListening: {isListening ? 'true' : 'false'}
+                                </div>
                             </div>
                         </div>
                     )}

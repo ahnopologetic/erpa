@@ -1,0 +1,6 @@
+---
+alwaysApply: true
+---
+
+- When query starts with HUM-<number>, look into linear ticket to pull information about the task
+- Instead of creating new markdown, if you're provided with linear ticket key, leave documentation in the linear ticket
