@@ -91,6 +91,28 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
   }
 
   /**
+   * Update TTS settings dynamically
+   */
+  updateTTSSettings(settings: {
+    rate?: number;
+    pitch?: number;
+    volume?: number;
+    voice?: SpeechSynthesisVoice | null;
+  }): void {
+    if (settings.rate !== undefined) this.config.rate = settings.rate;
+    if (settings.pitch !== undefined) this.config.pitch = settings.pitch;
+    if (settings.volume !== undefined) this.config.volume = settings.volume;
+    if (settings.voice !== undefined) this.config.voice = settings.voice || undefined;
+    
+    console.log('[QueueManager] TTS settings updated:', {
+      rate: this.config.rate,
+      pitch: this.config.pitch,
+      volume: this.config.volume,
+      voice: this.config.voice?.name
+    });
+  }
+
+  /**
    * Start playing from the current position
    */
   start(): void {
