@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import { cn } from '~lib/utils';
+import { useTTSSettings } from '~contexts/UserConfigContext';
 
 interface AITextBubbleProps {
     content: string;
@@ -15,6 +16,7 @@ export const AITextBubble: React.FC<AITextBubbleProps> = ({
 }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+    const ttsSettings = useTTSSettings();
 
     // Remove all occurrences of <|task_complete|> (ignoring case just in case)
     const sanitizedContent = content.replace(/<\|task_complete\|>/gi, '').trim();
@@ -29,19 +31,26 @@ export const AITextBubble: React.FC<AITextBubbleProps> = ({
             // Start new playback
             const utterance = new SpeechSynthesisUtterance(sanitizedContent);
             
-            // Configure voice settings
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            utterance.volume = 1.0;
+            // Configure voice settings from user config
+            utterance.rate = ttsSettings.speed;
+            utterance.pitch = ttsSettings.pitch;
+            utterance.volume = ttsSettings.volume;
 
-            // Select the best available voice
+            // Select voice from user config
             const voices = speechSynthesis.getVoices();
-            const englishVoice = voices.find(voice =>
-                voice.lang.startsWith('en') && voice.default
-            ) || voices.find(voice => voice.lang.startsWith('en'));
+            if (ttsSettings.voice) {
+                const selectedVoice = voices.find(v => v.voiceURI === ttsSettings.voice);
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                }
+            } else {
+                const englishVoice = voices.find(voice =>
+                    voice.lang.startsWith('en') && voice.default
+                ) || voices.find(voice => voice.lang.startsWith('en'));
 
-            if (englishVoice) {
-                utterance.voice = englishVoice;
+                if (englishVoice) {
+                    utterance.voice = englishVoice;
+                }
             }
 
             // Set up event handlers

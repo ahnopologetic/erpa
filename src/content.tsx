@@ -258,26 +258,41 @@ const PlasmoOverlay = () => {
   // Initialize queue manager
   useEffect(() => {
     if (!queueManagerRef.current) {
-      queueManagerRef.current = new ErpaReadableQueueManager({
-        rate: 1.0,
-        pitch: 1.0,
-        volume: 1.0,
-        autoProgress: false,
-        onQueueStart: () => {
-          setQueueState(prev => ({ ...prev, isPlaying: true }))
-          debug('[Queue] Queue started')
-        },
-        onQueueEnd: () => {
-          setQueueState(prev => ({ ...prev, isPlaying: false }))
-          debug('[Queue] Queue ended')
-        },
-        onSectionChange: (index) => {
-          setQueueState(prev => ({ ...prev, currentSectionIndex: index }))
-          debug('[Queue] Section changed to:', index)
-        },
-        onError: (error, element) => {
-          err('[Queue] Error:', error, 'Element:', element?.id ?? 'unknown')
+      // Load initial TTS settings from storage
+      chrome.storage.local.get(['erpa_user_config'], (result) => {
+        const config = result.erpa_user_config;
+        const ttsSettings = config?.tts || {};
+        
+        // Get available voices
+        const voices = speechSynthesis.getVoices();
+        let voice: SpeechSynthesisVoice | undefined = undefined;
+        
+        if (ttsSettings.voice) {
+          voice = voices.find(v => v.voiceURI === ttsSettings.voice);
         }
+        
+        queueManagerRef.current = new ErpaReadableQueueManager({
+          rate: ttsSettings.speed ?? 1.0,
+          pitch: ttsSettings.pitch ?? 1.0,
+          volume: ttsSettings.volume ?? 1.0,
+          voice: voice,
+          autoProgress: false,
+          onQueueStart: () => {
+            setQueueState(prev => ({ ...prev, isPlaying: true }))
+            debug('[Queue] Queue started')
+          },
+          onQueueEnd: () => {
+            setQueueState(prev => ({ ...prev, isPlaying: false }))
+            debug('[Queue] Queue ended')
+          },
+          onSectionChange: (index) => {
+            setQueueState(prev => ({ ...prev, currentSectionIndex: index }))
+            debug('[Queue] Section changed to:', index)
+          },
+          onError: (error, element) => {
+            err('[Queue] Error:', error, 'Element:', element?.id ?? 'unknown')
+          }
+        })
       })
     }
 
@@ -309,6 +324,59 @@ const PlasmoOverlay = () => {
   }, [sections])
 
 
+
+  // Listen for TTS config updates
+  useEffect(() => {
+    const updateTTSFromConfig = () => {
+      chrome.storage.local.get(['erpa_user_config'], (result) => {
+        const config = result.erpa_user_config;
+        if (!config || !config.tts) return;
+
+        const ttsSettings = config.tts;
+        
+        // Get available voices
+        const voices = speechSynthesis.getVoices();
+        let voice: SpeechSynthesisVoice | undefined = undefined;
+        
+        if (ttsSettings.voice) {
+          voice = voices.find(v => v.voiceURI === ttsSettings.voice);
+        }
+        
+        // Update queue manager with new TTS settings
+        if (queueManagerRef.current) {
+          queueManagerRef.current.updateTTSSettings({
+            rate: ttsSettings.speed,
+            pitch: ttsSettings.pitch,
+            volume: ttsSettings.volume,
+            voice: voice || null
+          });
+        }
+      });
+    };
+
+    // Listen for storage changes
+    const handleStorageChange = (changes: any, areaName: string) => {
+      if (areaName === 'local' && changes.erpa_user_config) {
+        updateTTSFromConfig();
+      }
+    };
+
+    // Listen for voices being loaded
+    const handleVoicesChanged = () => {
+      updateTTSFromConfig();
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChange);
+    speechSynthesis.addEventListener('voiceschanged', handleVoicesChanged);
+
+    // Initial load
+    updateTTSFromConfig();
+
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+      speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged);
+    };
+  }, []);
 
   useEffect(() => {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -700,7 +768,7 @@ const PlasmoOverlay = () => {
           onPlayPause={handlePlayPause}
           onStop={handleStop}
           onHandsUp={handleToggleMic}
-          className="w-full h-full border-2 border-white backdrop-blur-xl bg-black/20 rounded-lg py-2 px-4 flex items-center justify-center"
+          className="w-full h-full backdrop-blur-sm bg-black/20 rounded-full py-2 px-4 flex items-center justify-center border border-gradient-to-r from-white to-transparent"
         />
       </div>
     </div>
