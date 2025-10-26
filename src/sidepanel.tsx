@@ -15,6 +15,7 @@ import "~style.css"
 import type { ChatMessage } from "~types/voice-memo"
 import systemPrompt from "~lib/prompt"
 import icon from "data-base64:/assets/logo.png"
+import "~lib/test-notification"
 
 
 function Sidepanel() {

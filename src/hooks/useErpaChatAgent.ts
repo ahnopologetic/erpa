@@ -2,6 +2,7 @@ import { FunctionRegistry, SessionManager, StreamProcessor, buildFunctionSystemP
 import { useEffect, useState } from "react";
 import { getContentFunction, navigateFunction, readOutFunction, semanticSearchFunction } from "~lib/functions/definitions";
 import { log } from "~lib/log";
+import { playNotificationSound } from "~lib/notification-sound";
 import type { ChatMessage } from "~types/voice-memo";
 
 class ErpaChatAgent {
@@ -227,6 +228,15 @@ class ErpaChatAgent {
                         },
                         createdAt: Date.now()
                     });
+
+                    // Play notification sound when AI response is completed
+                    try {
+                        await playNotificationSound();
+                        console.log('Notification sound triggered for completed AI response');
+                    } catch (error) {
+                        console.warn('Failed to play notification sound:', error);
+                    }
+
                     break;
                 }
 
@@ -251,6 +261,14 @@ class ErpaChatAgent {
 
         if (iteration >= this.maxIterations) {
             console.log('MAX ITERATIONS REACHED');
+            
+            // Play notification sound when max iterations reached (completion state)
+            try {
+                await playNotificationSound();
+                console.log('Notification sound triggered for max iterations reached');
+            } catch (error) {
+                console.warn('Failed to play notification sound:', error);
+            }
         }
     }
 

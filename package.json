@@ -89,7 +89,8 @@
           "offscreen.html",
           "permission.html",
           "audio-test.html",
-          "assets/logo.png"
+          "assets/logo.png",
+          "assets/notification.mp3"
         ],
         "matches": [
           "<all_urls>"
