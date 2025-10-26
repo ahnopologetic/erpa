@@ -1,0 +1,1815 @@
+<html lang="en">
+  <head>
+    <script>
+      /* 
+      Sequence animation on scroll when visible. Requires Animation Keyframe. Usage:
+  
+      1) Insert this code in the <head> along with the Animation Keyframe code.
+  
+      2) Add to Tailwind Classes: [animation:fadeSlideIn_0.8s_ease-out_0.1s_both] animate-on-scroll
+    */
+      ;(function () {
+        // Inject CSS for paused/running states
+        const style = document.createElement("style")
+        style.textContent = `
+        /* Default: paused */
+        .animate-on-scroll { animation-play-state: paused !important; }
+        /* Activated by JS */
+        .animate-on-scroll.animate { animation-play-state: running !important; }
+      `
+        document.head.appendChild(style)
+
+        const once = true
+
+        if (!window.__inViewIO) {
+          window.__inViewIO = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                  entry.target.classList.add("animate")
+                  if (once) window.__inViewIO.unobserve(entry.target)
+                }
+              })
+            },
+            { threshold: 0.2, rootMargin: "0px 0px -10% 0px" }
+          )
+        }
+
+        window.initInViewAnimations = function (
+          selector = ".animate-on-scroll"
+        ) {
+          document.querySelectorAll(selector).forEach((el) => {
+            window.__inViewIO.observe(el) // observing twice is a no-op
+          })
+        }
+
+        document.addEventListener("DOMContentLoaded", () =>
+          initInViewAnimations()
+        )
+      })()
+    </script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Erpa — Private, on-page AI for your browser</title>
+    <meta
+      name="description"
+      content="Erpa is an open-source, privacy-first AI assistant that summarizes pages, answers questions, and reads content aloud—without sending data off-device by default." />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style id="aura-editor-visibility-style">
+      .invisible {
+        visibility: hidden !important;
+      }
+    </style>
+    <meta
+      name="disabled-font-classes"
+      content="font-geist,font-roboto,font-montserrat,font-poppins,font-playfair,font-merriweather,font-bricolage,font-jakarta,font-manrope,font-space-grotesk,font-work-sans,font-pt-serif,font-geist-mono,font-space-mono,font-quicksand,font-nunito" />
+
+    <link
+      id="all-fonts-link-font-instrument-serif"
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:wght@400;500;600;700&amp;display=swap" />
+    <style id="all-fonts-style-font-instrument-serif">
+      .font-instrument-serif {
+        font-family: "Instrument Serif", serif !important;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-[#0B1020] text-white antialiased selection:bg-violet-500/30 selection:text-white">
+    <!-- Backgrounds -->
+    <div class="pointer-events-none fixed inset-0 -z-10">
+      <div
+        class="absolute -top-32 -left-32 h-80 w-80 rounded-full bg-violet-600/20 blur-3xl"></div>
+      <div
+        class="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-indigo-600/20 blur-3xl"></div>
+      <div
+        class="absolute inset-0 bg-[radial-gradient(1200px_600px_at_80%_-10%,rgba(124,58,237,0.15),transparent)]"></div>
+    </div>
+
+    <!-- Nav -->
+    <header
+      class="sticky top-0 z-40 border-b border-white/10 backdrop-blur supports-[backdrop-filter]:bg-[#0B1020]/70">
+      <div
+        class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <a href="#" class="group inline-flex items-center gap-3">
+          <div
+            class="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white outline outline-1 outline-white/10 transition-all duration-200 group-hover:bg-white/10 group-hover:outline-white/20">
+            <img src="./icon.png" alt="Erpa Logo" class="w-6 h-6 rounded-full" />
+          </div>
+          <span
+            class="text-[15px] font-medium tracking-tight text-white/90 group-hover:text-white font-sans"
+            style=""
+            >Erpa</span
+          >
+        </a>
+        <nav class="hidden items-center gap-7 md:flex">
+          <a
+            href="#features"
+            class="text-[14px] text-white/70 hover:text-white transition font-sans"
+            style=""
+            >Features</a
+          >
+          <a
+            href="#privacy"
+            class="text-[14px] text-white/70 hover:text-white transition font-sans"
+            style=""
+            >Privacy</a
+          >
+          <a
+            href="#demo"
+            class="text-[14px] text-white/70 hover:text-white transition font-sans"
+            style=""
+            >Demo</a
+          >
+          <a
+            href="#oss"
+            class="text-[14px] text-white/70 hover:text-white transition font-sans"
+            style=""
+            >Open‑source</a
+          >
+          <a
+            href="#faq"
+            class="text-[14px] text-white/70 hover:text-white transition font-sans"
+            style=""
+            >FAQ</a
+          >
+        </nav>
+        <div class="flex items-center gap-3">
+          <a
+            href="#install"
+            class="hidden rounded-md border border-white/15 bg-white/5 px-4 py-2 text-[14px] font-medium text-white/90 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white md:inline-flex font-sans"
+            style=""
+            >Add to Chrome</a
+          >
+          <a
+            href="#oss"
+            class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-[14px] font-medium text-white/90 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
+            style="">
+            <!-- GitHub icon -->
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-[18px] w-[18px]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5">
+              <path
+                d="M15 22v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 18 3.77 5.07 5.07 0 0 0 17.91 1S16.73.65 14 2.48a13.38 13.38 0 0 0-8 0C3.27.65 2.09 1 2.09 1A5.07 5.07 0 0 0 2 3.77 5.44 5.44 0 0 0 .5 8.52c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 6 18.13V22"></path>
+            </svg>
+            Star
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="relative">
+      <div
+        class="grid grid-cols-1 sm:px-6 md:py-20 lg:grid-cols-2 lg:gap-16 lg:px-8 max-w-7xl mr-auto ml-auto pt-16 pr-4 pb-16 pl-4 gap-x-12 gap-y-12 items-center">
+        <div class="">
+          <div
+            class="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[12px] text-white/70 outline outline-1 outline-white/10 font-sans"
+            style="">
+            <!-- Shield icon -->
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-[14px] w-[14px] text-violet-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path>
+            </svg>
+            Private by default. Works offline.
+          </div>
+          <h1
+            class="text-4xl tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl font-semibold font-instrument-serif"
+            style="">
+            First 100% On-device AI Browsing Agent
+          </h1>
+          <p
+            class="mt-5 max-w-xl text-[15.5px] leading-7 text-white/70 font-sans"
+            style="">
+            Erpa lives in your browser to summarize pages, answer questions, and
+            read content aloud—without sending data off‑device by default.
+            Designed to reduce information overload and improve accessibility
+            with screen‑reader‑friendly navigation and voice controls.
+          </p>
+          <div class="mt-8 flex flex-col items-start gap-3 sm:flex-row">
+            <a
+              id="install"
+              href="#"
+              class="inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-3 text-[15px] font-semibold tracking-tight text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] outline outline-1 outline-white/10 transition hover:from-indigo-400 hover:to-violet-400 font-sans"
+              style="">
+              <!-- Chrome icon (globe) -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M2 12h20"></path>
+                <path
+                  d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10"></path>
+              </svg>
+              Add to Chrome
+            </a>
+            <a
+              href="#demo"
+              class="inline-flex items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-5 py-3 text-[15px] font-medium text-white/90 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
+              style="">
+              <!-- Play icon -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <polygon points="6 3 20 12 6 21 6 3"></polygon>
+              </svg>
+              Watch a quick demo
+            </a>
+          </div>
+          <div class="mt-5 flex items-center gap-4 text-[12.5px] text-white/60">
+            <div class="flex -space-x-2">
+              <img
+                alt="User"
+                class="h-7 w-7 rounded-full ring-2 ring-white/10"
+                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&amp;w=200&amp;auto=format&amp;fit=crop" />
+              <img
+                alt="User"
+                class="h-7 w-7 rounded-full ring-2 ring-white/10"
+                src="https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&amp;w=200&amp;auto=format&amp;fit=crop" />
+              <img
+                alt="User"
+                class="h-7 w-7 rounded-full ring-2 ring-white/10"
+                src="https://images.unsplash.com/photo-1544006659-f0b21884ce1d?q=80&amp;w=200&amp;auto=format&amp;fit=crop" />
+            </div>
+            <span class="font-sans" style=""
+              >Trusted by researchers, students, and accessibility
+              advocates</span
+            >
+          </div>
+        </div>
+
+        <!-- Hero visual: Browser mock + Erpa overlay -->
+        <div class="relative">
+          <div
+            class="rounded-xl border border-white/10 bg-white/5 p-2 shadow-2xl outline outline-1 outline-white/10 backdrop-blur">
+            <div class="rounded-lg border border-white/10 bg-[#0D142A]">
+              <!-- Browser topbar -->
+              <div
+                class="flex border-white/10 border-b pt-2 pr-3 pb-2 pl-3 items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <span class="h-2.5 w-2.5 rounded-full bg-red-500/70"></span>
+                  <span
+                    class="h-2.5 w-2.5 rounded-full bg-yellow-500/70"></span>
+                  <span
+                    class="h-2.5 w-2.5 rounded-full bg-emerald-500/70"></span>
+                </div>
+                <div
+                  class="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[12px] text-white/70 font-sans"
+                  style="">
+                  <span class="h-3 w-3 rounded-full bg-violet-500/80"></span>
+                  erpa://on-page-summary
+                </div>
+                <div class="flex items-center gap-2">
+                  <!-- Puzzle (extension) icon -->
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4 text-white/70"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <path
+                      d="M14 8a2 2 0 1 0-4 0H5a2 2 0 0 0-2 2v2h1a2 2 0 1 1 0 4H3v2a2 2 0 0 0 2 2h3a2 2 0 1 1 4 0h3a2 2 0 0 0 2-2v-2h1a2 2 0 0 0 0-4h-1v-2a2 2 0 0 0-2-2Z"
+                      class=""></path>
+                  </svg>
+                  <!-- Shield -->
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4 text-emerald-400/90"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <path
+                      d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path>
+                  </svg>
+                </div>
+              </div>
+              <!-- Page content mock with sidepanel -->
+              <div class="relative flex h-[500px]">
+                <!-- Main page content - Wikipedia style -->
+                <div
+                  class="flex-1 relative bg-white overflow-y-auto"
+                  style="max-height: 500px">
+                  <!-- Wikipedia-like header -->
+                  <div class="border-b border-gray-300 bg-[#f8f9fa] px-4 py-2">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <svg
+                          class="w-5 h-5 text-gray-600"
+                          fill="currentColor"
+                          viewBox="0 0 20 20">
+                          <path
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-9 3a1 1 0 00-1 1v1a1 1 0 102 0v-1a1 1 0 00-1-1zm-1-4a1 1 0 100 2 1 1 0 000-2zm5 0a1 1 0 100 2 1 1 0 000-2z" />
+                        </svg>
+                        <span class="text-sm font-bold text-gray-800"
+                          >Privacy-first computing</span
+                        >
+                      </div>
+                      <div
+                        class="flex items-center gap-3 text-sm text-gray-600">
+                        <a href="#" class="hover:underline">Article</a>
+                        <a href="#" class="hover:underline">Talk</a>
+                        <a href="#" class="hover:underline">Read</a>
+                        <a href="#" class="hover:underline">Edit</a>
+                        <a href="#" class="hover:underline">History</a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Wikipedia content -->
+                  <div class="p-6 font-sans">
+                    <h1
+                      class="text-3xl font-bold mb-2 border-b border-gray-300 pb-2">
+                      Privacy-first computing
+                    </h1>
+                    <p class="text-xs text-gray-500 mb-6">
+                      From Wikipedia, the free encyclopedia
+                    </p>
+
+                    <div class="flex gap-6">
+                      <div class="flex-1">
+                        <p class="text-sm leading-6 mb-4 text-gray-700">
+                          <strong>Privacy-first computing</strong> is a
+                          computing paradigm that emphasizes data protection and
+                          user privacy as primary design principles. Unlike
+                          traditional approaches where privacy is added as an
+                          afterthought, privacy-first systems are architected
+                          from the ground up to minimize data collection and
+                          processing.
+                        </p>
+                        <div
+                          class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+                          <p class="text-sm text-gray-700 italic">
+                            "Privacy-first computing ensures that user data
+                            remains on-device by default, with cloud processing
+                            as an explicit opt-in choice rather than the default
+                            behavior."
+                          </p>
+                        </div>
+                        <h2
+                          class="text-xl font-bold mt-6 mb-3 border-b border-gray-300 pb-1">
+                          Principles
+                        </h2>
+                        <ul
+                          class="list-disc pl-6 space-y-2 text-sm text-gray-700 mb-4">
+                          <li>
+                            Data minimization: Collect only what is necessary
+                          </li>
+                          <li>
+                            Local processing: Default to on-device computation
+                          </li>
+                          <li>Transparent controls: Clear privacy settings</li>
+                          <li>
+                            Zero-knowledge architecture: Server cannot access
+                            plaintext data
+                          </li>
+                          <li>
+                            User sovereignty: Users own and control their data
+                          </li>
+                        </ul>
+                        <h2
+                          class="text-xl font-bold mt-6 mb-3 border-b border-gray-300 pb-1">
+                          Implementation
+                        </h2>
+                        <p class="text-sm leading-6 mb-4 text-gray-700">
+                          Privacy-first computing is implemented through various
+                          techniques including homomorphic encryption,
+                          differential privacy, federated learning, and
+                          on-device AI. Modern frameworks enable developers to
+                          build applications that process sensitive data locally
+                          while maintaining functionality.
+                        </p>
+                      </div>
+                      <div class="w-64 flex-shrink-0">
+                        <div class="border border-gray-300 bg-[#f8f9fa] p-4">
+                          <h3
+                            class="font-bold mb-2 bg-gray-200 px-2 py-1 text-sm">
+                            Privacy-first Computing
+                          </h3>
+                          <div class="space-y-2 text-xs text-gray-700">
+                            <div>
+                              <strong>Also known as:</strong> Privacy by design
+                            </div>
+                            <div><strong>Type:</strong> Computing paradigm</div>
+                            <div><strong>Related concepts:</strong></div>
+                            <ul class="list-disc pl-4 space-y-1">
+                              <li>Homomorphic encryption</li>
+                              <li>Differential privacy</li>
+                              <li>Zero-knowledge proofs</li>
+                              <li>Federated learning</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Sidepanel mock -->
+                <div
+                  class="w-[280px] border-l border-white/10 bg-gray-900 flex flex-col relative overflow-hidden">
+                  <!-- Animated background particles (simulating Spline) -->
+                  <div class="absolute inset-0 opacity-30 pointer-events-none">
+                    <div
+                      class="absolute top-10 left-10 w-32 h-32 bg-violet-500/20 rounded-full blur-2xl animate-pulse"></div>
+                    <div
+                      class="absolute bottom-20 right-10 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl animate-pulse"
+                      style="animation-delay: 1s"></div>
+                    <div
+                      class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl animate-pulse"
+                      style="animation-delay: 2s"></div>
+                  </div>
+                  <!-- Sidepanel Header -->
+                  <div class="p-3 border-b border-gray-700 relative z-10">
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="flex items-center gap-2">
+                        <img
+                          src="./icon.png"
+                          alt="Erpa Logo"
+                          class="w-6 h-6 rounded-lg" />
+                        <h1 class="text-base font-semibold text-white">Erpa</h1>
+                      </div>
+                      <button class="text-white/60 hover:text-white transition">
+                        <svg
+                          class="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24">
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-gray-400 mb-2 leading-snug">
+                      Type your message below to start a conversation, or use
+                      speech recognition from the content script.
+                    </p>
+                    <div class="flex items-center gap-2">
+                      <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                      <span class="text-[10px] text-gray-400"
+                        >Agent online</span
+                      >
+                    </div>
+                  </div>
+
+                  <!-- Chat Area -->
+                  <div
+                    class="flex-1 overflow-hidden relative z-10"
+                    data-chat-area
+                    style="overflow-y: auto; max-height: 300px">
+                    <div
+                      class="h-full p-3 flex flex-col items-center justify-center"
+                      data-mic-icon>
+                      <!-- Mic icon in center -->
+                      <div
+                        class="w-12 h-12 rounded-full bg-gray-700/50 flex items-center justify-center mb-3">
+                        <svg
+                          class="w-6 h-6 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24">
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                      </div>
+                      <h3 class="text-sm font-medium text-white mb-1">
+                        Start a conversation
+                      </h3>
+                      <p
+                        class="text-[10px] text-gray-500 text-center px-2 leading-tight">
+                        Click the voice orb below to start recording your first
+                        message. The AI will respond with its own voice memo.
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- Action panel -->
+                  <div
+                    class="border-t border-gray-700 p-2 flex items-center gap-1.5 relative z-10 bg-gray-900">
+                    <select
+                      class="text-[10px] bg-gray-800 border border-gray-600 text-white px-1.5 py-0.5 rounded h-6 flex-shrink-0 w-20"
+                      data-tab-select>
+                      <option>Harvard...</option>
+                      <option>Research Paper</option>
+                      <option>Documentation</option>
+                    </select>
+                    <button
+                      class="text-gray-400 hover:text-white p-0.5"
+                      data-toc-button>
+                      <svg
+                        class="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    </button>
+                    <span class="text-[10px] text-gray-500">41</span>
+                    <button class="text-gray-400 hover:text-white p-0.5">
+                      <svg
+                        class="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <!-- Voice orb placeholder -->
+                    <div class="flex-1 flex justify-center">
+                      <div
+                        class="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/30 via-indigo-500/30 to-purple-500/30 backdrop-blur border border-white/20 flex items-center justify-center cursor-pointer transition-all hover:scale-110"
+                        data-voice-orb>
+                        <div
+                          class="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400/40 to-indigo-400/40"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="mt-3 flex items-center gap-4 pl-2 text-[12.5px] text-white/60 font-sans"
+            style="">
+            <!-- Lock -->
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-[16px] w-[16px] text-emerald-400/90"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5">
+              <rect width="18" height="11" x="3" y="11" rx="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            On‑device by default. Cloud is opt‑in and transparent.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick value props -->
+    <section class="border-t border-white/10">
+      <div
+        class="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
+        <div
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          <div class="flex items-center gap-3">
+            <div
+              class="rounded-md border border-white/10 bg-violet-500/20 p-2 text-violet-300">
+              <!-- Shield -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path>
+              </svg>
+            </div>
+            <div>
+              <div
+                class="text-[14px] font-semibold tracking-tight font-sans"
+                style="">
+                Privacy‑first
+              </div>
+              <div class="text-[13px] text-white/70 font-sans" style="">
+                Data stays on your device by default
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          <div class="flex items-center gap-3">
+            <div
+              class="rounded-md border border-white/10 bg-indigo-500/20 p-2 text-indigo-300">
+              <!-- BookOpen -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path d="M2 4v16a2 2 0 0 0 2 2h6V2H4a2 2 0 0 0-2 2Z"></path>
+                <path d="M22 4v16a2 2 0 0 1-2 2h-6V2h6a2 2 0 0 1 2 2Z"></path>
+              </svg>
+            </div>
+            <div>
+              <div
+                class="text-[14px] font-semibold tracking-tight font-sans"
+                style="">
+                On‑page summaries
+              </div>
+              <div class="text-[13px] text-white/70 font-sans" style="">
+                Clear, structured, skimmable
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          <div class="flex items-center gap-3">
+            <div
+              class="rounded-md border border-white/10 bg-violet-500/20 p-2 text-violet-300">
+              <!-- Volume -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path d="M11 5L6 9H2v6h4l5 4V5Z"></path>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              </svg>
+            </div>
+            <div>
+              <div
+                class="text-[14px] font-semibold tracking-tight font-sans"
+                style="">
+                Read aloud
+              </div>
+              <div class="text-[13px] text-white/70 font-sans" style="">
+                Voice with word‑by‑word highlighting
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          <div class="flex items-center gap-3">
+            <div
+              class="rounded-md border border-white/10 bg-indigo-500/20 p-2 text-indigo-300">
+              <!-- List tree -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path d="M3 6h4"></path>
+                <path d="M7 6v12"></path>
+                <path d="M3 12h4"></path>
+                <path d="M3 18h4"></path>
+                <path d="M17 6h4"></path>
+                <path d="M17 12h4"></path>
+                <path d="M17 18h4"></path>
+              </svg>
+            </div>
+            <div>
+              <div
+                class="text-[14px] font-semibold tracking-tight font-sans"
+                style="">
+                Outline navigation
+              </div>
+              <div class="text-[13px] text-white/70 font-sans" style="">
+                Jump through headings and sections
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="border-t border-white/10">
+      <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <!-- Summarization -->
+          <div
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            <div class="flex items-center justify-between">
+              <h3
+                class="text-[18px] font-semibold tracking-tight font-sans"
+                style="">
+                On‑page summarization
+              </h3>
+              <!-- Highlighter -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px] text-violet-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path d="m9 11-6 6v3h3l6-6"></path>
+                <path d="m22 4-7.5 7.5"></path>
+                <path d="M16 4h6v6"></path>
+              </svg>
+            </div>
+            <p
+              class="mt-2 text-[14.5px] leading-6 text-white/70 font-sans"
+              style="">
+              Summaries appear side‑by‑side with the page. Skim key ideas,
+              takeaways, and limitations.
+            </p>
+            <div
+              class="mt-4 rounded-lg border border-white/10 bg-[#0D142A] p-4">
+              <div class="h-3 w-4/5 rounded bg-white/5"></div>
+              <div class="mt-2 h-3 w-3/5 rounded bg-violet-500/25"></div>
+              <div class="mt-2 h-3 w-5/6 rounded bg-white/5"></div>
+            </div>
+          </div>
+          <!-- Q&A -->
+          <div
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            <div class="flex items-center justify-between">
+              <h3
+                class="text-[18px] font-semibold tracking-tight font-sans"
+                style="">
+                Ask questions on any page
+              </h3>
+              <!-- MessageSquare -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px] text-indigo-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path
+                  d="M21 15a4 4 0 0 1-4 4H7l-4 4V5a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v10Z"></path>
+              </svg>
+            </div>
+            <p
+              class="mt-2 text-[14.5px] leading-6 text-white/70 font-sans"
+              style="">
+              Ask clarifying questions and get citations back to the page. No
+              context lost.
+            </p>
+            <div
+              class="mt-4 rounded-lg border border-white/10 bg-[#0D142A] p-4">
+              <div class="text-[13px] text-white/70 font-sans" style="">
+                Q: What is the primary finding?
+              </div>
+              <div
+                class="mt-2 rounded-md border border-white/10 bg-white/[0.03] p-3 text-[13.5px] text-white/80 font-sans"
+                style="">
+                A: The study shows structured summaries reduce time‑to‑insight
+                by ~35% (see Results, para 3).
+              </div>
+            </div>
+          </div>
+          <!-- Read aloud -->
+          <div
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            <div class="flex items-center justify-between">
+              <h3
+                class="text-[18px] font-semibold tracking-tight font-sans"
+                style="">
+                Read aloud with highlighting
+              </h3>
+              <!-- Headphones -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px] text-violet-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path d="M3 18v-6a9 9 0 1 1 18 0v6"></path>
+                <path
+                  d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5Z"></path>
+                <path
+                  d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5Z"></path>
+              </svg>
+            </div>
+            <p
+              class="mt-2 text-[14.5px] leading-6 text-white/70 font-sans"
+              style="">
+              Follow along as words are highlighted. Voice controls and
+              screen‑reader friendly.
+            </p>
+            <div class="mt-4 space-y-2">
+              <div class="h-3 w-full rounded bg-violet-500/30"></div>
+              <div class="h-3 w-11/12 rounded bg-white/5"></div>
+              <div class="h-3 w-10/12 rounded bg-white/5"></div>
+            </div>
+          </div>
+          <!-- Outline navigation -->
+          <div
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            <div class="flex items-center justify-between">
+              <h3
+                class="text-[18px] font-semibold tracking-tight font-sans"
+                style="">
+                Outline navigation
+              </h3>
+              <!-- List -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px] text-indigo-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path d="M8 6h13"></path>
+                <path d="M8 12h13"></path>
+                <path d="M8 18h13"></path>
+                <path d="M3 6h.01"></path>
+                <path d="M3 12h.01"></path>
+                <path d="M3 18h.01"></path>
+              </svg>
+            </div>
+            <p
+              class="mt-2 text-[14.5px] leading-6 text-white/70 font-sans"
+              style="">
+              Jump through headings and sections with keyboard shortcuts.
+            </p>
+            <div class="mt-4 grid grid-cols-2 gap-2">
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.03] p-3 text-[12.5px] text-white/70 font-sans"
+                style="">
+                H1 Introduction
+              </div>
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.03] p-3 text-[12.5px] text-white/70 font-sans"
+                style="">
+                H2 Methods
+              </div>
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.03] p-3 text-[12.5px] text-white/70 font-sans"
+                style="">
+                H2 Findings
+              </div>
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.03] p-3 text-[12.5px] text-white/70 font-sans"
+                style="">
+                H2 Limitations
+              </div>
+            </div>
+          </div>
+          <!-- Privacy controls -->
+          <div
+            id="privacy"
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            <div class="flex items-center justify-between">
+              <h3
+                class="text-[18px] font-semibold tracking-tight font-sans"
+                style="">
+                Privacy controls
+              </h3>
+              <!-- Lock -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px] text-emerald-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <rect width="18" height="11" x="3" y="11" rx="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <p
+              class="mt-2 text-[14.5px] leading-6 text-white/70 font-sans"
+              style="">
+              Local by default. Explicit opt‑in for cloud with clear indicators
+              and per‑site rules.
+            </p>
+            <div class="mt-4 space-y-3">
+              <!-- Custom toggle: local processing -->
+              <label
+                class="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-[13.5px] text-white/85 font-sans" style=""
+                    >Process on device</span
+                  >
+                </div>
+                <input type="checkbox" checked="" class="peer sr-only" />
+                <div
+                  class="h-6 w-11 rounded-full bg-emerald-500/30 p-1 transition peer-checked:bg-emerald-500/40">
+                  <div
+                    class="h-4 w-4 translate-x-5 rounded-full bg-emerald-300 transition peer-checked:translate-x-5"></div>
+                </div>
+              </label>
+              <!-- Custom toggle: allow cloud -->
+              <label
+                class="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-[13.5px] text-white/85 font-sans" style=""
+                    >Allow cloud fallbacks</span
+                  >
+                </div>
+                <input type="checkbox" class="peer sr-only" />
+                <div
+                  class="h-6 w-11 rounded-full bg-white/15 p-1 transition peer-checked:bg-indigo-500/40">
+                  <div
+                    class="h-4 w-4 rounded-full bg-white/70 transition peer-checked:translate-x-5 peer-checked:bg-indigo-300"></div>
+                </div>
+              </label>
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.03] p-3 text-[12.5px] text-white/65 font-sans"
+                style="">
+                Tip: When cloud is on, you'll see a clear indicator and can
+                restrict by domain.
+              </div>
+            </div>
+          </div>
+          <!-- Accessibility -->
+          <div
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            <div class="flex items-center justify-between">
+              <h3
+                class="text-[18px] font-semibold tracking-tight font-sans"
+                style="">
+                Built for accessibility
+              </h3>
+              <!-- Accessibility icon (universal) -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px] text-indigo-300"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <circle cx="12" cy="7" r="1"></circle>
+                <path d="M5 8l7 2 7-2"></path>
+                <path d="M8 17l4-6 4 6"></path>
+                <path d="M12 13v8"></path>
+              </svg>
+            </div>
+            <p
+              class="mt-2 text-[14.5px] leading-6 text-white/70 font-sans"
+              style="">
+              Screen‑reader friendly, high contrast, keyboard first, and voice
+              controls.
+            </p>
+            <ul class="mt-3 space-y-2 text-[13.5px] text-white/75">
+              <li class="flex items-center gap-2 font-sans" style="">
+                <span class="h-1.5 w-1.5 rounded-full bg-violet-400"></span>
+                WCAG‑minded focus states
+              </li>
+              <li class="flex items-center gap-2 font-sans" style="">
+                <span class="h-1.5 w-1.5 rounded-full bg-violet-400"></span>
+                Semantic landmarks and ARIA labels
+              </li>
+              <li class="flex items-center gap-2 font-sans" style="">
+                <span class="h-1.5 w-1.5 rounded-full bg-violet-400"></span>
+                Voice playback and shortcuts
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Demo -->
+    <section id="demo" class="border-t border-white/10">
+      <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
+          <div class="">
+            <h2
+              class="text-3xl tracking-tight font-semibold font-instrument-serif"
+              style="">
+              See Erpa in action
+            </h2>
+            <p
+              class="mt-3 max-w-xl text-[15px] leading-7 text-white/70 font-sans"
+              style="">
+              Generate an outline, play read‑aloud with word highlights, and ask
+              follow‑ups—all inside the page you're viewing.
+            </p>
+            <div class="mt-6 flex items-center gap-3">
+              <a
+                href="#"
+                class="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2.5 text-[14px] font-semibold tracking-tight text-white outline outline-1 outline-white/10 transition hover:from-indigo-400 hover:to-violet-400 font-sans"
+                style="">
+                <!-- Download -->
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-[16px] w-[16px]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <path d="M7 10l5 5 5-5"></path>
+                  <path d="M12 15V3"></path>
+                </svg>
+                Install free
+              </a>
+              <a
+                href="#oss"
+                class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 py-2.5 text-[14px] font-medium text-white/90 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
+                style="">
+                <!-- Code -->
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-[16px] w-[16px]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+                View code
+              </a>
+            </div>
+            <div
+              class="mt-6 grid max-w-lg grid-cols-2 gap-4 text-[12.5px] text-white/65">
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
+                style="">
+                Ctrl/Cmd + J — Open Erpa
+              </div>
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
+                style="">
+                Ctrl/Cmd + K — Ask a question
+              </div>
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
+                style="">
+                Ctrl/Cmd + L — Read aloud
+              </div>
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
+                style="">
+                Ctrl/Cmd + ] — Next section
+              </div>
+            </div>
+          </div>
+          <div>
+            <div
+              class="relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] outline outline-1 outline-white/10">
+              <img
+                alt="Demo"
+                class="h-64 w-full object-cover sm:h-80"
+                src="https://images.unsplash.com/photo-1526378722484-bd91ca387e72?q=80&amp;w=1600&amp;auto=format&amp;fit=crop" />
+              <!-- Floating controls -->
+              <div
+                class="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/15 bg-[#0B1020]/80 px-2 py-1.5 backdrop-blur">
+                <button
+                  class="rounded-full border border-white/10 bg-white/5 p-1.5 text-white/85 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-[16px] w-[16px]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <polygon points="6 3 20 12 6 21 6 3"></polygon>
+                  </svg>
+                </button>
+                <button
+                  class="rounded-full border border-white/10 bg-white/5 p-1.5 text-white/85 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-[16px] w-[16px]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <path d="m16 18 6-6-6-6"></path>
+                    <path d="M8 6l-6 6 6 6"></path>
+                  </svg>
+                </button>
+                <button
+                  class="rounded-full border border-white/10 bg-violet-500/20 px-2 py-1 text-[12px] text-violet-100 outline outline-1 outline-white/10 transition hover:bg-violet-500/30 hover:text-white font-sans"
+                  style="">
+                  Summarize
+                </button>
+                <button
+                  class="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[12px] text-white/85 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
+                  style="">
+                  Ask
+                </button>
+                <button
+                  class="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[12px] text-white/85 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
+                  style="">
+                  Outline
+                </button>
+              </div>
+            </div>
+            <p
+              class="mt-3 text-center text-[12.5px] text-white/60 font-sans"
+              style="">
+              Video demo: 45s overview • No sign‑in required
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Audience -->
+    <section class="border-t border-white/10">
+      <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <h2
+          class="text-3xl tracking-tight font-semibold font-instrument-serif"
+          style="">
+          Made for focused work
+        </h2>
+        <div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div class="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+            <div class="flex items-center justify-between">
+              <div
+                class="text-[15px] font-semibold tracking-tight font-sans"
+                style="">
+                Accessibility
+              </div>
+              <!-- Eye -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px] text-emerald-300"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </div>
+            <p class="mt-2 text-[13.5px] text-white/70 font-sans" style="">
+              Screen reader support, big targets, and audio‑first flows.
+            </p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+            <div class="flex items-center justify-between">
+              <div
+                class="text-[15px] font-semibold tracking-tight font-sans"
+                style="">
+                Knowledge workers
+              </div>
+              <!-- Files -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px] text-indigo-300"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path d="M15 2H6a2 2 0 0 0-2 2v14"></path>
+                <path d="M18 22H8a2 2 0 0 1-2-2V4"></path>
+                <path d="M15 2l5 5"></path>
+                <path d="M20 7H15V2"></path>
+              </svg>
+            </div>
+            <p class="mt-2 text-[13.5px] text-white/70 font-sans" style="">
+              Digest reports faster and keep context in‑page.
+            </p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+            <div class="flex items-center justify-between">
+              <div
+                class="text-[15px] font-semibold tracking-tight font-sans"
+                style="">
+                Researchers
+              </div>
+              <!-- Flask -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px] text-violet-300"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path
+                  d="M10 2v6a1 1 0 0 1-.2.6L3 18a2 2 0 0 0 1.6 3.2h14.8A2 2 0 0 0 21 18l-6.8-9.4a1 1 0 0 1-.2-.6V2"></path>
+                <path d="M8.5 2h7"></path>
+              </svg>
+            </div>
+            <p class="mt-2 text-[13.5px] text-white/70 font-sans" style="">
+              Summarize papers, extract claims, and navigate sections.
+            </p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+            <div class="flex items-center justify-between">
+              <div
+                class="text-[15px] font-semibold tracking-tight font-sans"
+                style="">
+                Students
+              </div>
+              <!-- Graduation cap -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[18px] w-[18px] text-indigo-300"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path d="m22 10-10-5L2 10l10 5 10-5Z"></path>
+                <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+              </svg>
+            </div>
+            <p class="mt-2 text-[13.5px] text-white/70 font-sans" style="">
+              Create study guides and listen while commuting.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Open source -->
+    <section id="oss" class="border-t border-white/10">
+      <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 items-center gap-8 md:grid-cols-2">
+          <div>
+            <h2
+              class="text-3xl tracking-tight font-semibold font-instrument-serif"
+              style="">
+              Open‑source, community‑driven
+            </h2>
+            <p
+              class="mt-3 max-w-xl text-[15px] leading-7 text-white/70 font-sans"
+              style="">
+              MIT‑licensed. Contributions welcome. Transparent roadmap and
+              privacy reviews in the open.
+            </p>
+            <div class="mt-6 flex items-center gap-3">
+              <a
+                href="#"
+                class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 py-2.5 text-[14px] font-medium text-white/90 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
+                style="">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-[16px] w-[16px]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5">
+                  <path
+                    d="M15 22v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 18 3.77 5.07 5.07 0 0 0 17.91 1S16.73.65 14 2.48a13.38 13.38 0 0 0-8 0C3.27.65 2.09 1 2.09 1A5.07 5.07 0 0 0 2 3.77 5.44 5.44 0 0 0 .5 8.52c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 6 18.13V22"></path>
+                </svg>
+                GitHub repo
+              </a>
+              <a
+                href="#"
+                class="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2.5 text-[14px] font-semibold tracking-tight text-white outline outline-1 outline-white/10 transition hover:from-indigo-400 hover:to-violet-400 font-sans"
+                style="">
+                <!-- Heart -->
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-[16px] w-[16px]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5">
+                  <path
+                    d="M19 14c-3.6 4-7 5-7 5s-3.4-1-7-5a4.6 4.6 0 0 1 0-6.4 4.2 4.2 0 0 1 6 0L12 8l1-1.4a4.2 4.2 0 0 1 6 0 4.6 4.6 0 0 1 0 6.4Z"></path>
+                </svg>
+                Sponsor development
+              </a>
+            </div>
+            <div
+              class="mt-6 grid grid-cols-2 gap-3 text-[12.5px] text-white/60 sm:grid-cols-4">
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
+                style="">
+                MIT License
+              </div>
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
+                style="">
+                Security reviews
+              </div>
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
+                style="">
+                Public roadmap
+              </div>
+              <div
+                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
+                style="">
+                Community calls
+              </div>
+            </div>
+          </div>
+          <div
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="rounded-lg border border-white/10 bg-[#0D142A] p-4">
+                <div class="text-[12px] text-white/60 font-sans" style="">
+                  Monthly installs
+                </div>
+                <div
+                  class="mt-2 text-2xl tracking-tight text-white font-semibold font-instrument-serif"
+                  style="">
+                  12,842
+                </div>
+              </div>
+              <div class="rounded-lg border border-white/10 bg-[#0D142A] p-4">
+                <div class="text-[12px] text-white/60 font-sans" style="">
+                  Community stars
+                </div>
+                <div
+                  class="mt-2 text-2xl tracking-tight text-white font-semibold font-instrument-serif"
+                  style="">
+                  3,1k
+                </div>
+              </div>
+              <div class="rounded-lg border border-white/10 bg-[#0D142A] p-4">
+                <div class="text-[12px] text-white/60 font-sans" style="">
+                  Avg. summary time
+                </div>
+                <div
+                  class="mt-2 text-2xl tracking-tight text-white font-semibold font-instrument-serif"
+                  style="">
+                  0.8s
+                </div>
+              </div>
+              <div class="rounded-lg border border-white/10 bg-[#0D142A] p-4">
+                <div class="text-[12px] text-white/60 font-sans" style="">
+                  Local by default
+                </div>
+                <div
+                  class="mt-2 text-2xl tracking-tight text-emerald-300 font-semibold font-instrument-serif"
+                  style="">
+                  100%
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="border-t border-white/10">
+      <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div class="rounded-xl border border-white/10 bg-white/[0.03] p-6">
+            <div class="flex items-center gap-3">
+              <img
+                alt="User"
+                class="h-10 w-10 rounded-full ring-2 ring-white/10"
+                src="https://images.unsplash.com/photo-1547425260-76bcadfb4f2c?q=80&amp;w=200&amp;auto=format&amp;fit=crop" />
+              <div>
+                <div
+                  class="text-[14px] font-semibold tracking-tight font-sans"
+                  style="">
+                  Maya, Accessibility lead
+                </div>
+                <div class="text-[12.5px] text-white/60 font-sans" style="">
+                  @civil-lab
+                </div>
+              </div>
+            </div>
+            <p
+              class="mt-3 text-[14.5px] leading-6 text-white/80 font-sans"
+              style="">
+              Erpa nails the basics: clear summaries, consistent focus states,
+              and an audio experience that actually respects the page structure.
+            </p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-white/[0.03] p-6">
+            <div class="flex items-center gap-3">
+              <img
+                alt="User"
+                class="h-10 w-10 rounded-full ring-2 ring-white/10"
+                src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&amp;w=200&amp;auto=format&amp;fit=crop" />
+              <div>
+                <div
+                  class="text-[14px] font-semibold tracking-tight font-sans"
+                  style="">
+                  Alex, Research analyst
+                </div>
+                <div class="text-[12.5px] text-white/60 font-sans" style="">
+                  @insight‑co
+                </div>
+              </div>
+            </div>
+            <p
+              class="mt-3 text-[14.5px] leading-6 text-white/80 font-sans"
+              style="">
+              I finish long reads in a fraction of the time. The on‑device
+              processing is a non‑negotiable for us.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="border-t border-white/10">
+      <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+        <h2
+          class="text-center text-3xl tracking-tight font-semibold font-instrument-serif"
+          style="">
+          Questions, answered
+        </h2>
+        <div class="mt-8 space-y-3">
+          <details
+            class="rounded-lg border border-white/10 bg-white/[0.03] p-4 open:bg-white/[0.06]">
+            <summary
+              class="cursor-pointer list-none text-[15px] font-medium text-white/90 font-sans"
+              style="">
+              Does Erpa send my data to the cloud?
+            </summary>
+            <p
+              class="mt-2 pl-1 text-[14px] leading-6 text-white/70 font-sans"
+              style="">
+              No. Erpa processes content locally by default. You can opt‑in to
+              cloud models per request with clear indicators.
+            </p>
+          </details>
+          <details
+            class="rounded-lg border border-white/10 bg-white/[0.03] p-4 open:bg-white/[0.06]">
+            <summary
+              class="cursor-pointer list-none text-[15px] font-medium text-white/90 font-sans"
+              style="">
+              Will it work with my screen reader?
+            </summary>
+            <p
+              class="mt-2 pl-1 text-[14px] leading-6 text-white/70 font-sans"
+              style="">
+              Yes. Panels are navigable via landmarks, headings, and ARIA
+              labels, with visible focus and keyboard shortcuts.
+            </p>
+          </details>
+          <details
+            class="rounded-lg border border-white/10 bg-white/[0.03] p-4 open:bg-white/[0.06]">
+            <summary
+              class="cursor-pointer list-none text-[15px] font-medium text-white/90 font-sans"
+              style="">
+              What models does Erpa use?
+            </summary>
+            <p
+              class="mt-2 pl-1 text-[14px] leading-6 text-white/70 font-sans"
+              style="">
+              On‑device small language models for speed and privacy. Cloud
+              providers are optional and configurable.
+            </p>
+          </details>
+          <details
+            class="rounded-lg border border-white/10 bg-white/[0.03] p-4 open:bg-white/[0.06]">
+            <summary
+              class="cursor-pointer list-none text-[15px] font-medium text-white/90 font-sans"
+              style="">
+              Is it free?
+            </summary>
+            <p
+              class="mt-2 pl-1 text-[14px] leading-6 text-white/70 font-sans"
+              style="">
+              Yes. Erpa is free and open‑source under the MIT License.
+            </p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="border-t border-white/10">
+      <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
+        <div
+          class="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-[#121A39] to-[#131734] p-8 outline outline-1 outline-white/10 sm:p-10">
+          <div
+            class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-violet-600/20 blur-3xl"></div>
+          <div
+            class="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3
+                class="text-2xl tracking-tight font-semibold font-instrument-serif"
+                style="">
+                Install Erpa and reclaim your focus
+              </h3>
+              <p class="mt-2 text-[14.5px] text-white/70 font-sans" style="">
+                Summarize, listen, and navigate smarter—without giving up your
+                privacy.
+              </p>
+            </div>
+            <div class="flex items-center gap-3">
+              <a
+                href="#"
+                class="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-3 text-[15px] font-semibold tracking-tight text-white outline outline-1 outline-white/10 transition hover:from-indigo-400 hover:to-violet-400 font-sans"
+                style="">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-[18px] w-[18px]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M2 12h20"></path>
+                  <path
+                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10"></path>
+                </svg>
+                Add to Chrome
+              </a>
+              <a
+                href="#oss"
+                class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-5 py-3 text-[15px] font-medium text-white/90 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
+                style="">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-[18px] w-[18px]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5">
+                  <path
+                    d="M15 22v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 18 3.77 5.07 5.07 0 0 0 17.91 1S16.73.65 14 2.48a13.38 13.38 0 0 0-8 0C3.27.65 2.09 1 2.09 1A5.07 5.07 0 0 0 2 3.77 5.44 5.44 0 0 0 .5 8.52c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 6 18.13V22"></path>
+                </svg>
+                View on GitHub
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/10">
+      <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 items-start gap-8 md:grid-cols-3">
+          <div class="space-y-3">
+            <div class="inline-flex items-center gap-3">
+              <div
+                class="flex h-8 w-8 items-center justify-center rounded-md border border-white/15 bg-white/5 text-white outline outline-1 outline-white/10">
+                <span
+                  class="text-[13px] font-semibold tracking-tight font-sans"
+                  style=""
+                  >E</span
+                >
+              </div>
+              <span
+                class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
+                style=""
+                >Erpa</span
+              >
+            </div>
+            <p class="max-w-sm text-[13.5px] text-white/70 font-sans" style="">
+              Open‑source, privacy‑first AI assistant that lives in your
+              browser.
+            </p>
+          </div>
+          <div class="grid grid-cols-3 gap-6 text-[13.5px]">
+            <div class="space-y-2">
+              <div class="text-white/60 font-sans" style="">Product</div>
+              <a
+                href="#features"
+                class="block text-white/75 hover:text-white font-sans"
+                style=""
+                >Features</a
+              >
+              <a
+                href="#demo"
+                class="block text-white/75 hover:text-white font-sans"
+                style=""
+                >Demo</a
+              >
+              <a
+                href="#faq"
+                class="block text-white/75 hover:text-white font-sans"
+                style=""
+                >FAQ</a
+              >
+            </div>
+            <div class="space-y-2">
+              <div class="text-white/60 font-sans" style="">Developers</div>
+              <a
+                href="#oss"
+                class="block text-white/75 hover:text-white font-sans"
+                style=""
+                >GitHub</a
+              >
+              <a
+                href="#"
+                class="block text-white/75 hover:text-white font-sans"
+                style=""
+                >Roadmap</a
+              >
+              <a
+                href="#"
+                class="block text-white/75 hover:text-white font-sans"
+                style=""
+                >Contribute</a
+              >
+            </div>
+            <div class="space-y-2">
+              <div class="text-white/60 font-sans" style="">Company</div>
+              <a
+                href="#"
+                class="block text-white/75 hover:text-white font-sans"
+                style=""
+                >Contact</a
+              >
+              <a
+                href="#"
+                class="block text-white/75 hover:text-white font-sans"
+                style=""
+                >Privacy</a
+              >
+              <a
+                href="#"
+                class="block text-white/75 hover:text-white font-sans"
+                style=""
+                >Terms</a
+              >
+            </div>
+          </div>
+          <div class="flex items-center justify-start gap-3 md:justify-end">
+            <a
+              href="#"
+              class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-[13.5px] text-white/85 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
+              style="">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[16px] w-[16px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path
+                  d="M15 22v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 18 3.77 5.07 5.07 0 0 0 17.91 1S16.73.65 14 2.48a13.38 13.38 0 0 0-8 0C3.27.65 2.09 1 2.09 1A5.07 5.07 0 0 0 2 3.77 5.44 5.44 0 0 0 .5 8.52c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 6 18.13V22"></path>
+              </svg>
+              GitHub
+            </a>
+            <a
+              href="#"
+              class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-[13.5px] text-white/85 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
+              style="">
+              <!-- Mail -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-[16px] w-[16px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5">
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                <rect width="20" height="14" x="2" y="5" rx="2"></rect>
+              </svg>
+              hello@erpa.dev
+            </a>
+          </div>
+        </div>
+        <div
+          class="mt-8 flex items-center justify-between border-t border-white/10 pt-6 text-[12.5px] text-white/50">
+          <div class="font-sans" style="">
+            © <span class="tabular-nums font-sans" style="">2025</span> Erpa.
+            All rights reserved.
+          </div>
+          <div class="flex items-center gap-6">
+            <div class="tracking-tight text-white/60 font-sans" style="">
+              As seen in
+            </div>
+            <div class="flex items-center gap-4 text-white/40">
+              <span
+                class="text-[12px] font-semibold tracking-tight font-sans"
+                style=""
+                >NOVA</span
+              >
+              <span
+                class="text-[12px] font-semibold tracking-tight font-sans"
+                style=""
+                >CYCLE</span
+              >
+              <span
+                class="text-[12px] font-semibold tracking-tight font-sans"
+                style=""
+                >INDEX</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Interactive Demo Script -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Voice Orb Animation
+        const voiceOrb = document.querySelector("[data-voice-orb]")
+        let isRecording = false
+
+        if (voiceOrb) {
+          voiceOrb.addEventListener("click", function () {
+            isRecording = !isRecording
+            if (isRecording) {
+              this.classList.add("animate-pulse", "scale-110")
+              // Simulate recording
+              setTimeout(() => {
+                showChatMessage(
+                  "Hey Erpa, can you summarize this article?",
+                  "user"
+                )
+                setTimeout(() => {
+                  showChatMessage(
+                    "This article discusses privacy-first AI assistants that work on-device...",
+                    "ai"
+                  )
+                }, 1000)
+              }, 500)
+            } else {
+              this.classList.remove("animate-pulse", "scale-110")
+            }
+          })
+        }
+
+        // Tab Selector
+        const tabSelect = document.querySelector("[data-tab-select]")
+        if (tabSelect) {
+          tabSelect.addEventListener("change", function (e) {
+            updateChatArea("Switched to: " + e.target.value)
+          })
+        }
+
+        // TOC Button
+        const tocButton = document.querySelector("[data-toc-button]")
+        if (tocButton) {
+          tocButton.addEventListener("click", function () {
+            showChatMessage("Loading page sections...", "ai")
+            setTimeout(() => {
+              showChatMessage(
+                "Found 41 sections:\n\n• Introduction\n• Methods\n• Findings\n• Limitations\n• References",
+                "ai"
+              )
+            }, 800)
+          })
+        }
+
+        // Demo chat messages
+        function showChatMessage(message, type) {
+          const chatArea = document.querySelector("[data-chat-area]")
+          const micIcon = document.querySelector("[data-mic-icon]")
+
+          if (micIcon) {
+            micIcon.style.display = "none"
+          }
+
+          if (chatArea) {
+            const messageDiv = document.createElement("div")
+            messageDiv.className = `mb-3 ${type === "user" ? "text-right" : "text-left"}`
+            messageDiv.innerHTML = `
+              <div class="inline-block px-4 py-2 rounded-lg max-w-[80%] ${
+                type === "user"
+                  ? "bg-violet-500/20 border border-violet-500/30 text-violet-200"
+                  : "bg-gray-800 border border-gray-700 text-gray-200"
+              }">
+                <p class="text-sm whitespace-pre-wrap">${message}</p>
+              </div>
+            `
+
+            chatArea.appendChild(messageDiv)
+            chatArea.scrollTop = chatArea.scrollHeight
+          }
+        }
+
+        function updateChatArea(message) {
+          const chatArea = document.querySelector("[data-chat-area]")
+          if (chatArea) {
+            const notifDiv = document.createElement("div")
+            notifDiv.className = "text-center text-xs text-gray-500 italic mb-3"
+            notifDiv.textContent = message
+            chatArea.appendChild(notifDiv)
+            chatArea.scrollTop = chatArea.scrollHeight
+          }
+        }
+
+        // Simulate voice recording state changes
+        if (voiceOrb) {
+          setInterval(() => {
+            if (isRecording) {
+              voiceOrb.style.boxShadow = `0 0 20px rgba(139, 92, 246, ${0.5 + Math.random() * 0.3})`
+            }
+          }, 200)
+        }
+      })
+    </script>
+  </body>
+</html>
