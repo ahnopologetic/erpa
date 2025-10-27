@@ -21,16 +21,8 @@ export async function getDB() {
 export const initSchema = async (db) => {
     return await db.exec(`
     create extension if not exists vector;
-    -- drop table if exists embeddings; -- Uncomment this line to reset the database
-    create table if not exists embeddings (
-      id bigint primary key generated always as identity,
-      content text not null,
-      embedding vector (384)
-    );
     
-    create index on embeddings using hnsw (embedding vector_ip_ops);
-    
-    -- Cache table for storing page-level embeddings
+    -- Cache table for storing page-level embeddings and data
     create table if not exists cached_pages (
       url text primary key,
       page_data jsonb not null,

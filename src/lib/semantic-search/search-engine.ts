@@ -213,6 +213,8 @@ export class SemanticSearchEngine {
         segments
       });
 
+      log('[semantic-search] Response from GET_CACHED_EMBEDDINGS (from background):', response);
+
       if (response?.success && response.cachedEmbeddings) {
         log('[semantic-search] 🎯 Cache hit! Received', response.cachedEmbeddings.embeddings?.length, 'embeddings');
         return response.cachedEmbeddings;
