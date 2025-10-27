@@ -16,6 +16,7 @@ import type { ChatMessage } from "~types/voice-memo"
 import systemPrompt from "~lib/prompt"
 import icon from "data-base64:/assets/logo.png"
 import "~lib/test-notification"
+import { ttsCoordinator } from "~lib/tts-coordinator"
 
 
 function Sidepanel() {
@@ -250,6 +251,34 @@ function Sidepanel() {
         };
     }, []);
 
+    // TTS control keyboard shortcuts
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // TTS control shortcuts: ctrl+cmd+option+spacebar for pause/resume, ctrl+cmd+option+enter for stop
+            if (e.ctrlKey && e.metaKey && e.altKey) {
+                if (e.key === 'Space' || e.key === ' ') {
+                    e.preventDefault();
+                    log('[TTS] Ctrl + Command + Option + Spacebar pressed - toggling pause/resume');
+                    if (ttsCoordinator.isCurrentlyPlaying()) {
+                        ttsCoordinator.togglePause();
+                    }
+                    return;
+                }
+                
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    log('[TTS] Ctrl + Command + Option + Enter pressed - stopping TTS');
+                    ttsCoordinator.cancelCurrent();
+                    return;
+                }
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
 
     const handleTocGenerated = React.useCallback(async (sections: Array<{ title: string; cssSelector: string }>) => {
         if (!sections || sections.length === 0) {
