@@ -25,19 +25,41 @@ export const SentenceHighlight: React.FC<SentenceHighlightProps> = ({
 }) => {
   const highlightRef = useRef<HTMLDivElement>(null);
 
+  // Safety check: if element is undefined, try to find it by selector
+  const safeElement = React.useMemo(() => {
+    if (element) return element;
+    if (selector) {
+      try {
+        const foundElement = document.querySelector(selector) as HTMLElement;
+        if (foundElement) {
+          log('[sentence-highlight] Found element by selector:', selector);
+          return foundElement;
+        } else {
+          log('[sentence-highlight] Element not found by selector:', selector);
+          return null;
+        }
+      } catch (error) {
+        log('[sentence-highlight] Error finding element by selector:', error);
+        return null;
+      }
+    }
+    log('[sentence-highlight] No element or selector provided');
+    return null;
+  }, [element, selector]);
+
   useEffect(() => {
-    if (!isActive || !element) return;
+    if (!isActive || !safeElement) return;
 
     try {
       // Scroll the element into view
-      element.scrollIntoView({
+      safeElement.scrollIntoView({
         behavior: "smooth",
         block: "center",
         inline: "nearest"
       });
 
       // Position the highlight overlay
-      const rect = element.getBoundingClientRect();
+      const rect = safeElement.getBoundingClientRect();
       const highlight = highlightRef.current;
       
       if (highlight) {
@@ -54,9 +76,19 @@ export const SentenceHighlight: React.FC<SentenceHighlightProps> = ({
     } catch (error) {
       log('Error highlighting sentence:', error);
     }
-  }, [isActive, element, sentence]);
+  }, [isActive, safeElement, sentence]);
 
   if (!isActive) return null;
+
+  // If we can't find the element, show a fallback message
+  if (!safeElement) {
+    return (
+      <div className="fixed top-4 right-4 z-50 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 rounded shadow-lg">
+        <div className="text-sm font-medium">Search result found but element not visible</div>
+        <div className="text-xs mt-1">"{sentence.substring(0, 50)}..."</div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -69,12 +101,12 @@ export const SentenceHighlight: React.FC<SentenceHighlightProps> = ({
       </div>
 
       {/* Play button overlay */}
-      {onPlay && (
+      {onPlay && safeElement && (
         <div
           className="fixed z-50 pointer-events-auto"
           style={{
-            left: `${element.getBoundingClientRect().right + 10}px`,
-            top: `${element.getBoundingClientRect().top}px`
+            left: `${safeElement.getBoundingClientRect().right + 10}px`,
+            top: `${safeElement.getBoundingClientRect().top}px`
           }}
         >
           <button

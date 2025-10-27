@@ -100,16 +100,12 @@ export class EmbeddingCache {
     cached: CachedEmbeddings,
     currentSentences: SentenceSegment[]
   ): boolean {
-    const currentHash = this.generatePageHash(currentSentences);
-    
-    log('[semantic-search] 🔍 Validating cache:', {
-      currentHash,
-      cachedHash: cached.pageHash,
-      hashMatch: currentHash === cached.pageHash
-    });
-
-    return this.isCacheValid(cached, currentHash);
+    // Skip validation entirely - if cache exists for URL, use it
+    // This provides maximum performance and cache utilization
+    log('[semantic-search] ✅ Cache valid: skipping validation (URL-based cache)');
+    return true;
   }
+
 
   /**
    * Get cached embeddings for the current page (legacy method for backward compatibility)

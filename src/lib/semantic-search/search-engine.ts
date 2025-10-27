@@ -93,20 +93,10 @@ export class SemanticSearchEngine {
       cachedEmbeddings = await this.getCachedEmbeddingsByUrl(url);
 
       if (cachedEmbeddings && cachedEmbeddings.embeddings && cachedEmbeddings.embeddings.length > 0) {
-        // Step 2: Validate cached embeddings against current page content
-        log('[semantic-search] 🔍 Validating cached embeddings against current page...');
-        const allSegments = segmentPageIntoSentences();
-        segments = filterMeaningfulSegments(allSegments);
-        
-        const isValid = await this.validateCachedEmbeddings(cachedEmbeddings, segments);
-        
-        if (isValid) {
-          sentenceEmbeddings = cachedEmbeddings.embeddings;
-          log('[semantic-search] ✅ Using', sentenceEmbeddings.length, 'valid cached embeddings - skipping generation!');
-        } else {
-          log('[semantic-search] ⚠️ Cached embeddings invalid (page content changed), generating new ones...');
-          cachedEmbeddings = null; // Clear invalid cache
-        }
+        // Use cached embeddings directly - no validation needed
+        sentenceEmbeddings = cachedEmbeddings.embeddings;
+        segments = cachedEmbeddings.sentences || [];
+        log('[semantic-search] ✅ Using', sentenceEmbeddings.length, 'cached embeddings - skipping generation!');
       }
 
       if (!cachedEmbeddings) {
@@ -152,9 +142,9 @@ export class SemanticSearchEngine {
       }
 
       // Get the actual sentence segments for top candidates
+      // When using cached embeddings, the segments array indices match the embedding indices
       const candidateSegments = topSimilar.map(({ index: similarityIndex }) => {
-        const originalIndex = segments.findIndex(s => s.index === similarityIndex);
-        return segments[originalIndex];
+        return segments[similarityIndex];
       }).filter(Boolean);
       log('[semantic-search] candidateSegments: ', candidateSegments);
 
@@ -243,38 +233,6 @@ export class SemanticSearchEngine {
     }
   }
 
-  /**
-   * Validate cached embeddings against current page content
-   */
-  private async validateCachedEmbeddings(cachedEmbeddings: CachedEmbeddings, segments: SentenceSegment[]): Promise<boolean> {
-    try {
-      log('[semantic-search] Validating cached embeddings against current page content...');
-      const response = await chrome.runtime.sendMessage({
-        type: 'VALIDATE_CACHED_EMBEDDINGS',
-        url: window.location.href,
-        cachedEmbeddings,
-        segments
-      });
-
-      log('[semantic-search] Response from VALIDATE_CACHED_EMBEDDINGS (from background):', response);
-
-      if (response?.success) {
-        if (response.isValid) {
-          log('[semantic-search] ✅ Cached embeddings are valid for current page content');
-          return true;
-        } else {
-          log('[semantic-search] ❌ Cached embeddings are invalid (page content changed)');
-          return false;
-        }
-      }
-
-      log('[semantic-search] ❌ Error validating cached embeddings');
-      return false;
-    } catch (error) {
-      err('[semantic-search] ❌ Error validating cached embeddings:', error);
-      return false;
-    }
-  }
 
   /**
    * Get cached embeddings from background worker (legacy method for backward compatibility)

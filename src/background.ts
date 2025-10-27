@@ -349,29 +349,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
-    if (message.type === 'VALIDATE_CACHED_EMBEDDINGS') {
-        (async () => {
-            try {
-                await ensureEmbeddingOffscreenDocument();
-                log('[background] Forwarding VALIDATE_CACHED_EMBEDDINGS to offscreen');
-
-                const response = await chrome.runtime.sendMessage({
-                    target: 'offscreen',
-                    type: 'VALIDATE_CACHED_EMBEDDINGS',
-                    url: message.url,
-                    cachedEmbeddings: message.cachedEmbeddings,
-                    segments: message.segments
-                });
-                log('[background] Response from VALIDATE_CACHED_EMBEDDINGS (offscreen):', response);
-
-                sendResponse(response);
-            } catch (error) {
-                err('[background] ❌ Error forwarding cache validation request:', error);
-                sendResponse({ success: false, error: error.message, isValid: false });
-            }
-        })();
-        return true;
-    }
 
     if (message.type === 'CACHE_EMBEDDINGS') {
         (async () => {

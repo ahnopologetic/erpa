@@ -137,7 +137,6 @@ declare global {
       clearCache: (url?: string) => Promise<any>
       getCachedEmbeddings: (url: string) => Promise<any>
       getCachedEmbeddingsByUrl: (url: string) => Promise<any>
-      validateCachedEmbeddings: (cachedEmbeddings: any, segments: any[]) => Promise<boolean>
 
       // Model operations
       loadModel: () => Promise<any>
@@ -269,39 +268,6 @@ const Offscreen = () => {
         return true
       }
 
-      if (message.type === 'VALIDATE_CACHED_EMBEDDINGS') {
-        (async () => {
-          try {
-            // Wait for setup to complete
-            if (!(await waitForSetup(setupComplete))) {
-              err('[offscreen] ❌ Timeout waiting for database setup')
-              sendResponse({ success: false, error: 'Database setup timeout', isValid: false })
-              return
-            }
-
-            if (!cacheInstance) {
-              err('[offscreen] ❌ Cache not initialized')
-              sendResponse({ success: false, error: 'Cache not initialized', isValid: false })
-              return
-            }
-
-            log('[offscreen] Validating cached embeddings for URL:', message.url)
-            const isValid = cacheInstance.validateCachedEmbeddings(message.cachedEmbeddings, message.segments)
-
-            if (isValid) {
-              log('[offscreen] ✅ Cached embeddings are valid')
-            } else {
-              log('[offscreen] ❌ Cached embeddings are invalid (hash mismatch)')
-            }
-
-            sendResponse({ success: true, isValid })
-          } catch (error) {
-            err('[offscreen] ❌ Error validating cached embeddings:', error)
-            sendResponse({ success: false, error: error.message, isValid: false })
-          }
-        })()
-        return true
-      }
 
       if (message.type === 'CACHE_EMBEDDINGS') {
         (async () => {
@@ -701,19 +667,6 @@ const Offscreen = () => {
           }
         },
 
-        validateCachedEmbeddings: async (cachedEmbeddings: any, segments: any[]) => {
-          try {
-            if (!cacheInstance) throw new Error('Cache not initialized')
-
-            const isValid = cacheInstance.validateCachedEmbeddings(cachedEmbeddings, segments)
-            
-            console.log(`🔍 Cache validation result: ${isValid ? '✅ Valid' : '❌ Invalid'}`)
-            return isValid
-          } catch (error) {
-            console.error('❌ Error validating cached embeddings:', error)
-            throw error
-          }
-        },
 
         // Model operations
         loadModel: async () => {
@@ -811,7 +764,6 @@ const Offscreen = () => {
       console.log('- erpaDebug.clearCache(url?) - Clear cache')
       console.log('- erpaDebug.getCachedEmbeddings(url) - Get cached embeddings for URL (legacy)')
       console.log('- erpaDebug.getCachedEmbeddingsByUrl(url) - Get cached embeddings by URL only')
-      console.log('- erpaDebug.validateCachedEmbeddings(cached, segments) - Validate cached embeddings')
       console.log('- erpaDebug.loadModel() - Load embedding model')
       console.log('- erpaDebug.generateEmbedding(text) - Generate single embedding')
       console.log('- erpaDebug.generateBatchEmbeddings(texts) - Generate batch embeddings')
