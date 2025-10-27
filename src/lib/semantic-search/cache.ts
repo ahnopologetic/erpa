@@ -63,12 +63,9 @@ export class EmbeddingCache {
   }
 
   /**
-   * Get cached embeddings for the current page
+   * Get cached embeddings for a URL (without hash validation)
    */
-  async getCachedEmbeddings(
-    url: string,
-    sentences: SentenceSegment[]
-  ): Promise<CachedEmbeddings | null> {
+  async getCachedEmbeddingsByUrl(url: string): Promise<CachedEmbeddings | null> {
     try {
       log('[semantic-search] 🔍 Checking cache for URL:', url);
 
@@ -83,26 +80,57 @@ export class EmbeddingCache {
       }
 
       const cached: CachedEmbeddings = result.rows[0].page_data;
-      const currentHash = this.generatePageHash(sentences);
-
       log('[semantic-search] ✅ Found cached entry:', {
         sentenceCount: cached.sentences.length,
         embeddingCount: cached.embeddings.length,
-        currentHash,
-        cachedHash: cached.pageHash,
-        hashMatch: currentHash === cached.pageHash
+        cachedHash: cached.pageHash
       });
 
-      if (this.isCacheValid(cached, currentHash)) {
-        log('[semantic-search] ✅ Using cached embeddings for URL:', url, '(', cached.embeddings.length, 'embeddings )');
-        return cached;
-      } else {
-        log('[semantic-search] ⚠️ Cached embeddings invalid (hash mismatch) for URL:', url);
-        await this.clearCachedEmbeddings(url);
-        return null;
-      }
+      return cached;
     } catch (error) {
       err('[semantic-search] ❌ Error retrieving cached embeddings:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Validate cached embeddings against current page content
+   */
+  validateCachedEmbeddings(
+    cached: CachedEmbeddings,
+    currentSentences: SentenceSegment[]
+  ): boolean {
+    const currentHash = this.generatePageHash(currentSentences);
+    
+    log('[semantic-search] 🔍 Validating cache:', {
+      currentHash,
+      cachedHash: cached.pageHash,
+      hashMatch: currentHash === cached.pageHash
+    });
+
+    return this.isCacheValid(cached, currentHash);
+  }
+
+  /**
+   * Get cached embeddings for the current page (legacy method for backward compatibility)
+   * @deprecated Use getCachedEmbeddingsByUrl + validateCachedEmbeddings instead
+   */
+  async getCachedEmbeddings(
+    url: string,
+    sentences: SentenceSegment[]
+  ): Promise<CachedEmbeddings | null> {
+    const cached = await this.getCachedEmbeddingsByUrl(url);
+    
+    if (!cached) {
+      return null;
+    }
+
+    if (this.validateCachedEmbeddings(cached, sentences)) {
+      log('[semantic-search] ✅ Using cached embeddings for URL:', url, '(', cached.embeddings.length, 'embeddings )');
+      return cached;
+    } else {
+      log('[semantic-search] ⚠️ Cached embeddings invalid (hash mismatch) for URL:', url);
+      await this.clearCachedEmbeddings(url);
       return null;
     }
   }

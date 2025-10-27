@@ -136,6 +136,8 @@ declare global {
       getCacheStats: () => Promise<any>
       clearCache: (url?: string) => Promise<any>
       getCachedEmbeddings: (url: string) => Promise<any>
+      getCachedEmbeddingsByUrl: (url: string) => Promise<any>
+      validateCachedEmbeddings: (cachedEmbeddings: any, segments: any[]) => Promise<boolean>
 
       // Model operations
       loadModel: () => Promise<any>
@@ -228,6 +230,74 @@ const Offscreen = () => {
           } catch (error) {
             err('[offscreen] ❌ Error getting cached embeddings:', error)
             sendResponse({ success: false, error: error.message, cachedEmbeddings: null })
+          }
+        })()
+        return true
+      }
+
+      if (message.type === 'GET_CACHED_EMBEDDINGS_BY_URL') {
+        (async () => {
+          try {
+            // Wait for setup to complete
+            if (!(await waitForSetup(setupComplete))) {
+              err('[offscreen] ❌ Timeout waiting for database setup')
+              sendResponse({ success: false, error: 'Database setup timeout', cachedEmbeddings: null })
+              return
+            }
+
+            if (!cacheInstance) {
+              err('[offscreen] ❌ Cache not initialized')
+              sendResponse({ success: false, error: 'Cache not initialized', cachedEmbeddings: null })
+              return
+            }
+
+            log('[offscreen] Getting cached embeddings by URL only:', message.url)
+            const cachedEmbeddings = await cacheInstance.getCachedEmbeddingsByUrl(message.url)
+
+            if (cachedEmbeddings) {
+              log('[offscreen] ✅ Found cached embeddings by URL, returning to caller')
+            } else {
+              log('[offscreen] ❌ No cached embeddings found for URL')
+            }
+
+            sendResponse({ success: true, cachedEmbeddings })
+          } catch (error) {
+            err('[offscreen] ❌ Error getting cached embeddings by URL:', error)
+            sendResponse({ success: false, error: error.message, cachedEmbeddings: null })
+          }
+        })()
+        return true
+      }
+
+      if (message.type === 'VALIDATE_CACHED_EMBEDDINGS') {
+        (async () => {
+          try {
+            // Wait for setup to complete
+            if (!(await waitForSetup(setupComplete))) {
+              err('[offscreen] ❌ Timeout waiting for database setup')
+              sendResponse({ success: false, error: 'Database setup timeout', isValid: false })
+              return
+            }
+
+            if (!cacheInstance) {
+              err('[offscreen] ❌ Cache not initialized')
+              sendResponse({ success: false, error: 'Cache not initialized', isValid: false })
+              return
+            }
+
+            log('[offscreen] Validating cached embeddings for URL:', message.url)
+            const isValid = cacheInstance.validateCachedEmbeddings(message.cachedEmbeddings, message.segments)
+
+            if (isValid) {
+              log('[offscreen] ✅ Cached embeddings are valid')
+            } else {
+              log('[offscreen] ❌ Cached embeddings are invalid (hash mismatch)')
+            }
+
+            sendResponse({ success: true, isValid })
+          } catch (error) {
+            err('[offscreen] ❌ Error validating cached embeddings:', error)
+            sendResponse({ success: false, error: error.message, isValid: false })
           }
         })()
         return true
@@ -607,6 +677,44 @@ const Offscreen = () => {
           }
         },
 
+        getCachedEmbeddingsByUrl: async (url: string) => {
+          try {
+            if (!cacheInstance) throw new Error('Cache not initialized')
+
+            const cached = await cacheInstance.getCachedEmbeddingsByUrl(url)
+            
+            if (cached) {
+              console.log(`📄 Cached embeddings for ${url}:`, {
+                sentences: cached.sentences?.length || 0,
+                embeddings: cached.embeddings?.length || 0,
+                timestamp: new Date(cached.timestamp).toISOString(),
+                pageHash: cached.pageHash
+              })
+            } else {
+              console.log(`❌ No cached embeddings found for URL: ${url}`)
+            }
+
+            return cached
+          } catch (error) {
+            console.error('❌ Error getting cached embeddings by URL:', error)
+            throw error
+          }
+        },
+
+        validateCachedEmbeddings: async (cachedEmbeddings: any, segments: any[]) => {
+          try {
+            if (!cacheInstance) throw new Error('Cache not initialized')
+
+            const isValid = cacheInstance.validateCachedEmbeddings(cachedEmbeddings, segments)
+            
+            console.log(`🔍 Cache validation result: ${isValid ? '✅ Valid' : '❌ Invalid'}`)
+            return isValid
+          } catch (error) {
+            console.error('❌ Error validating cached embeddings:', error)
+            throw error
+          }
+        },
+
         // Model operations
         loadModel: async () => {
           try {
@@ -701,7 +809,9 @@ const Offscreen = () => {
       console.log('- erpaDebug.getCachedPages() - Get cached pages')
       console.log('- erpaDebug.getCacheStats() - Get cache statistics')
       console.log('- erpaDebug.clearCache(url?) - Clear cache')
-      console.log('- erpaDebug.getCachedEmbeddings(url) - Get cached embeddings for URL')
+      console.log('- erpaDebug.getCachedEmbeddings(url) - Get cached embeddings for URL (legacy)')
+      console.log('- erpaDebug.getCachedEmbeddingsByUrl(url) - Get cached embeddings by URL only')
+      console.log('- erpaDebug.validateCachedEmbeddings(cached, segments) - Validate cached embeddings')
       console.log('- erpaDebug.loadModel() - Load embedding model')
       console.log('- erpaDebug.generateEmbedding(text) - Generate single embedding')
       console.log('- erpaDebug.generateBatchEmbeddings(texts) - Generate batch embeddings')
@@ -713,6 +823,7 @@ const Offscreen = () => {
       console.log('- erpaDebug.getSetupStatus() // Check if everything is ready')
       console.log('- erpaDebug.getDbStats() // See database counts')
       console.log('- erpaDebug.getCachedPages() // List all cached pages')
+      console.log('- erpaDebug.getCachedEmbeddingsByUrl("https://example.com") // Get cache by URL')
       console.log('- erpaDebug.queryDb("SELECT * FROM cached_pages LIMIT 5") // Custom SQL')
       console.log('- erpaDebug.generateEmbedding("Hello world") // Test embedding generation')
       console.log('')

@@ -316,12 +316,58 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     url: message.url,
                     segments: message.segments
                 });
-                log('[background] Response from GET_CACHED_EMBEDDINGS:', response);
+                log('[background] Response from GET_CACHED_EMBEDDINGS (offscreen):', response);
 
                 sendResponse(response);
             } catch (error) {
                 err('[background] ❌ Error forwarding cache request:', error);
                 sendResponse({ success: false, error: error.message, cachedEmbeddings: null });
+            }
+        })();
+        return true;
+    }
+
+    if (message.type === 'GET_CACHED_EMBEDDINGS_BY_URL') {
+        (async () => {
+            try {
+                await ensureEmbeddingOffscreenDocument();
+                log('[background] Forwarding GET_CACHED_EMBEDDINGS_BY_URL to offscreen');
+
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    type: 'GET_CACHED_EMBEDDINGS_BY_URL',
+                    url: message.url
+                });
+                log('[background] Response from GET_CACHED_EMBEDDINGS_BY_URL (offscreen):', response);
+
+                sendResponse(response);
+            } catch (error) {
+                err('[background] ❌ Error forwarding cache lookup by URL request:', error);
+                sendResponse({ success: false, error: error.message, cachedEmbeddings: null });
+            }
+        })();
+        return true;
+    }
+
+    if (message.type === 'VALIDATE_CACHED_EMBEDDINGS') {
+        (async () => {
+            try {
+                await ensureEmbeddingOffscreenDocument();
+                log('[background] Forwarding VALIDATE_CACHED_EMBEDDINGS to offscreen');
+
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    type: 'VALIDATE_CACHED_EMBEDDINGS',
+                    url: message.url,
+                    cachedEmbeddings: message.cachedEmbeddings,
+                    segments: message.segments
+                });
+                log('[background] Response from VALIDATE_CACHED_EMBEDDINGS (offscreen):', response);
+
+                sendResponse(response);
+            } catch (error) {
+                err('[background] ❌ Error forwarding cache validation request:', error);
+                sendResponse({ success: false, error: error.message, isValid: false });
             }
         })();
         return true;
