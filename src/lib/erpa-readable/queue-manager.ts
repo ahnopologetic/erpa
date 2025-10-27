@@ -5,6 +5,7 @@
 import type { ErpaReadableElement, ErpaReadableQueue, ErpaReadableConfig, QueueState } from './types';
 import { validateErpaReadableElement } from './element-factory';
 import { highlightNode } from '../utils';
+import { ttsCoordinator } from '../tts-coordinator';
 
 export class ErpaReadableQueueManager implements ErpaReadableQueue {
   public elements: ErpaReadableElement[] = [];
@@ -115,7 +116,7 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
   /**
    * Start playing from the current position
    */
-  start(): void {
+  async start(): Promise<void> {
     if (this.isPlaying) {
       return;
     }
@@ -134,7 +135,7 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
       this.currentElement = this.elements[this.currentIndex];
     }
 
-    this.playCurrentElement();
+    await this.playCurrentElement();
   }
 
   /**
@@ -156,8 +157,8 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
     this.isPlaying = false;
     this.isAutoProgressing = false;
 
-    // Stop TTS
-    window.speechSynthesis.cancel();
+    // Stop TTS through coordinator
+    ttsCoordinator.cancelBySource('content');
     this.currentUtterance = undefined;
 
     // Clean up current element
@@ -172,16 +173,16 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
   /**
    * Move to the next element
    */
-  next(): void {
+  async next(): Promise<void> {
     if (this.currentIndex < this.elements.length - 1) {
       this.currentIndex++;
       this.currentElement = this.elements[this.currentIndex];
-      this.playCurrentElement();
+      await this.playCurrentElement();
     } else if (this.config.loopMode) {
       // Loop back to the beginning
       this.currentIndex = 0;
       this.currentElement = this.elements[this.currentIndex];
-      this.playCurrentElement();
+      await this.playCurrentElement();
     } else {
       // End of queue
       this.stop();
@@ -192,18 +193,18 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
   /**
    * Move to the previous element
    */
-  previous(): void {
+  async previous(): Promise<void> {
     if (this.currentIndex > 0) {
       this.currentIndex--;
       this.currentElement = this.elements[this.currentIndex];
-      this.playCurrentElement();
+      await this.playCurrentElement();
     }
   }
 
   /**
    * Jump to a specific element by ID
    */
-  jumpToElement(elementId: string): void {
+  async jumpToElement(elementId: string): Promise<void> {
     const index = this.elements.findIndex(element => element.id === elementId);
     if (index !== -1) {
       this.stop();
@@ -211,7 +212,7 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
       this.currentElement = this.elements[index];
 
       if (this.isPlaying) {
-        this.playCurrentElement();
+        await this.playCurrentElement();
       }
     } else {
       console.warn(`Element not found: ${elementId}`);
@@ -359,7 +360,7 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
   /**
    * Play the current element
    */
-  private playCurrentElement(): void {
+  private async playCurrentElement(): Promise<void> {
     if (!this.currentElement) {
       return;
     }
@@ -375,7 +376,7 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
     this.highlightCurrentElement();
 
     // Create and play TTS
-    this.createAndPlayTTS();
+    await this.createAndPlayTTS();
   }
 
   /**
@@ -400,43 +401,38 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
   /**
    * Create and play TTS for the current element
    */
-  private createAndPlayTTS(): void {
+  private async createAndPlayTTS(): Promise<void> {
     if (!this.currentElement) {
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(this.currentElement.text);
+    const requestId = `queue-element-${this.currentElement.id}-${Date.now()}`;
 
-    // Apply TTS settings
-    if (this.config.voice) {
-      utterance.voice = this.config.voice;
-    }
-    utterance.rate = this.config.rate || 1.0;
-    utterance.pitch = this.config.pitch || 1.0;
-    utterance.volume = this.config.volume || 1.0;
-
-    // Set up event handlers
-    utterance.onstart = () => {
-      console.log(`TTS started for element: ${this.currentElement!.id}`);
-    };
-
-    utterance.onend = () => {
-      console.log(`TTS ended for element: ${this.currentElement!.id}`);
-      this.handleElementComplete();
-    };
-
-    utterance.onerror = (event) => {
-      console.error(`TTS error for element ${this.currentElement?.id ?? 'unknown'}:`, event);
-      this.config.onError?.(event as any, this.currentElement!);
-      this.handleElementComplete();
-    };
-
-    this.currentUtterance = utterance;
-    this.currentElement.utterance = utterance;
-
-    // Cancel any existing speech and start new one
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    // Request TTS through coordinator
+    await ttsCoordinator.requestTTS({
+      id: requestId,
+      text: this.currentElement.text,
+      settings: {
+        voice: this.config.voice || null,
+        rate: this.config.rate || 1.0,
+        pitch: this.config.pitch || 1.0,
+        volume: this.config.volume || 1.0
+      },
+      priority: 'normal', // Content script has normal priority
+      source: 'content',
+      onStart: () => {
+        console.log(`TTS started for element: ${this.currentElement!.id}`);
+      },
+      onEnd: () => {
+        console.log(`TTS ended for element: ${this.currentElement!.id}`);
+        this.handleElementComplete();
+      },
+      onError: (event) => {
+        console.error(`TTS error for element ${this.currentElement?.id ?? 'unknown'}:`, event);
+        this.config.onError?.(event as any, this.currentElement!);
+        this.handleElementComplete();
+      }
+    });
   }
 
   /**
@@ -466,7 +462,7 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
   /**
    * Handle auto-progression to next element or section
    */
-  private handleAutoProgression(): void {
+  private async handleAutoProgression(): Promise<void> {
     // First, try to find the next element in the current section
     const nextElement = this.elements.find(
       element => !element.isCompleted && element !== this.currentElement
@@ -476,7 +472,7 @@ export class ErpaReadableQueueManager implements ErpaReadableQueue {
       // Move to next element in queue
       this.currentIndex = this.elements.indexOf(nextElement);
       this.currentElement = nextElement;
-      this.playCurrentElement();
+      await this.playCurrentElement();
     } else {
       // No more elements in current section, look for next section
       const currentSection = this.currentElement?.sectionIndex ?? -1;

@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import { cn } from '~lib/utils';
 import { useTTSSettings } from '~contexts/UserConfigContext';
+import { ttsCoordinator } from '~lib/tts-coordinator';
 
 interface AITextBubbleProps {
     content: string;
@@ -15,70 +16,92 @@ export const AITextBubble: React.FC<AITextBubbleProps> = ({
     className
 }) => {
     const [isPlaying, setIsPlaying] = useState(false);
-    const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
     const ttsSettings = useTTSSettings();
+    const requestIdRef = useRef<string | null>(null);
 
     // Remove all occurrences of <|task_complete|> (ignoring case just in case)
     const sanitizedContent = content.replace(/<\|task_complete\|>/gi, '').trim();
 
-    const handlePlayTTS = () => {
+    const handlePlayTTS = React.useCallback(async () => {
         if (isPlaying) {
             // Stop current playback
-            window.speechSynthesis.cancel();
+            ttsCoordinator.cancelBySource('sidepanel');
             setIsPlaying(false);
-            utteranceRef.current = null;
+            requestIdRef.current = null;
         } else {
-            // Start new playback
-            const utterance = new SpeechSynthesisUtterance(sanitizedContent);
+            // Cancel any existing TTS from other sources
+            ttsCoordinator.cancelBySource('sidepanel');
             
-            // Configure voice settings from user config
-            utterance.rate = ttsSettings.speed;
-            utterance.pitch = ttsSettings.pitch;
-            utterance.volume = ttsSettings.volume;
-
-            // Select voice from user config
+            // Get selected voice
             const voices = speechSynthesis.getVoices();
-            if (ttsSettings.voice) {
-                const selectedVoice = voices.find(v => v.voiceURI === ttsSettings.voice);
+            let selectedVoice: SpeechSynthesisVoice | null = null;
+            
+            if (ttsSettings.voice && voices.length > 0) {
+                selectedVoice = voices.find(v => v.voiceURI === ttsSettings.voice) || null;
                 if (selectedVoice) {
-                    utterance.voice = selectedVoice;
-                }
-            } else {
-                const englishVoice = voices.find(voice =>
-                    voice.lang.startsWith('en') && voice.default
-                ) || voices.find(voice => voice.lang.startsWith('en'));
-
-                if (englishVoice) {
-                    utterance.voice = englishVoice;
+                    console.log('Using selected voice:', selectedVoice.name, selectedVoice.voiceURI);
+                } else {
+                    console.warn('Selected voice not found, falling back to default');
                 }
             }
 
-            // Set up event handlers
-            utterance.onstart = () => {
-                setIsPlaying(true);
-            };
+            // Create unique request ID
+            const requestId = `ai-bubble-${Date.now()}`;
+            requestIdRef.current = requestId;
 
-            utterance.onend = () => {
-                setIsPlaying(false);
-                utteranceRef.current = null;
-            };
-
-            utterance.onerror = (event) => {
-                console.error('TTS error:', event);
-                setIsPlaying(false);
-                utteranceRef.current = null;
-            };
-
-            utteranceRef.current = utterance;
-            window.speechSynthesis.speak(utterance);
+            // Request TTS through coordinator
+            await ttsCoordinator.requestTTS({
+                id: requestId,
+                text: sanitizedContent,
+                settings: {
+                    voice: selectedVoice,
+                    rate: ttsSettings.speed,
+                    pitch: ttsSettings.pitch,
+                    volume: ttsSettings.volume
+                },
+                priority: 'high', // AI responses have high priority
+                source: 'sidepanel',
+                onStart: () => {
+                    setIsPlaying(true);
+                },
+                onEnd: () => {
+                    setIsPlaying(false);
+                    requestIdRef.current = null;
+                },
+                onError: (error) => {
+                    console.error('TTS error:', error);
+                    setIsPlaying(false);
+                    requestIdRef.current = null;
+                }
+            });
         }
-    };
+    }, [isPlaying, sanitizedContent, ttsSettings.speed, ttsSettings.pitch, ttsSettings.volume, ttsSettings.voice]);
+
+    // Auto-readout when streaming completes and autoReadAloud is enabled
+    React.useEffect(() => {
+        // Only trigger auto-readout when:
+        // 1. Not currently streaming (streaming just finished)
+        // 2. Auto-readout is enabled in settings
+        // 3. There's content to read
+        // 4. Not already playing
+        if (!isStreaming && ttsSettings.autoReadAloud && sanitizedContent.trim() && !isPlaying) {
+            console.log('Auto-readout triggered for AI response');
+            // Add a small delay to ensure any existing TTS is cancelled
+            setTimeout(() => {
+                // Double-check that we're still not playing and TTS coordinator is not busy
+                if (!isPlaying && !ttsCoordinator.isCurrentlyPlaying()) {
+                    handlePlayTTS();
+                }
+            }, 100);
+        }
+    }, [isStreaming, ttsSettings.autoReadAloud, sanitizedContent, isPlaying, handlePlayTTS]);
 
     // Clean up on unmount
     React.useEffect(() => {
         return () => {
-            if (utteranceRef.current) {
-                window.speechSynthesis.cancel();
+            // Cancel any TTS from this component
+            if (requestIdRef.current) {
+                ttsCoordinator.cancelBySource('sidepanel');
             }
         };
     }, []);
