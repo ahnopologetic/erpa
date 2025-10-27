@@ -85,15 +85,21 @@ export class SemanticSearchEngine {
 
 
       let segments: SentenceSegment[] = [];
-      // Check cache for existing embeddings via background worker
-      log('[semantic-search] 🔍 Checking cache for existing embeddings...');
-      let cachedEmbeddings = await this.getCachedEmbeddingsFromBackground(url, segments);
       let sentenceEmbeddings: number[][];
+      let cachedEmbeddings: CachedEmbeddings | null = null;
+
+      // Step 1: Check cache by URL only (no sentences required)
+      log('[semantic-search] 🔍 Checking cache by URL...');
+      cachedEmbeddings = await this.getCachedEmbeddingsByUrl(url);
 
       if (cachedEmbeddings && cachedEmbeddings.embeddings && cachedEmbeddings.embeddings.length > 0) {
+        // Use cached embeddings directly - no validation needed
         sentenceEmbeddings = cachedEmbeddings.embeddings;
+        segments = cachedEmbeddings.sentences || [];
         log('[semantic-search] ✅ Using', sentenceEmbeddings.length, 'cached embeddings - skipping generation!');
-      } else {
+      }
+
+      if (!cachedEmbeddings) {
         // Generate embeddings for all sentences
         // Segment page into sentences
         const allSegments = segmentPageIntoSentences();
@@ -105,7 +111,7 @@ export class SemanticSearchEngine {
         }
 
         log('[semantic-search] Found', segments.length, 'meaningful sentences');
-        log('[semantic-search] ⚙️ No cache hit - Generating embeddings for', segments.length, 'sentences (this may take ~30 seconds)...');
+        log('[semantic-search] ⚙️ No valid cache - Generating embeddings for', segments.length, 'sentences (this may take ~30 seconds)...');
         const texts = segments.map(s => s.text);
         sentenceEmbeddings = await this.embeddingService.generateBatchEmbeddings(texts);
 
@@ -136,9 +142,9 @@ export class SemanticSearchEngine {
       }
 
       // Get the actual sentence segments for top candidates
+      // When using cached embeddings, the segments array indices match the embedding indices
       const candidateSegments = topSimilar.map(({ index: similarityIndex }) => {
-        const originalIndex = segments.findIndex(s => s.index === similarityIndex);
-        return segments[originalIndex];
+        return segments[similarityIndex];
       }).filter(Boolean);
       log('[semantic-search] candidateSegments: ', candidateSegments);
 
@@ -202,7 +208,35 @@ export class SemanticSearchEngine {
   }
 
   /**
-   * Get cached embeddings from background worker
+   * Get cached embeddings from background worker (URL-only lookup)
+   */
+  private async getCachedEmbeddingsByUrl(url: string): Promise<CachedEmbeddings | null> {
+    try {
+      log('[semantic-search] Requesting cached embeddings by URL from background for:', url);
+      const response = await chrome.runtime.sendMessage({
+        type: 'GET_CACHED_EMBEDDINGS_BY_URL',
+        url
+      });
+
+      log('[semantic-search] Response from GET_CACHED_EMBEDDINGS_BY_URL (from background):', response);
+
+      if (response?.success && response.cachedEmbeddings) {
+        log('[semantic-search] 🎯 Cache hit! Received', response.cachedEmbeddings.embeddings?.length, 'embeddings for URL');
+        return response.cachedEmbeddings;
+      }
+
+      log('[semantic-search] ⭕ Cache miss - no embeddings found for URL');
+      return null;
+    } catch (error) {
+      err('[semantic-search] ❌ Error retrieving cached embeddings by URL from background:', error);
+      return null;
+    }
+  }
+
+
+  /**
+   * Get cached embeddings from background worker (legacy method for backward compatibility)
+   * @deprecated Use getCachedEmbeddingsByUrl + validateCachedEmbeddings instead
    */
   private async getCachedEmbeddingsFromBackground(url: string, segments: SentenceSegment[]): Promise<CachedEmbeddings | null> {
     try {
@@ -212,6 +246,8 @@ export class SemanticSearchEngine {
         url,
         segments
       });
+
+      log('[semantic-search] Response from GET_CACHED_EMBEDDINGS (from background):', response);
 
       if (response?.success && response.cachedEmbeddings) {
         log('[semantic-search] 🎯 Cache hit! Received', response.cachedEmbeddings.embeddings?.length, 'embeddings');

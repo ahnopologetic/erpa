@@ -2,6 +2,26 @@
 
 import { err, log } from "~lib/log";
 
+// Debug helper for offscreen communication
+declare global {
+    interface Window {
+        erpaDebugOffscreen: {
+            getDbStats: () => Promise<any>
+            queryDb: (sql: string, params?: any[]) => Promise<any>
+            getCachedPages: () => Promise<any>
+            getCacheStats: () => Promise<any>
+            clearCache: (url?: string) => Promise<any>
+            getCachedEmbeddings: (url: string) => Promise<any>
+            loadModel: () => Promise<any>
+            generateEmbedding: (text: string) => Promise<any>
+            generateBatchEmbeddings: (texts: string[]) => Promise<any>
+            getSetupStatus: () => Promise<any>
+            resetDatabase: () => Promise<any>
+            exportData: () => Promise<any>
+        }
+    }
+}
+
 // Open sidepanel on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
@@ -17,7 +37,7 @@ let cacheCleanupInterval: NodeJS.Timeout | null = null;
  */
 async function ensureEmbeddingOffscreenDocument(): Promise<void> {
     const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH);
-    
+
     // Check if offscreen document already exists
     const existingContexts = await chrome.runtime.getContexts({
         contextTypes: ['OFFSCREEN_DOCUMENT'],
@@ -40,10 +60,10 @@ async function ensureEmbeddingOffscreenDocument(): Promise<void> {
             reasons: ['DOM_PARSER' as chrome.offscreen.Reason],
             justification: 'Load and run transformers.js model for semantic search embeddings'
         });
-        
+
         await creatingOffscreen;
         creatingOffscreen = null;
-        
+
         log('[semantic-search] Created offscreen document for embedding generation');
     } catch (error) {
         err('[semantic-search] Error creating offscreen document:', error);
@@ -58,7 +78,7 @@ async function ensureEmbeddingOffscreenDocument(): Promise<void> {
 async function loadEmbeddingModel(): Promise<void> {
     try {
         await ensureEmbeddingOffscreenDocument();
-        
+
         log('[semantic-search] Loading embedding model...');
         const response = await chrome.runtime.sendMessage({
             target: 'offscreen',
@@ -82,9 +102,9 @@ async function loadEmbeddingModel(): Promise<void> {
 async function generateEmbedding(text: string): Promise<number[]> {
     try {
         await ensureEmbeddingOffscreenDocument();
-        
+
         log('[semantic-search] Generating embedding for text:', text.substring(0, 100) + '...');
-        
+
         const response = await chrome.runtime.sendMessage({
             target: 'offscreen',
             type: 'GENERATE_EMBEDDING',
@@ -109,9 +129,9 @@ async function generateEmbedding(text: string): Promise<number[]> {
 async function generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
     try {
         await ensureEmbeddingOffscreenDocument();
-        
+
         log('[semantic-search] Generating embeddings for', texts.length, 'texts');
-        
+
         const response = await chrome.runtime.sendMessage({
             target: 'offscreen',
             type: 'BATCH_GENERATE_EMBEDDINGS',
@@ -134,49 +154,49 @@ async function generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
  * Clean up expired cache entries via offscreen document
  */
 async function cleanupExpiredCacheEntries(): Promise<void> {
-  try {
-    log('[semantic-search] Cleaning up expired cache entries...');
-    
-    await ensureEmbeddingOffscreenDocument();
-    
-    const response = await chrome.runtime.sendMessage({
-      target: 'offscreen',
-      type: 'CLEANUP_CACHE'
-    });
-    
-    if (response?.success) {
-      log('[semantic-search] Cache cleanup completed');
-    } else {
-      throw new Error(response?.error || 'Failed to cleanup cache');
+    try {
+        log('[semantic-search] Cleaning up expired cache entries...');
+
+        await ensureEmbeddingOffscreenDocument();
+
+        const response = await chrome.runtime.sendMessage({
+            target: 'offscreen',
+            type: 'CLEANUP_CACHE'
+        });
+
+        if (response?.success) {
+            log('[semantic-search] Cache cleanup completed');
+        } else {
+            throw new Error(response?.error || 'Failed to cleanup cache');
+        }
+    } catch (error) {
+        err('[semantic-search] Error during cache cleanup:', error);
     }
-  } catch (error) {
-    err('[semantic-search] Error during cache cleanup:', error);
-  }
 }
 
 /**
  * Start periodic cache cleanup
  */
 function startCacheCleanup(): void {
-  if (cacheCleanupInterval) return;
-  
-  // Clean up every hour
-  cacheCleanupInterval = setInterval(() => {
-    cleanupExpiredCacheEntries();
-  }, 60 * 60 * 1000);
-  
-  log('[semantic-search] Started periodic cache cleanup');
+    if (cacheCleanupInterval) return;
+
+    // Clean up every hour
+    cacheCleanupInterval = setInterval(() => {
+        cleanupExpiredCacheEntries();
+    }, 60 * 60 * 1000);
+
+    log('[semantic-search] Started periodic cache cleanup');
 }
 
 /**
  * Stop periodic cache cleanup
  */
 function stopCacheCleanup(): void {
-  if (cacheCleanupInterval) {
-    clearInterval(cacheCleanupInterval);
-    cacheCleanupInterval = null;
-    log('[semantic-search] Stopped periodic cache cleanup');
-  }
+    if (cacheCleanupInterval) {
+        clearInterval(cacheCleanupInterval);
+        cacheCleanupInterval = null;
+        log('[semantic-search] Stopped periodic cache cleanup');
+    }
 }
 
 
@@ -201,7 +221,7 @@ chrome.commands.onCommand.addListener(async (command) => {
             err("Failed to open sidepanel:", error);
         }
     }
-    
+
     if (command === "semantic-search") {
         try {
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -268,12 +288,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
                 await ensureEmbeddingOffscreenDocument();
                 log('[background] Forwarding CLEANUP_CACHE to offscreen');
-                
+
                 const response = await chrome.runtime.sendMessage({
                     target: 'offscreen',
                     type: 'CLEANUP_CACHE'
                 });
-                
+
                 sendResponse(response);
             } catch (error) {
                 err('[background] ❌ Error forwarding cleanup cache request:', error);
@@ -289,14 +309,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
                 await ensureEmbeddingOffscreenDocument();
                 log('[background] Forwarding GET_CACHED_EMBEDDINGS to offscreen');
-                
+
                 const response = await chrome.runtime.sendMessage({
                     target: 'offscreen',
                     type: 'GET_CACHED_EMBEDDINGS',
                     url: message.url,
                     segments: message.segments
                 });
-                
+                log('[background] Response from GET_CACHED_EMBEDDINGS (offscreen):', response);
+
                 sendResponse(response);
             } catch (error) {
                 err('[background] ❌ Error forwarding cache request:', error);
@@ -306,12 +327,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
+    if (message.type === 'GET_CACHED_EMBEDDINGS_BY_URL') {
+        (async () => {
+            try {
+                await ensureEmbeddingOffscreenDocument();
+                log('[background] Forwarding GET_CACHED_EMBEDDINGS_BY_URL to offscreen');
+
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    type: 'GET_CACHED_EMBEDDINGS_BY_URL',
+                    url: message.url
+                });
+                log('[background] Response from GET_CACHED_EMBEDDINGS_BY_URL (offscreen):', response);
+
+                sendResponse(response);
+            } catch (error) {
+                err('[background] ❌ Error forwarding cache lookup by URL request:', error);
+                sendResponse({ success: false, error: error.message, cachedEmbeddings: null });
+            }
+        })();
+        return true;
+    }
+
+
     if (message.type === 'CACHE_EMBEDDINGS') {
         (async () => {
             try {
                 await ensureEmbeddingOffscreenDocument();
                 log('[background] Forwarding CACHE_EMBEDDINGS to offscreen');
-                
+
                 const response = await chrome.runtime.sendMessage({
                     target: 'offscreen',
                     type: 'CACHE_EMBEDDINGS',
@@ -319,7 +363,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     segments: message.segments,
                     embeddings: message.embeddings
                 });
-                
+
                 sendResponse(response);
             } catch (error) {
                 err('[background] ❌ Error forwarding cache request:', error);
@@ -334,12 +378,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
                 await ensureEmbeddingOffscreenDocument();
                 log('[background] Forwarding GET_CACHE_STATS to offscreen');
-                
+
                 const response = await chrome.runtime.sendMessage({
                     target: 'offscreen',
                     type: 'GET_CACHE_STATS'
                 });
-                
+
                 sendResponse(response);
             } catch (error) {
                 err('[background] ❌ Error forwarding cache stats request:', error);
@@ -354,12 +398,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
                 await ensureEmbeddingOffscreenDocument();
                 log('[background] Forwarding CLEAR_ALL_CACHE to offscreen');
-                
+
                 const response = await chrome.runtime.sendMessage({
                     target: 'offscreen',
                     type: 'CLEAR_ALL_CACHE'
                 });
-                
+
                 sendResponse(response);
             } catch (error) {
                 err('[background] ❌ Error forwarding clear cache request:', error);
