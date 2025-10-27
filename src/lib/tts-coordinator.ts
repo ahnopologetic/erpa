@@ -27,6 +27,7 @@ class TTSCoordinator {
   private currentRequest: TTSRequest | null = null;
   private currentUtterance: SpeechSynthesisUtterance | null = null;
   private isPlaying: boolean = false;
+  private isPaused: boolean = false;
   private queue: TTSRequest[] = [];
   private voicesLoaded: boolean = false;
 
@@ -83,6 +84,50 @@ class TTSCoordinator {
   }
 
   /**
+   * Pause current TTS playback
+   */
+  pause(): void {
+    if (!this.isPlaying || this.isPaused) {
+      return;
+    }
+
+    console.log('[TTS Coordinator] Pausing TTS');
+    speechSynthesis.pause();
+    this.isPaused = true;
+  }
+
+  /**
+   * Resume paused TTS playback
+   */
+  resume(): void {
+    if (!this.isPlaying || !this.isPaused) {
+      return;
+    }
+
+    console.log('[TTS Coordinator] Resuming TTS');
+    speechSynthesis.resume();
+    this.isPaused = false;
+  }
+
+  /**
+   * Toggle pause/resume state
+   */
+  togglePause(): void {
+    if (this.isPaused) {
+      this.resume();
+    } else {
+      this.pause();
+    }
+  }
+
+  /**
+   * Check if TTS is paused
+   */
+  isPausedState(): boolean {
+    return this.isPaused;
+  }
+
+  /**
    * Cancel current TTS playback
    */
   cancelCurrent(): void {
@@ -93,6 +138,7 @@ class TTSCoordinator {
     }
     this.currentRequest = null;
     this.isPlaying = false;
+    this.isPaused = false;
   }
 
   /**
@@ -153,6 +199,7 @@ class TTSCoordinator {
   private async playTTS(request: TTSRequest): Promise<void> {
     this.currentRequest = request;
     this.isPlaying = true;
+    this.isPaused = false;
 
     // Wait for voices to be loaded if needed
     if (!this.voicesLoaded) {
@@ -195,6 +242,7 @@ class TTSCoordinator {
     this.currentRequest = null;
     this.currentUtterance = null;
     this.isPlaying = false;
+    this.isPaused = false;
 
     // Play next queued request
     if (this.queue.length > 0) {

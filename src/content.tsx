@@ -14,6 +14,7 @@ import { createFromReadableNodes } from "~lib/erpa-readable/element-factory"
 import { SemanticSearchEngine } from "~lib/semantic-search/search-engine"
 import type { SectionInfo } from "~lib/erpa-readable/types"
 import { debug, err, log, warn } from "~lib/log"
+import { ttsCoordinator } from "~lib/tts-coordinator"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"]
@@ -120,7 +121,7 @@ const PlasmoOverlay = () => {
         const wasListening = speechRecognition.isListening
         speechRecognition.toggleListening()
         log('[toggle-mic] Speech recognition toggled from', wasListening, 'to', speechRecognition.isListening)
-        
+
         // Send back the current state to the sidepanel
         chrome.runtime.sendMessage({
           type: "speech-recognition-state-update",
@@ -262,15 +263,15 @@ const PlasmoOverlay = () => {
       chrome.storage.local.get(['erpa_user_config'], (result) => {
         const config = result.erpa_user_config;
         const ttsSettings = config?.tts || {};
-        
+
         // Get available voices
         const voices = speechSynthesis.getVoices();
         let voice: SpeechSynthesisVoice | undefined = undefined;
-        
+
         if (ttsSettings.voice) {
           voice = voices.find(v => v.voiceURI === ttsSettings.voice);
         }
-        
+
         queueManagerRef.current = new ErpaReadableQueueManager({
           rate: ttsSettings.speed ?? 1.0,
           pitch: ttsSettings.pitch ?? 1.0,
@@ -333,15 +334,15 @@ const PlasmoOverlay = () => {
         if (!config || !config.tts) return;
 
         const ttsSettings = config.tts;
-        
+
         // Get available voices
         const voices = speechSynthesis.getVoices();
         let voice: SpeechSynthesisVoice | undefined = undefined;
-        
+
         if (ttsSettings.voice) {
           voice = voices.find(v => v.voiceURI === ttsSettings.voice);
         }
-        
+
         // Update queue manager with new TTS settings
         if (queueManagerRef.current) {
           queueManagerRef.current.updateTTSSettings({
@@ -607,7 +608,7 @@ const PlasmoOverlay = () => {
         // Update focused section index
         if (newSectionIndex !== focusedSectionIndex) {
           setFocusedSectionIndex(newSectionIndex)
-          
+
           // Reset queue manager to handle section change
           if (queueManagerRef.current) {
             queueManagerRef.current.currentSectionIndex = newSectionIndex
@@ -697,11 +698,38 @@ const PlasmoOverlay = () => {
 
         // Try to navigate to next element within the current section
         const navigated = queueManagerRef.current.nextInSection()
-        
+
         if (!navigated) {
           debug('[TTS] No more elements in current section')
           // Could implement auto-advance to next section here if desired
           // For now, just log that we've reached the end of the section
+        }
+      }
+
+      // TTS control shortcuts: ctrl+cmd+option+spacebar for pause/resume, ctrl+cmd+option+enter for stop
+      if (e.ctrlKey && e.metaKey && e.altKey) {
+        if (e.key === 'Space' || e.key === ' ') {
+          e.preventDefault()
+          debug('[TTS] Ctrl + Command + Option + Spacebar pressed - toggling pause/resume')
+          if (ttsCoordinator.isCurrentlyPlaying()) {
+            ttsCoordinator.togglePause()
+          }
+          return
+        }
+
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          debug('[TTS] Ctrl + Command + Option + Enter pressed - stopping TTS')
+          ttsCoordinator.cancelCurrent()
+          // Also stop the queue manager to keep state in sync
+          handleStop()
+          setQueueState(
+            {
+              ...queueState,
+              isPlaying: false,
+            }
+          )
+          return
         }
       }
 
@@ -716,13 +744,14 @@ const PlasmoOverlay = () => {
         })
         handleToggleMic()
       }
+
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [sections, focusedSectionIndex, hasReadableContent, handleToggleMic, speechRecognition.isListening])
+  }, [sections, focusedSectionIndex, hasReadableContent, handleToggleMic, speechRecognition.isListening, handlePlayPause, handleStop, queueState.isPlaying])
 
   return (
     <div
