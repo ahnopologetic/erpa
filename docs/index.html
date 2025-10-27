@@ -50,14 +50,160 @@
     </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Erpa — Private, on-page AI for your browser</title>
+    <title>Erpa — Private, On-Device AI Browser Assistant | Chrome Extension</title>
     <meta
       name="description"
-      content="Erpa is an open-source, privacy-first AI assistant that summarizes pages, answers questions, and reads content aloud—without sending data off-device by default." />
+      content="Erpa is the first 100% on-device AI browsing agent. Summarize pages, ask questions, read content aloud, and navigate with voice—all without sending data to the cloud. Privacy-first Chrome extension with semantic search and accessibility features." />
+    
+    <!-- SEO Meta Tags -->
+    <meta name="keywords" content="AI browser extension, privacy-first AI, on-device AI, Chrome extension, semantic search, text-to-speech, accessibility, page summarization, voice control, local AI, privacy, open source" />
+    <meta name="author" content="Erpa Team" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="English" />
+    <meta name="revisit-after" content="7 days" />
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Erpa — Private, On-Device AI Browser Assistant" />
+    <meta property="og:description" content="The first 100% on-device AI browsing agent. Summarize pages, ask questions, read content aloud, and navigate with voice—all without sending data to the cloud." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://ahnopologetic.github.io/erpa/" />
+    <meta property="og:image" content="https://ahnopologetic.github.io/erpa/icon.png" />
+    <meta property="og:image:alt" content="Erpa AI Browser Extension Logo" />
+    <meta property="og:site_name" content="Erpa" />
+    <meta property="og:locale" content="en_US" />
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Erpa — Private, On-Device AI Browser Assistant" />
+    <meta name="twitter:description" content="The first 100% on-device AI browsing agent. Summarize pages, ask questions, read content aloud, and navigate with voice—all without sending data to the cloud." />
+    <meta name="twitter:image" content="https://ahnopologetic.github.io/erpa/icon.png" />
+    <meta name="twitter:image:alt" content="Erpa AI Browser Extension Logo" />
+    
+    <!-- Additional SEO Meta Tags -->
+    <meta name="theme-color" content="#7c3aed" />
+    <meta name="msapplication-TileColor" content="#7c3aed" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Erpa" />
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://ahnopologetic.github.io/erpa/" />
+    
+    <!-- Sitemap -->
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://ahnopologetic.github.io/erpa/sitemap.xml" />
+    
+    <!-- Preconnect to external domains for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="./icon32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="./icon16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icon.png" />
+    
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Erpa",
+      "description": "The first 100% on-device AI browsing agent. Summarize pages, ask questions, read content aloud, and navigate with voice—all without sending data to the cloud.",
+      "url": "https://ahnopologetic.github.io/erpa/",
+      "applicationCategory": "BrowserExtension",
+      "operatingSystem": "Chrome",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "Erpa Team",
+        "url": "https://github.com/ahnopologetic/erpa"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Erpa Team",
+        "url": "https://github.com/ahnopologetic/erpa"
+      },
+      "datePublished": "2025-01-01",
+      "dateModified": "2025-01-01",
+      "version": "1.0.0",
+      "license": "MIT",
+      "programmingLanguage": "TypeScript",
+      "runtimePlatform": "Chrome Extension",
+      "featureList": [
+        "On-device AI processing",
+        "Page summarization",
+        "Semantic search",
+        "Text-to-speech with highlighting",
+        "Voice control",
+        "Accessibility features",
+        "Privacy-first design",
+        "Open source"
+      ],
+      "screenshot": "https://ahnopologetic.github.io/erpa/icon.png",
+      "downloadUrl": "https://github.com/ahnopologetic/erpa/releases",
+      "softwareHelp": "https://github.com/ahnopologetic/erpa#readme",
+      "keywords": "AI browser extension, privacy-first AI, on-device AI, Chrome extension, semantic search, text-to-speech, accessibility, page summarization, voice control, local AI, privacy, open source"
+    }
+    </script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style id="aura-editor-visibility-style">
       .invisible {
         visibility: hidden !important;
+      }
+    </style>
+
+    <!-- Demo highlight styles -->
+    <style>
+      .demo-highlight {
+        background: linear-gradient(120deg, #fbbf24 0%, #f59e0b 100%);
+        background-size: 200% 200%;
+        animation: highlight-pulse 2s ease-in-out infinite;
+        border-radius: 4px;
+        padding: 2px 4px;
+        margin: -2px -4px;
+        box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.3);
+        transition: all 0.3s ease;
+      }
+
+      @keyframes highlight-pulse {
+        0%,
+        100% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+      }
+
+      .demo-reading {
+        background: rgba(34, 197, 94, 0.1);
+        border-left: 3px solid #22c55e;
+        padding-left: 8px;
+        transition: all 0.3s ease;
+      }
+
+      .demo-controls {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 12px;
+        color: white;
+        font-size: 12px;
+        display: none;
+      }
+
+      .demo-controls.active {
+        display: block;
       }
     </style>
     <meta
@@ -93,8 +239,11 @@
         class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <a href="#" class="group inline-flex items-center gap-3">
           <div
-            class="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white outline outline-1 outline-white/10 transition-all duration-200 group-hover:bg-white/10 group-hover:outline-white/20">
-            <img src="./icon.png" alt="Erpa Logo" class="w-6 h-6 rounded-full" />
+            class="flex h-8 w-8 items-center justify-center rounded-md bg-white/5 text-white transition-all duration-200 group-hover:bg-white/10 group-hover:outline-white/20">
+            <img
+              src="./icon.png"
+              alt="Erpa Logo"
+              class="w-6 h-6 rounded-full" />
           </div>
           <span
             class="text-[15px] font-medium tracking-tight text-white/90 group-hover:text-white font-sans"
@@ -185,7 +334,7 @@
           <h1
             class="text-4xl tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl font-semibold font-instrument-serif"
             style="">
-            First 100% On-device AI Browsing Agent
+            First 100% On-device AI Browsing Agent for Chrome
           </h1>
           <p
             class="mt-5 max-w-xl text-[15.5px] leading-7 text-white/70 font-sans"
@@ -236,15 +385,15 @@
           <div class="mt-5 flex items-center gap-4 text-[12.5px] text-white/60">
             <div class="flex -space-x-2">
               <img
-                alt="User"
+                alt="Researcher using Erpa AI browser extension"
                 class="h-7 w-7 rounded-full ring-2 ring-white/10"
                 src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&amp;w=200&amp;auto=format&amp;fit=crop" />
               <img
-                alt="User"
+                alt="Student benefiting from Erpa's accessibility features"
                 class="h-7 w-7 rounded-full ring-2 ring-white/10"
                 src="https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&amp;w=200&amp;auto=format&amp;fit=crop" />
               <img
-                alt="User"
+                alt="Knowledge worker using Erpa for content summarization"
                 class="h-7 w-7 rounded-full ring-2 ring-white/10"
                 src="https://images.unsplash.com/photo-1544006659-f0b21884ce1d?q=80&amp;w=200&amp;auto=format&amp;fit=crop" />
             </div>
@@ -337,6 +486,7 @@
                   <!-- Wikipedia content -->
                   <div class="p-6 font-sans">
                     <h1
+                      id="demo-title"
                       class="text-3xl font-bold mb-2 border-b border-gray-300 pb-2">
                       Privacy-first computing
                     </h1>
@@ -346,7 +496,9 @@
 
                     <div class="flex gap-6">
                       <div class="flex-1">
-                        <p class="text-sm leading-6 mb-4 text-gray-700">
+                        <p
+                          id="demo-intro"
+                          class="text-sm leading-6 mb-4 text-gray-700">
                           <strong>Privacy-first computing</strong> is a
                           computing paradigm that emphasizes data protection and
                           user privacy as primary design principles. Unlike
@@ -356,6 +508,7 @@
                           processing.
                         </p>
                         <div
+                          id="demo-quote"
                           class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
                           <p class="text-sm text-gray-700 italic">
                             "Privacy-first computing ensures that user data
@@ -365,10 +518,12 @@
                           </p>
                         </div>
                         <h2
+                          id="demo-principles-title"
                           class="text-xl font-bold mt-6 mb-3 border-b border-gray-300 pb-1">
                           Principles
                         </h2>
                         <ul
+                          id="demo-principles"
                           class="list-disc pl-6 space-y-2 text-sm text-gray-700 mb-4">
                           <li>
                             Data minimization: Collect only what is necessary
@@ -386,10 +541,13 @@
                           </li>
                         </ul>
                         <h2
+                          id="demo-implementation-title"
                           class="text-xl font-bold mt-6 mb-3 border-b border-gray-300 pb-1">
                           Implementation
                         </h2>
-                        <p class="text-sm leading-6 mb-4 text-gray-700">
+                        <p
+                          id="demo-implementation"
+                          class="text-sm leading-6 mb-4 text-gray-700">
                           Privacy-first computing is implemented through various
                           techniques including homomorphic encryption,
                           differential privacy, federated learning, and
@@ -478,87 +636,127 @@
                     </div>
                   </div>
 
-                  <!-- Chat Area -->
-                  <div
-                    class="flex-1 overflow-hidden relative z-10"
-                    data-chat-area
-                    style="overflow-y: auto; max-height: 300px">
+                    <!-- Chat Area -->
                     <div
-                      class="h-full p-3 flex flex-col items-center justify-center"
-                      data-mic-icon>
-                      <!-- Mic icon in center -->
+                      class="flex-1 overflow-hidden relative z-10"
+                      data-chat-area
+                      style="overflow-y: auto; max-height: 300px">
                       <div
-                        class="w-12 h-12 rounded-full bg-gray-700/50 flex items-center justify-center mb-3">
-                        <svg
-                          class="w-6 h-6 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24">
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                        </svg>
+                        class="h-full p-3 flex flex-col items-center justify-center"
+                        data-mic-icon>
+                        <!-- Mic icon in center -->
+                        <div
+                          class="w-12 h-12 rounded-full bg-gray-700/50 flex items-center justify-center mb-3">
+                          <svg
+                            class="w-6 h-6 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                          </svg>
+                        </div>
+                        <h3 class="text-sm font-medium text-white mb-1">
+                          Start a conversation
+                        </h3>
+                        <p
+                          class="text-[10px] text-gray-500 text-center px-2 leading-tight">
+                          Click the voice orb below to start recording your first
+                          message. The AI will respond with its own voice memo.
+                        </p>
                       </div>
-                      <h3 class="text-sm font-medium text-white mb-1">
-                        Start a conversation
-                      </h3>
-                      <p
-                        class="text-[10px] text-gray-500 text-center px-2 leading-tight">
-                        Click the voice orb below to start recording your first
-                        message. The AI will respond with its own voice memo.
-                      </p>
                     </div>
-                  </div>
+
+                    <!-- Search Input (hidden by default) -->
+                    <div
+                      id="search-input-container"
+                      class="hidden border-t border-gray-700 p-2 relative z-10 bg-gray-900">
+                      <div class="flex items-center gap-2">
+                        <input
+                          id="search-input"
+                          type="text"
+                          placeholder="Ask a question about the content..."
+                          class="flex-1 text-[10px] bg-gray-800 border border-gray-600 text-white px-2 py-1 rounded h-6 focus:outline-none focus:border-violet-500"
+                        />
+                        <button
+                          id="search-btn"
+                          class="text-[10px] bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-1 rounded hover:bg-violet-500/30 transition-colors">
+                          Search
+                        </button>
+                      </div>
+                    </div>
 
                   <!-- Action panel -->
                   <div
-                    class="border-t border-gray-700 p-2 flex items-center gap-1.5 relative z-10 bg-gray-900">
-                    <select
-                      class="text-[10px] bg-gray-800 border border-gray-600 text-white px-1.5 py-0.5 rounded h-6 flex-shrink-0 w-20"
-                      data-tab-select>
-                      <option>Harvard...</option>
-                      <option>Research Paper</option>
-                      <option>Documentation</option>
-                    </select>
-                    <button
-                      class="text-gray-400 hover:text-white p-0.5"
-                      data-toc-button>
-                      <svg
-                        class="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24">
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M4 6h16M4 12h16M4 18h16" />
-                      </svg>
-                    </button>
-                    <span class="text-[10px] text-gray-500">41</span>
-                    <button class="text-gray-400 hover:text-white p-0.5">
-                      <svg
-                        class="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24">
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <!-- Voice orb placeholder -->
-                    <div class="flex-1 flex justify-center">
+                    class="border-t border-gray-700 p-2 relative z-10 bg-gray-900">
+                    <div class="flex items-center justify-between">
+                      <div class="flex flex-col items-center gap-1">
+                        <select
+                          class="text-[10px] bg-gray-800 border border-gray-600 text-white px-2 py-0.5 rounded h-5 w-20"
+                          data-tab-select>
+                          <option>Boston...</option>
+                          <option>Research Paper</option>
+                          <option>Documentation</option>
+                        </select>
+                        <div class="flex items-center gap-1">
+                          <button
+                            class="text-gray-400 hover:text-white p-0.5"
+                            data-toc-button>
+                            <svg
+                              class="w-3.5 h-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24">
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                          </button>
+                          <span class="text-[10px] text-gray-500">50</span>
+                          <button class="text-gray-400 hover:text-white p-0.5">
+                            <svg
+                              class="w-3.5 h-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24">
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Voice orb -->
                       <div
-                        class="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/30 via-indigo-500/30 to-purple-500/30 backdrop-blur border border-white/20 flex items-center justify-center cursor-pointer transition-all hover:scale-110"
+                        class="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/30 via-indigo-500/30 to-purple-500/30 backdrop-blur border border-white/20 flex items-center justify-center cursor-pointer transition-all hover:scale-110"
                         data-voice-orb>
                         <div
-                          class="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400/40 to-indigo-400/40"></div>
+                          class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-400/40 to-indigo-400/40"></div>
                       </div>
+
+                        <!-- Demo and Search buttons -->
+                        <div class="flex gap-1">
+                          <button
+                            id="search-demo-btn"
+                            class="text-xs bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-1 rounded hover:bg-violet-500/30 transition-colors"
+                            title="Try semantic search">
+                            Search
+                          </button>
+                          <button
+                            id="demo-start-btn"
+                            class="text-xs bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-2 py-1 rounded hover:bg-emerald-500/30 transition-colors"
+                            title="Start automated demo">
+                            Demo
+                          </button>
+                        </div>
                     </div>
                   </div>
                 </div>
@@ -584,6 +782,23 @@
         </div>
       </div>
     </section>
+
+    <!-- Demo Controls Overlay -->
+    <div id="demo-controls" class="demo-controls">
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+        <span>Demo Mode Active</span>
+      </div>
+      <div class="text-gray-400 text-xs">
+        <div>Current: <span id="demo-current-step">Starting...</span></div>
+        <div>Progress: <span id="demo-progress">0/6</span></div>
+      </div>
+      <button
+        id="demo-stop-btn"
+        class="mt-2 px-3 py-1 bg-red-500/20 border border-red-500/30 text-red-300 rounded text-xs hover:bg-red-500/30 transition-colors">
+        Stop Demo
+      </button>
+    </div>
 
     <!-- Quick value props -->
     <section class="border-t border-white/10">
@@ -1032,7 +1247,9 @@
                 Install free
               </a>
               <a
-                href="#oss"
+                href="https://github.com/ahnopologetic/erpa"
+                target="_blank"
+                rel="noopener noreferrer"
                 class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 py-2.5 text-[14px] font-medium text-white/90 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
                 style="">
                 <!-- Code -->
@@ -1077,7 +1294,7 @@
             <div
               class="relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] outline outline-1 outline-white/10">
               <img
-                alt="Demo"
+                alt="Erpa AI browser extension demo showing page summarization and voice control features"
                 class="h-64 w-full object-cover sm:h-80"
                 src="https://images.unsplash.com/photo-1526378722484-bd91ca387e72?q=80&amp;w=1600&amp;auto=format&amp;fit=crop" />
               <!-- Floating controls -->
@@ -1261,7 +1478,9 @@
             </p>
             <div class="mt-6 flex items-center gap-3">
               <a
-                href="#"
+                href="https://github.com/ahnopologetic/erpa"
+                target="_blank"
+                rel="noopener noreferrer"
                 class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 py-2.5 text-[14px] font-medium text-white/90 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
                 style="">
                 <svg
@@ -1531,7 +1750,9 @@
                 Add to Chrome
               </a>
               <a
-                href="#oss"
+                href="https://github.com/ahnopologetic/erpa"
+                target="_blank"
+                rel="noopener noreferrer"
                 class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-5 py-3 text-[15px] font-medium text-white/90 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
                 style="">
                 <svg
@@ -1560,11 +1781,10 @@
             <div class="inline-flex items-center gap-3">
               <div
                 class="flex h-8 w-8 items-center justify-center rounded-md border border-white/15 bg-white/5 text-white outline outline-1 outline-white/10">
-                <span
-                  class="text-[13px] font-semibold tracking-tight font-sans"
-                  style=""
-                  >E</span
-                >
+                <img
+                  src="./icon.png"
+                  alt="Erpa Logo"
+                  class="w-6 h-6 rounded-md" />
               </div>
               <span
                 class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
@@ -1573,8 +1793,7 @@
               >
             </div>
             <p class="max-w-sm text-[13.5px] text-white/70 font-sans" style="">
-              Open‑source, privacy‑first AI assistant that lives in your
-              browser.
+              First 100% On-device AI Browsing Agent for Chrome
             </p>
           </div>
           <div class="grid grid-cols-3 gap-6 text-[13.5px]">
@@ -1602,7 +1821,9 @@
             <div class="space-y-2">
               <div class="text-white/60 font-sans" style="">Developers</div>
               <a
-                href="#oss"
+                href="https://github.com/ahnopologetic/erpa"
+                target="_blank"
+                rel="noopener noreferrer"
                 class="block text-white/75 hover:text-white font-sans"
                 style=""
                 >GitHub</a
@@ -1644,7 +1865,9 @@
           </div>
           <div class="flex items-center justify-start gap-3 md:justify-end">
             <a
-              href="#"
+              href="https://github.com/ahnopologetic/erpa"
+              target="_blank"
+              rel="noopener noreferrer"
               class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-[13.5px] text-white/85 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
               style="">
               <svg
@@ -1713,6 +1936,87 @@
     <!-- Interactive Demo Script -->
     <script>
       document.addEventListener("DOMContentLoaded", function () {
+        // Demo state
+        let isDemoRunning = false
+        let isSearchDemoRunning = false
+        let currentDemoStep = 0
+        let currentSearchStep = 0
+        let demoInterval = null
+        let currentHighlight = null
+        let currentUtterance = null
+
+        // Demo content sequence
+        const demoSequence = [
+          {
+            id: "demo-title",
+            text: "Privacy-first computing",
+            description: "Highlighting the main title",
+            readout: "Privacy-first computing"
+          },
+          {
+            id: "demo-intro",
+            text: "Privacy-first computing is a computing paradigm that emphasizes data protection and user privacy as primary design principles.",
+            description: "Reading the introduction paragraph",
+            readout:
+              "Privacy-first computing is a computing paradigm that emphasizes data protection and user privacy as primary design principles."
+          },
+          {
+            id: "demo-quote",
+            text: "Privacy-first computing ensures that user data remains on-device by default, with cloud processing as an explicit opt-in choice rather than the default behavior.",
+            description: "Highlighting the key quote",
+            readout:
+              "Privacy-first computing ensures that user data remains on-device by default, with cloud processing as an explicit opt-in choice rather than the default behavior."
+          },
+          {
+            id: "demo-principles-title",
+            text: "Principles",
+            description: "Moving to the principles section",
+            readout: "Principles"
+          },
+          {
+            id: "demo-principles",
+            text: "Data minimization: Collect only what is necessary. Local processing: Default to on-device computation. Transparent controls: Clear privacy settings.",
+            description: "Reading the principles list",
+            readout:
+              "The key principles include: Data minimization - collect only what is necessary. Local processing - default to on-device computation. Transparent controls - clear privacy settings. Zero-knowledge architecture - server cannot access plaintext data. User sovereignty - users own and control their data."
+          },
+          {
+            id: "demo-implementation",
+            text: "Privacy-first computing is implemented through various techniques including homomorphic encryption, differential privacy, federated learning, and on-device AI.",
+            description: "Reading the implementation section",
+            readout:
+              "Privacy-first computing is implemented through various techniques including homomorphic encryption, differential privacy, federated learning, and on-device AI. Modern frameworks enable developers to build applications that process sensitive data locally while maintaining functionality."
+          }
+        ]
+
+        // Semantic search demo - natural language questions and their answers
+        const semanticSearchDemo = [
+          {
+            question: "What are the main principles of privacy-first computing?",
+            targetId: "demo-principles",
+            description: "Searching for principles information",
+            readout: "The main principles of privacy-first computing include: Data minimization - collect only what is necessary. Local processing - default to on-device computation. Transparent controls - clear privacy settings. Zero-knowledge architecture - server cannot access plaintext data. User sovereignty - users own and control their data."
+          },
+          {
+            question: "How is privacy-first computing implemented?",
+            targetId: "demo-implementation", 
+            description: "Finding implementation details",
+            readout: "Privacy-first computing is implemented through various techniques including homomorphic encryption, differential privacy, federated learning, and on-device AI. Modern frameworks enable developers to build applications that process sensitive data locally while maintaining functionality."
+          },
+          {
+            question: "What does the quote say about data handling?",
+            targetId: "demo-quote",
+            description: "Locating the key quote about data handling",
+            readout: "The quote states: Privacy-first computing ensures that user data remains on-device by default, with cloud processing as an explicit opt-in choice rather than the default behavior."
+          },
+          {
+            question: "What is privacy-first computing?",
+            targetId: "demo-intro",
+            description: "Finding the definition",
+            readout: "Privacy-first computing is a computing paradigm that emphasizes data protection and user privacy as primary design principles. Unlike traditional approaches where privacy is added as an afterthought, privacy-first systems are architected from the ground up to minimize data collection and processing."
+          }
+        ]
+
         // Voice Orb Animation
         const voiceOrb = document.querySelector("[data-voice-orb]")
         let isRecording = false
@@ -1799,6 +2103,343 @@
             chatArea.appendChild(notifDiv)
             chatArea.scrollTop = chatArea.scrollHeight
           }
+        }
+
+        // Demo functionality
+        function highlightElement(elementId) {
+          // Clear previous highlight
+          if (currentHighlight) {
+            currentHighlight.classList.remove("demo-highlight", "demo-reading")
+          }
+
+          const element = document.getElementById(elementId)
+          if (element) {
+            element.classList.add("demo-highlight")
+            currentHighlight = element
+
+            // Scroll element into view
+            element.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+              inline: "nearest"
+            })
+          }
+        }
+
+        function readOutText(text) {
+          // Stop current speech
+          if (currentUtterance) {
+            speechSynthesis.cancel()
+          }
+
+          // Create new utterance
+          currentUtterance = new SpeechSynthesisUtterance(text)
+          currentUtterance.rate = 0.9
+          currentUtterance.pitch = 1.0
+          currentUtterance.volume = 0.8
+
+          // Select a good voice
+          const voices = speechSynthesis.getVoices()
+          const englishVoice =
+            voices.find(
+              (voice) => voice.lang.startsWith("en") && voice.default
+            ) || voices.find((voice) => voice.lang.startsWith("en"))
+
+          if (englishVoice) {
+            currentUtterance.voice = englishVoice
+          }
+
+          // Add reading indicator
+          if (currentHighlight) {
+            currentHighlight.classList.add("demo-reading")
+          }
+
+          currentUtterance.onend = () => {
+            if (currentHighlight) {
+              currentHighlight.classList.remove("demo-reading")
+            }
+          }
+
+          currentUtterance.onerror = () => {
+            if (currentHighlight) {
+              currentHighlight.classList.remove("demo-reading")
+            }
+          }
+
+          speechSynthesis.speak(currentUtterance)
+        }
+
+        function updateDemoProgress(step, description) {
+          const currentStepEl = document.getElementById("demo-current-step")
+          const progressEl = document.getElementById("demo-progress")
+
+          if (currentStepEl) {
+            currentStepEl.textContent = description
+          }
+          if (progressEl) {
+            progressEl.textContent = `${step + 1}/${demoSequence.length}`
+          }
+        }
+
+        function startDemo() {
+          if (isDemoRunning) return
+
+          isDemoRunning = true
+          currentDemoStep = 0
+
+          // Show demo controls
+          const demoControls = document.getElementById("demo-controls")
+          if (demoControls) {
+            demoControls.classList.add("active")
+          }
+
+          // Update demo button
+          const demoBtn = document.getElementById("demo-start-btn")
+          if (demoBtn) {
+            demoBtn.textContent = "Running..."
+            demoBtn.disabled = true
+          }
+
+          // Start demo sequence
+          runDemoStep()
+        }
+
+        function runDemoStep() {
+          if (!isDemoRunning || currentDemoStep >= demoSequence.length) {
+            stopDemo()
+            return
+          }
+
+          const step = demoSequence[currentDemoStep]
+
+          // Update progress
+          updateDemoProgress(currentDemoStep, step.description)
+
+          // Highlight element
+          highlightElement(step.id)
+
+          // Read out text
+          readOutText(step.readout)
+
+          // Show chat message
+          showChatMessage(`Reading: ${step.description}`, "ai")
+
+          // Move to next step after delay
+          setTimeout(() => {
+            currentDemoStep++
+            runDemoStep()
+          }, 4000) // 4 seconds per step
+        }
+
+        function stopDemo() {
+          isDemoRunning = false
+
+          // Clear highlight
+          if (currentHighlight) {
+            currentHighlight.classList.remove("demo-highlight", "demo-reading")
+            currentHighlight = null
+          }
+
+          // Stop speech
+          if (currentUtterance) {
+            speechSynthesis.cancel()
+            currentUtterance = null
+          }
+
+          // Hide demo controls
+          const demoControls = document.getElementById("demo-controls")
+          if (demoControls) {
+            demoControls.classList.remove("active")
+          }
+
+          // Reset demo button
+          const demoBtn = document.getElementById("demo-start-btn")
+          if (demoBtn) {
+            demoBtn.textContent = "Demo"
+            demoBtn.disabled = false
+          }
+
+          // Show completion message
+          showChatMessage(
+            "Demo completed! This shows how Erpa can automatically highlight and read content.",
+            "ai"
+          )
+        }
+
+        // Semantic Search Demo Functions
+        function startSearchDemo() {
+          if (isSearchDemoRunning) return
+
+          isSearchDemoRunning = true
+          currentSearchStep = 0
+
+          // Show search input
+          const searchContainer = document.getElementById("search-input-container")
+          if (searchContainer) {
+            searchContainer.classList.remove("hidden")
+          }
+
+          // Hide mic icon and show search interface
+          const micIcon = document.querySelector("[data-mic-icon]")
+          if (micIcon) {
+            micIcon.style.display = "none"
+          }
+
+          // Update search button
+          const searchBtn = document.getElementById("search-demo-btn")
+          if (searchBtn) {
+            searchBtn.textContent = "Running..."
+            searchBtn.disabled = true
+          }
+
+          // Start search demo sequence
+          runSearchDemoStep()
+        }
+
+        function runSearchDemoStep() {
+          if (!isSearchDemoRunning || currentSearchStep >= semanticSearchDemo.length) {
+            stopSearchDemo()
+            return
+          }
+
+          const step = semanticSearchDemo[currentSearchStep]
+
+          // Show user question
+          showChatMessage(`User: "${step.question}"`, "user")
+
+          // Show AI thinking
+          setTimeout(() => {
+            showChatMessage(`AI: ${step.description}...`, "ai")
+          }, 1000)
+
+          // Highlight and read the found content
+          setTimeout(() => {
+            highlightElement(step.targetId)
+            readOutText(step.readout)
+            showChatMessage(`AI: Found relevant content and reading it aloud.`, "ai")
+          }, 2000)
+
+          // Move to next step after delay
+          setTimeout(() => {
+            currentSearchStep++
+            runSearchDemoStep()
+          }, 6000) // 6 seconds per search step
+        }
+
+        function stopSearchDemo() {
+          isSearchDemoRunning = false
+
+          // Clear highlight
+          if (currentHighlight) {
+            currentHighlight.classList.remove("demo-highlight", "demo-reading")
+            currentHighlight = null
+          }
+
+          // Stop speech
+          if (currentUtterance) {
+            speechSynthesis.cancel()
+            currentUtterance = null
+          }
+
+          // Hide search input
+          const searchContainer = document.getElementById("search-input-container")
+          if (searchContainer) {
+            searchContainer.classList.add("hidden")
+          }
+
+          // Show mic icon again
+          const micIcon = document.querySelector("[data-mic-icon]")
+          if (micIcon) {
+            micIcon.style.display = "flex"
+          }
+
+          // Reset search button
+          const searchBtn = document.getElementById("search-demo-btn")
+          if (searchBtn) {
+            searchBtn.textContent = "Search"
+            searchBtn.disabled = false
+          }
+
+          // Show completion message
+          showChatMessage(
+            "Search demo completed! This shows how Erpa can understand natural language questions and find relevant content.",
+            "ai"
+          )
+        }
+
+        // Manual search functionality
+        function performSearch() {
+          const searchInput = document.getElementById("search-input")
+          const query = searchInput.value.trim()
+
+          if (!query) return
+
+          // Show user question
+          showChatMessage(`User: "${query}"`, "user")
+
+          // Find best matching content (simple keyword matching for demo)
+          const bestMatch = findBestMatch(query)
+          
+          if (bestMatch) {
+            showChatMessage(`AI: Found relevant content about "${bestMatch.description}"`, "ai")
+            setTimeout(() => {
+              highlightElement(bestMatch.targetId)
+              readOutText(bestMatch.readout)
+            }, 1000)
+          } else {
+            showChatMessage(`AI: I couldn't find specific information about "${query}". Try asking about principles, implementation, or data handling.`, "ai")
+          }
+
+          // Clear input
+          searchInput.value = ""
+        }
+
+        function findBestMatch(query) {
+          const lowerQuery = query.toLowerCase()
+          
+          // Simple keyword matching
+          if (lowerQuery.includes("principle") || lowerQuery.includes("main")) {
+            return semanticSearchDemo[0]
+          } else if (lowerQuery.includes("implement") || lowerQuery.includes("how")) {
+            return semanticSearchDemo[1]
+          } else if (lowerQuery.includes("quote") || lowerQuery.includes("data")) {
+            return semanticSearchDemo[2]
+          } else if (lowerQuery.includes("what") || lowerQuery.includes("define")) {
+            return semanticSearchDemo[3]
+          }
+          
+          return null
+        }
+
+        // Demo button event listeners
+        const demoStartBtn = document.getElementById("demo-start-btn")
+        const demoStopBtn = document.getElementById("demo-stop-btn")
+        const searchDemoBtn = document.getElementById("search-demo-btn")
+        const searchBtn = document.getElementById("search-btn")
+        const searchInput = document.getElementById("search-input")
+
+        if (demoStartBtn) {
+          demoStartBtn.addEventListener("click", startDemo)
+        }
+
+        if (demoStopBtn) {
+          demoStopBtn.addEventListener("click", stopDemo)
+        }
+
+        if (searchDemoBtn) {
+          searchDemoBtn.addEventListener("click", startSearchDemo)
+        }
+
+        if (searchBtn) {
+          searchBtn.addEventListener("click", performSearch)
+        }
+
+        if (searchInput) {
+          searchInput.addEventListener("keypress", function(e) {
+            if (e.key === "Enter") {
+              performSearch()
+            }
+          })
         }
 
         // Simulate voice recording state changes
