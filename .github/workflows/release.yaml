@@ -30,3 +30,16 @@ jobs:
           cache: "pnpm"
       - name: Build the extension
         run: pnpm build
+      - name: Package the extension
+        run: pnpm package
+      - name: Create release archive
+        run: |
+          cd build
+          zip -r ../erpa-chrome-extension-${{ github.ref_name }}.zip chrome-mv3-prod/
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: erpa-chrome-extension-${{ github.ref_name }}.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
