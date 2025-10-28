@@ -466,6 +466,9 @@
   </head>
   <body
     class="bg-[#0B1020] text-white antialiased selection:bg-violet-500/30 selection:text-white">
+    <!-- Skip link for accessibility -->
+    <a href="#main-title" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300">Skip to main content</a>
+    
     <!-- Backgrounds -->
     <div class="pointer-events-none fixed inset-0 -z-10">
       <div
@@ -478,7 +481,8 @@
 
     <!-- Nav -->
     <header
-      class="sticky top-0 z-40 border-b border-white/10 backdrop-blur supports-[backdrop-filter]:bg-[#0B1020]/70">
+      class="sticky top-0 z-40 border-b border-white/10 backdrop-blur supports-[backdrop-filter]:bg-[#0B1020]/70"
+      role="banner">
       <div
         class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <a href="#" class="group inline-flex items-center gap-3">
@@ -555,8 +559,10 @@
       </div>
     </header>
 
+    <!-- Main Content -->
+    <main role="main">
     <!-- Hero -->
-    <section class="relative animate-fade-in-up">
+    <section class="relative animate-fade-in-up" role="banner" aria-labelledby="main-title">
       <div
         class="grid grid-cols-1 sm:px-6 md:py-20 lg:grid-cols-2 lg:gap-16 lg:px-8 max-w-7xl mr-auto ml-auto pt-16 pr-4 pb-16 pl-4 gap-x-12 gap-y-12 items-center">
         <div class="animate-fade-in-left animate-delay-200">
@@ -576,6 +582,7 @@
             Private by default. Works offline.
           </div>
           <h1
+            id="main-title"
             class="text-4xl tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl font-semibold font-instrument-serif"
             style="">
             First 100% On-device AI Browsing Agent for Chrome
@@ -1171,8 +1178,9 @@
     </section>
 
     <!-- Features -->
-    <section id="features" class="border-t border-white/10 animate-fade-in-up">
+    <section id="features" class="border-t border-white/10 animate-fade-in-up" role="main" aria-labelledby="features-title">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <h2 id="features-title" class="sr-only">Features</h2>
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           <!-- Summarization -->
           <div
@@ -1454,11 +1462,12 @@
     </section>
 
     <!-- Demo -->
-    <section id="demo" class="border-t border-white/10 viewport-mount">
+    <section id="demo" class="border-t border-white/10 viewport-mount" role="main" aria-labelledby="demo-title">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
           <div class="">
             <h2
+              id="demo-title"
               class="text-3xl tracking-tight font-semibold font-instrument-serif"
               style="">
               See Erpa in action
@@ -1694,10 +1703,11 @@
         </div>
       </div>
     </section>
-    <section id="install" class="border-t border-white/10 animate-fade-in-up">
+    <section id="install" class="border-t border-white/10 animate-fade-in-up" role="main" aria-labelledby="install-title">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between" id="install">
+        <div class="flex items-center justify-between">
           <h2
+            id="install-title"
             class="text-3xl tracking-tight font-semibold font-instrument-serif"
             style="">
             Install via Developer mode
@@ -1747,11 +1757,11 @@
                     <path d="M7 10l5 5 5-5"></path>
                     <path d="M12 15V3"></path>
                   </svg>
-                  <div
+                  <h3
                     class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
                     style="">
                     Get the source
-                  </div>
+                  </h3>
                 </div>
                 <p class="mt-1 text-[13.5px] text-white/70 font-sans" style="">
                   Clone the repository or download the ZIP and unzip it locally.
@@ -1815,11 +1825,11 @@
                     <path
                       d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10"></path>
                   </svg>
-                  <div
+                  <h3
                     class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
                     style="">
                     Open extensions page
-                  </div>
+                  </h3>
                 </div>
                 <p class="mt-1 text-[13.5px] text-white/70 font-sans" style="">
                   In Chrome, go to
@@ -1849,11 +1859,11 @@
                     <rect x="2" y="7" width="20" height="10" rx="5"></rect>
                     <circle cx="16" cy="12" r="3"></circle>
                   </svg>
-                  <div
+                  <h3
                     class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
                     style="">
                     Enable Developer mode
-                  </div>
+                  </h3>
                 </div>
                 <p class="mt-1 text-[13.5px] text-white/70 font-sans" style="">
                   Toggle the Developer mode switch in the top‑right of the page.
@@ -1880,11 +1890,11 @@
                       d="M6 20V6a2 2 0 0 1 2-2h6l4 4v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2Z"></path>
                     <path d="M14 2v4h4"></path>
                   </svg>
-                  <div
+                  <h3
                     class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
                     style="">
-                    Click “Load unpacked”
-                  </div>
+                    Click "Load unpacked"
+                  </h3>
                 </div>
                 <p class="mt-1 text-[13.5px] text-white/70 font-sans" style="">
                   Use the button in the top bar to choose your extension folder.
@@ -1912,11 +1922,11 @@
                     <path d="M14 2l6 6"></path>
                     <path d="M20 8h-6V2"></path>
                   </svg>
-                  <div
+                  <h3
                     class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
                     style="">
                     Select the folder with manifest.json
-                  </div>
+                  </h3>
                 </div>
                 <p class="mt-1 text-[13.5px] text-white/70 font-sans" style="">
                   Choose the directory that contains
@@ -2096,9 +2106,10 @@
       </div>
     </section>
     <!-- Audience -->
-    <section class="border-t border-white/10 animate-fade-in-up">
+    <section class="border-t border-white/10 animate-fade-in-up" role="main" aria-labelledby="audience-title">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <h2
+          id="audience-title"
           class="text-3xl tracking-tight font-semibold font-instrument-serif"
           style="">
           Made for focused work
@@ -2386,9 +2397,10 @@
     </section>
 
     <!-- FAQ -->
-    <section id="faq" class="border-t border-white/10 animate-fade-in-up">
+    <section id="faq" class="border-t border-white/10 animate-fade-in-up" role="main" aria-labelledby="faq-title">
       <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
         <h2
+          id="faq-title"
           class="text-center text-3xl tracking-tight font-semibold font-instrument-serif"
           style="">
           Questions, answered
@@ -2454,7 +2466,7 @@
     </section>
 
     <!-- CTA -->
-    <section class="border-t border-white/10 animate-fade-in-up">
+    <section class="border-t border-white/10 animate-fade-in-up" role="main" aria-labelledby="cta-title">
       <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
         <div
           class="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-[#121A39] to-[#131734] p-8 outline outline-1 outline-white/10 sm:p-10">
@@ -2463,11 +2475,12 @@
           <div
             class="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3
+              <h2
+                id="cta-title"
                 class="text-2xl tracking-tight font-semibold font-instrument-serif"
                 style="">
                 Install Erpa and reclaim your focus
-              </h3>
+              </h2>
               <p class="mt-2 text-[14.5px] text-white/70 font-sans" style="">
                 Summarize, listen, and navigate smarter—without giving up your
                 privacy.
@@ -2515,9 +2528,10 @@
         </div>
       </div>
     </section>
+    </main>
 
     <!-- Footer -->
-    <footer class="border-t border-white/10">
+    <footer class="border-t border-white/10" role="contentinfo">
       <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 items-start gap-8 md:grid-cols-3">
           <div class="space-y-3">
