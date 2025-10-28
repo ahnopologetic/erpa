@@ -47,6 +47,103 @@
           initInViewAnimations()
         )
       })()
+
+      // Smooth scroll animations with intersection observer
+      ;(function () {
+        const observerOptions = {
+          threshold: 0.1,
+          rootMargin: "0px 0px -50px 0px"
+        }
+
+        const animationObserver = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("animate")
+            }
+          })
+        }, observerOptions)
+
+        // Initialize animations when DOM is loaded
+        document.addEventListener("DOMContentLoaded", () => {
+          // Observe all elements with animation classes
+          const animatedElements = document.querySelectorAll(
+            ".animate-fade-in-up, .animate-fade-in-left, .animate-fade-in-right, .animate-fade-in-scale, .viewport-mount"
+          )
+          animatedElements.forEach((el) => {
+            animationObserver.observe(el)
+          })
+
+          // Erpa overlay animation with delay
+          const erpaOverlay = document.querySelector(".erpa-overlay")
+          if (erpaOverlay) {
+            // Start the 3000ms delay timer when the demo section comes into view
+            const demoSection = document.querySelector("#demo")
+            if (demoSection) {
+              const demoObserver = new IntersectionObserver(
+                (entries) => {
+                  entries.forEach((entry) => {
+                    if (entry.isIntersecting && erpaOverlay) {
+                      // Start the 3000ms delay for Erpa overlay
+                      setTimeout(() => {
+                        erpaOverlay.classList.add("animate")
+                      }, 3000)
+                      // Unobserve after triggering once
+                      demoObserver.unobserve(entry.target)
+                    }
+                  })
+                },
+                { threshold: 0.1 }
+              )
+
+              demoObserver.observe(demoSection)
+            }
+          }
+
+          // Smooth scroll for navigation links
+          document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+            anchor.addEventListener("click", function (e) {
+              const href = this.getAttribute("href")
+              // Only proceed if href is not just "#" and has a valid target
+              if (href && href !== "#" && href.length > 1) {
+                // Check if href is an in-page anchor (starts with "#" only) or an external (possibly same-site) link
+                if (href.startsWith("#")) {
+                  e.preventDefault()
+                  const target = document.querySelector(href)
+                  if (target) {
+                    target.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start"
+                    })
+                  }
+                }
+                // Otherwise, let the browser handle normal navigation to other pages
+              }
+              // For links with just "#", don't prevent default - let them behave normally
+            })
+          })
+
+          // Set hardcoded download link
+          setDownloadLink()
+        })
+
+        // Function to set hardcoded download link
+        function setDownloadLink() {
+          const downloadButton = document.getElementById("download-zip-btn")
+          if (downloadButton) {
+            downloadButton.href =
+              "https://github.com/ahnopologetic/erpa/releases/download/v0.0.1/erpa-chrome-extension-v0.0.1.zip"
+            downloadButton.target = "_blank"
+            downloadButton.rel = "noopener noreferrer"
+
+            // Update button text to show version
+            const textNode =
+              downloadButton.childNodes[downloadButton.childNodes.length - 1]
+            if (textNode && textNode.textContent) {
+              textNode.textContent = "Download ZIP (v0.0.1)"
+            }
+          }
+        }
+      })()
     </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -200,6 +297,132 @@
         }
       }
 
+      /* Smooth scroll animations */
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes fadeInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes fadeInRight {
+        from {
+          opacity: 0;
+          transform: translateX(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes fadeInScale {
+        from {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      @keyframes slideInFromLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      /* Erpa overlay animation */
+      .erpa-overlay {
+        opacity: 0;
+        transform: translateX(-100%);
+        transition: all 0.8s ease-out;
+      }
+
+      .erpa-overlay.animate {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      /* Viewport mounting */
+      .viewport-mount {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: all 0.8s ease-out;
+      }
+
+      .viewport-mount.animate {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* Animation classes */
+      .animate-fade-in-up {
+        animation: fadeInUp 0.8s ease-out forwards;
+        opacity: 0;
+      }
+
+      .animate-fade-in-left {
+        animation: fadeInLeft 0.8s ease-out forwards;
+        opacity: 0;
+      }
+
+      .animate-fade-in-right {
+        animation: fadeInRight 0.8s ease-out forwards;
+        opacity: 0;
+      }
+
+      .animate-fade-in-scale {
+        animation: fadeInScale 0.8s ease-out forwards;
+        opacity: 0;
+      }
+
+      /* Staggered animation delays */
+      .animate-delay-100 {
+        animation-delay: 0.1s;
+      }
+      .animate-delay-200 {
+        animation-delay: 0.2s;
+      }
+      .animate-delay-300 {
+        animation-delay: 0.3s;
+      }
+      .animate-delay-400 {
+        animation-delay: 0.4s;
+      }
+      .animate-delay-500 {
+        animation-delay: 0.5s;
+      }
+      .animate-delay-600 {
+        animation-delay: 0.6s;
+      }
+
+      /* Smooth scrolling */
+      html {
+        scroll-behavior: smooth;
+      }
+
       .demo-reading {
         background: rgba(34, 197, 94, 0.1);
         border-left: 3px solid #22c55e;
@@ -332,10 +555,10 @@
     </header>
 
     <!-- Hero -->
-    <section class="relative">
+    <section class="relative animate-fade-in-up">
       <div
         class="grid grid-cols-1 sm:px-6 md:py-20 lg:grid-cols-2 lg:gap-16 lg:px-8 max-w-7xl mr-auto ml-auto pt-16 pr-4 pb-16 pl-4 gap-x-12 gap-y-12 items-center">
-        <div class="">
+        <div class="animate-fade-in-left animate-delay-200">
           <div
             class="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[12px] text-white/70 outline outline-1 outline-white/10 font-sans"
             style="">
@@ -366,8 +589,7 @@
           </p>
           <div class="mt-8 flex flex-col items-start gap-3 sm:flex-row">
             <a
-              id="install"
-              href="#"
+              href="#install"
               class="inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-3 text-[15px] font-semibold tracking-tight text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] outline outline-1 outline-white/10 transition hover:from-indigo-400 hover:to-violet-400 font-sans"
               style="">
               <!-- Chrome icon (globe) -->
@@ -425,7 +647,7 @@
         </div>
 
         <!-- Hero visual: Browser mock + Erpa overlay -->
-        <div class="relative">
+        <div class="relative animate-fade-in-right animate-delay-300">
           <div
             class="rounded-xl border border-white/10 bg-white/5 p-2 shadow-2xl outline outline-1 outline-white/10 backdrop-blur">
             <div class="rounded-lg border border-white/10 bg-[#0D142A]">
@@ -603,7 +825,7 @@
 
                 <!-- Sidepanel mock -->
                 <div
-                  class="w-[280px] border-l border-white/10 bg-gray-900 flex flex-col relative overflow-hidden">
+                  class="w-[280px] border-l border-white/10 bg-gray-900 flex flex-col relative overflow-hidden erpa-overlay">
                   <!-- Animated background particles (simulating Spline) -->
                   <div class="absolute inset-0 opacity-30 pointer-events-none">
                     <div
@@ -820,11 +1042,11 @@
     </div>
 
     <!-- Quick value props -->
-    <section class="border-t border-white/10">
+    <section class="border-t border-white/10 animate-fade-in-up">
       <div
         class="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
         <div
-          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06] animate-fade-in-scale animate-delay-100">
           <div class="flex items-center gap-3">
             <div
               class="rounded-md border border-white/10 bg-violet-500/20 p-2 text-violet-300">
@@ -852,7 +1074,7 @@
           </div>
         </div>
         <div
-          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06] animate-fade-in-scale animate-delay-200">
           <div class="flex items-center gap-3">
             <div
               class="rounded-md border border-white/10 bg-indigo-500/20 p-2 text-indigo-300">
@@ -881,7 +1103,7 @@
           </div>
         </div>
         <div
-          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06] animate-fade-in-scale animate-delay-300">
           <div class="flex items-center gap-3">
             <div
               class="rounded-md border border-white/10 bg-violet-500/20 p-2 text-violet-300">
@@ -911,7 +1133,7 @@
           </div>
         </div>
         <div
-          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06] animate-fade-in-scale animate-delay-400">
           <div class="flex items-center gap-3">
             <div
               class="rounded-md border border-white/10 bg-indigo-500/20 p-2 text-indigo-300">
@@ -948,12 +1170,12 @@
     </section>
 
     <!-- Features -->
-    <section id="features" class="border-t border-white/10">
+    <section id="features" class="border-t border-white/10 animate-fade-in-up">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           <!-- Summarization -->
           <div
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-100">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -988,7 +1210,7 @@
           </div>
           <!-- Q&A -->
           <div
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-200">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -1028,7 +1250,7 @@
           </div>
           <!-- Read aloud -->
           <div
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-300">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -1064,7 +1286,7 @@
           </div>
           <!-- Outline navigation -->
           <div
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-400">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -1118,7 +1340,7 @@
           <!-- Privacy controls -->
           <div
             id="privacy"
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-500">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -1184,7 +1406,7 @@
           </div>
           <!-- Accessibility -->
           <div
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-600">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -1231,7 +1453,7 @@
     </section>
 
     <!-- Demo -->
-    <section id="demo" class="border-t border-white/10">
+    <section id="demo" class="border-t border-white/10 viewport-mount">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
           <div class="">
@@ -1347,35 +1569,65 @@
                 class="border-t border-white/10 flex items-center justify-between px-3 py-2 transition hover:bg-white/10">
                 <span class="text-white/85">Next section</span>
                 <div class="inline-flex items-center gap-1.5 text-white/80">
-                  <kbd class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs">Ctrl</kbd>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Ctrl</kbd
+                  >
                   <span class="text-white/50">+</span>
-                  <kbd class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs">Command</kbd>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Command</kbd
+                  >
                   <span class="text-white/50">+</span>
-                  <kbd class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs">Arrow Down</kbd>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Arrow Down</kbd
+                  >
                 </div>
               </div>
               <div
                 class="border-t border-white/10 flex items-center justify-between px-3 py-2 transition hover:bg-white/10">
                 <span class="text-white/85">Previous section</span>
                 <div class="inline-flex items-center gap-1.5 text-white/80">
-                  <kbd class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs">Ctrl</kbd>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Ctrl</kbd
+                  >
                   <span class="text-white/50">+</span>
-                  <kbd class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs">Command</kbd>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Command</kbd
+                  >
                   <span class="text-white/50">+</span>
-                  <kbd class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs">Arrow Up</kbd>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Arrow Up</kbd
+                  >
                 </div>
               </div>
               <div
                 class="border-t border-white/10 flex items-center justify-between px-3 py-2 transition hover:bg-white/10">
                 <span class="text-white/85">Stop Reading Aloud</span>
                 <div class="inline-flex items-center gap-1.5 text-white/80">
-                  <kbd class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs">Ctrl</kbd>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Ctrl</kbd
+                  >
                   <span class="text-white/50">+</span>
-                  <kbd class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs">Option</kbd>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Option</kbd
+                  >
                   <span class="text-white/50">+</span>
-                  <kbd class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs">Command</kbd>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Command</kbd
+                  >
                   <span class="text-white/50">+</span>
-                  <kbd class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs">Enter</kbd>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Enter</kbd
+                  >
                 </div>
               </div>
             </div>
@@ -1441,9 +1693,9 @@
         </div>
       </div>
     </section>
-    <section id="install" class="border-t border-white/10">
+    <section id="install" class="border-t border-white/10 animate-fade-in-up">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between" id="install">
           <h2
             class="text-3xl tracking-tight font-semibold font-instrument-serif"
             style="">
@@ -1521,6 +1773,7 @@
                     View repo
                   </a>
                   <a
+                    id="download-zip-btn"
                     href="#"
                     class="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-1.5 text-[12.5px] font-semibold tracking-tight text-white outline outline-1 outline-white/10 transition hover:from-indigo-400 hover:to-violet-400 font-sans"
                     style="">
@@ -1842,7 +2095,7 @@
       </div>
     </section>
     <!-- Audience -->
-    <section class="border-t border-white/10">
+    <section class="border-t border-white/10 animate-fade-in-up">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <h2
           class="text-3xl tracking-tight font-semibold font-instrument-serif"
@@ -1950,7 +2203,7 @@
     </section>
 
     <!-- Open source -->
-    <section id="oss" class="border-t border-white/10">
+    <section id="oss" class="border-t border-white/10 animate-fade-in-up">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 items-center gap-8 md:grid-cols-2">
           <div>
@@ -2076,7 +2329,7 @@
     </section>
 
     <!-- Testimonials -->
-    <section class="border-t border-white/10">
+    <section class="border-t border-white/10 animate-fade-in-up">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div class="rounded-xl border border-white/10 bg-white/[0.03] p-6">
@@ -2132,7 +2385,7 @@
     </section>
 
     <!-- FAQ -->
-    <section id="faq" class="border-t border-white/10">
+    <section id="faq" class="border-t border-white/10 animate-fade-in-up">
       <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
         <h2
           class="text-center text-3xl tracking-tight font-semibold font-instrument-serif"
@@ -2200,7 +2453,7 @@
     </section>
 
     <!-- CTA -->
-    <section class="border-t border-white/10">
+    <section class="border-t border-white/10 animate-fade-in-up">
       <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
         <div
           class="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-[#121A39] to-[#131734] p-8 outline outline-1 outline-white/10 sm:p-10">
@@ -2221,7 +2474,7 @@
             </div>
             <div class="flex items-center gap-3">
               <a
-                href="#"
+                href="#install"
                 class="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-3 text-[15px] font-semibold tracking-tight text-white outline outline-1 outline-white/10 transition hover:from-indigo-400 hover:to-violet-400 font-sans"
                 style="">
                 <svg
