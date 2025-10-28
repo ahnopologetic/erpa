@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "plasmo dev",
     "prebuild": "pnpm --filter @ahnopologetic/use-prompt-api build",
-    "postbuild": "pnpm fix-underscores && pnpm patch-tailwind",
+    "postinstall": "pnpm patch-tailwind",
+    "postbuild": "pnpm fix-underscores",
     "build": "pnpm prebuild && pnpm with-env plasmo build",
     "package": "pnpm with-env plasmo package",
     "with-env": "dotenv -e .env --",
