@@ -47,109 +47,227 @@
           initInViewAnimations()
         )
       })()
+
+      // Smooth scroll animations with intersection observer
+      ;(function () {
+        const observerOptions = {
+          threshold: 0.1,
+          rootMargin: "0px 0px -50px 0px"
+        }
+
+        const animationObserver = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("animate")
+            }
+          })
+        }, observerOptions)
+
+        // Initialize animations when DOM is loaded
+        document.addEventListener("DOMContentLoaded", () => {
+          // Observe all elements with animation classes
+          const animatedElements = document.querySelectorAll(
+            ".animate-fade-in-up, .animate-fade-in-left, .animate-fade-in-right, .animate-fade-in-scale, .viewport-mount"
+          )
+          animatedElements.forEach((el) => {
+            animationObserver.observe(el)
+          })
+
+          // Erpa overlay animation with delay
+          const erpaOverlay = document.querySelector(".erpa-overlay")
+          if (erpaOverlay) {
+            // Start the 3000ms delay timer when the demo section comes into view
+            const demoSection = document.querySelector("#demo")
+            if (demoSection) {
+              const demoObserver = new IntersectionObserver(
+                (entries) => {
+                  entries.forEach((entry) => {
+                    if (entry.isIntersecting && erpaOverlay) {
+                      // Start the 3000ms delay for Erpa overlay
+                      setTimeout(() => {
+                        erpaOverlay.classList.add("animate")
+                      }, 3000)
+                      // Unobserve after triggering once
+                      demoObserver.unobserve(entry.target)
+                    }
+                  })
+                },
+                { threshold: 0.1 }
+              )
+
+              demoObserver.observe(demoSection)
+            }
+          }
+
+          // Smooth scroll for navigation links
+          document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+            anchor.addEventListener("click", function (e) {
+              const href = this.getAttribute("href")
+              // Only proceed if href is not just "#" and has a valid target
+              if (href && href !== "#" && href.length > 1) {
+                // Check if href is an in-page anchor (starts with "#" only) or an external (possibly same-site) link
+                if (href.startsWith("#")) {
+                  e.preventDefault()
+                  const target = document.querySelector(href)
+                  if (target) {
+                    target.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start"
+                    })
+                  }
+                }
+                // Otherwise, let the browser handle normal navigation to other pages
+              }
+              // For links with just "#", don't prevent default - let them behave normally
+            })
+          })
+
+          // Set hardcoded download link
+          setDownloadLink()
+        })
+
+        // Function to set hardcoded download link
+        function setDownloadLink() {
+          const downloadButton = document.getElementById("download-zip-btn")
+          if (downloadButton) {
+            downloadButton.href =
+              "https://github.com/ahnopologetic/erpa/releases/download/v0.0.1/erpa-chrome-extension-v0.0.1.zip"
+            downloadButton.target = "_blank"
+            downloadButton.rel = "noopener noreferrer"
+
+            // Update button text to show version
+            const textNode =
+              downloadButton.childNodes[downloadButton.childNodes.length - 1]
+            if (textNode && textNode.textContent) {
+              textNode.textContent = "Download ZIP (v0.0.1)"
+            }
+          }
+        }
+      })()
     </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Erpa — Private, On-Device AI Browser Assistant | Chrome Extension</title>
+    <title>Erpa — Private, On-Device AI Browser Agent | Chrome Extension</title>
     <meta
       name="description"
       content="Erpa is the first 100% on-device AI browsing agent. Summarize pages, ask questions, read content aloud, and navigate with voice—all without sending data to the cloud. Privacy-first Chrome extension with semantic search and accessibility features." />
-    
+
     <!-- SEO Meta Tags -->
-    <meta name="keywords" content="AI browser extension, privacy-first AI, on-device AI, Chrome extension, semantic search, text-to-speech, accessibility, page summarization, voice control, local AI, privacy, open source" />
+    <meta
+      name="keywords"
+      content="AI browser extension, privacy-first AI, on-device AI, Chrome extension, semantic search, text-to-speech, accessibility, page summarization, voice control, local AI, privacy, open source" />
     <meta name="author" content="Erpa Team" />
     <meta name="robots" content="index, follow" />
     <meta name="language" content="English" />
     <meta name="revisit-after" content="7 days" />
-    
+
     <!-- Open Graph Meta Tags -->
-    <meta property="og:title" content="Erpa — Private, On-Device AI Browser Assistant" />
-    <meta property="og:description" content="The first 100% on-device AI browsing agent. Summarize pages, ask questions, read content aloud, and navigate with voice—all without sending data to the cloud." />
+    <meta
+      property="og:title"
+      content="Erpa — Private, On-Device AI Browser Assistant" />
+    <meta
+      property="og:description"
+      content="The first 100% on-device AI browsing agent. Summarize pages, ask questions, read content aloud, and navigate with voice—all without sending data to the cloud." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://ahnopologetic.github.io/erpa/" />
-    <meta property="og:image" content="https://ahnopologetic.github.io/erpa/icon.png" />
+    <meta
+      property="og:image"
+      content="https://ahnopologetic.github.io/erpa/icon.png" />
     <meta property="og:image:alt" content="Erpa AI Browser Extension Logo" />
     <meta property="og:site_name" content="Erpa" />
     <meta property="og:locale" content="en_US" />
-    
+
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Erpa — Private, On-Device AI Browser Assistant" />
-    <meta name="twitter:description" content="The first 100% on-device AI browsing agent. Summarize pages, ask questions, read content aloud, and navigate with voice—all without sending data to the cloud." />
-    <meta name="twitter:image" content="https://ahnopologetic.github.io/erpa/icon.png" />
+    <meta
+      name="twitter:title"
+      content="Erpa — Private, On-Device AI Browser Assistant" />
+    <meta
+      name="twitter:description"
+      content="The first 100% on-device AI browsing agent. Summarize pages, ask questions, read content aloud, and navigate with voice—all without sending data to the cloud." />
+    <meta
+      name="twitter:image"
+      content="https://ahnopologetic.github.io/erpa/icon.png" />
     <meta name="twitter:image:alt" content="Erpa AI Browser Extension Logo" />
-    
+
     <!-- Additional SEO Meta Tags -->
     <meta name="theme-color" content="#7c3aed" />
     <meta name="msapplication-TileColor" content="#7c3aed" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Erpa" />
-    
+
     <!-- Canonical URL -->
     <link rel="canonical" href="https://ahnopologetic.github.io/erpa/" />
-    
+
     <!-- Sitemap -->
-    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://ahnopologetic.github.io/erpa/sitemap.xml" />
-    
+    <link
+      rel="sitemap"
+      type="application/xml"
+      title="Sitemap"
+      href="https://ahnopologetic.github.io/erpa/sitemap.xml" />
+
     <!-- Preconnect to external domains for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://cdn.tailwindcss.com" />
     <link rel="dns-prefetch" href="https://images.unsplash.com" />
-    
+
     <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="./icon32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="./icon16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icon.png" />
-    
+
     <!-- Structured Data (JSON-LD) -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "Erpa",
-      "description": "The first 100% on-device AI browsing agent. Summarize pages, ask questions, read content aloud, and navigate with voice—all without sending data to the cloud.",
-      "url": "https://ahnopologetic.github.io/erpa/",
-      "applicationCategory": "BrowserExtension",
-      "operatingSystem": "Chrome",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      },
-      "author": {
-        "@type": "Organization",
-        "name": "Erpa Team",
-        "url": "https://github.com/ahnopologetic/erpa"
-      },
-      "publisher": {
-        "@type": "Organization",
-        "name": "Erpa Team",
-        "url": "https://github.com/ahnopologetic/erpa"
-      },
-      "datePublished": "2025-01-01",
-      "dateModified": "2025-01-01",
-      "version": "1.0.0",
-      "license": "MIT",
-      "programmingLanguage": "TypeScript",
-      "runtimePlatform": "Chrome Extension",
-      "featureList": [
-        "On-device AI processing",
-        "Page summarization",
-        "Semantic search",
-        "Text-to-speech with highlighting",
-        "Voice control",
-        "Accessibility features",
-        "Privacy-first design",
-        "Open source"
-      ],
-      "screenshot": "https://ahnopologetic.github.io/erpa/icon.png",
-      "downloadUrl": "https://github.com/ahnopologetic/erpa/releases",
-      "softwareHelp": "https://github.com/ahnopologetic/erpa#readme",
-      "keywords": "AI browser extension, privacy-first AI, on-device AI, Chrome extension, semantic search, text-to-speech, accessibility, page summarization, voice control, local AI, privacy, open source"
-    }
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Erpa",
+        "description": "The first 100% on-device AI browsing agent. Summarize pages, ask questions, read content aloud, and navigate with voice—all without sending data to the cloud.",
+        "url": "https://ahnopologetic.github.io/erpa/",
+        "applicationCategory": "BrowserExtension",
+        "operatingSystem": "Chrome",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "author": {
+          "@type": "Organization",
+          "name": "Erpa Team",
+          "url": "https://github.com/ahnopologetic/erpa"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Erpa Team",
+          "url": "https://github.com/ahnopologetic/erpa"
+        },
+        "datePublished": "2025-01-01",
+        "dateModified": "2025-01-01",
+        "version": "1.0.0",
+        "license": "MIT",
+        "programmingLanguage": "TypeScript",
+        "runtimePlatform": "Chrome Extension",
+        "featureList": [
+          "On-device AI processing",
+          "Page summarization",
+          "Semantic search",
+          "Text-to-speech with highlighting",
+          "Voice control",
+          "Accessibility features",
+          "Privacy-first design",
+          "Open source"
+        ],
+        "screenshot": "https://ahnopologetic.github.io/erpa/icon.png",
+        "downloadUrl": "https://github.com/ahnopologetic/erpa/releases",
+        "softwareHelp": "https://github.com/ahnopologetic/erpa#readme",
+        "keywords": "AI browser extension, privacy-first AI, on-device AI, Chrome extension, semantic search, text-to-speech, accessibility, page summarization, voice control, local AI, privacy, open source"
+      }
     </script>
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
     <style id="aura-editor-visibility-style">
       .invisible {
@@ -178,6 +296,132 @@
         50% {
           background-position: 100% 50%;
         }
+      }
+
+      /* Smooth scroll animations */
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes fadeInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes fadeInRight {
+        from {
+          opacity: 0;
+          transform: translateX(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes fadeInScale {
+        from {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      @keyframes slideInFromLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      /* Erpa overlay animation */
+      .erpa-overlay {
+        opacity: 0;
+        transform: translateX(-100%);
+        transition: all 0.8s ease-out;
+      }
+
+      .erpa-overlay.animate {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      /* Viewport mounting */
+      .viewport-mount {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: all 0.8s ease-out;
+      }
+
+      .viewport-mount.animate {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* Animation classes */
+      .animate-fade-in-up {
+        animation: fadeInUp 0.8s ease-out forwards;
+        opacity: 0;
+      }
+
+      .animate-fade-in-left {
+        animation: fadeInLeft 0.8s ease-out forwards;
+        opacity: 0;
+      }
+
+      .animate-fade-in-right {
+        animation: fadeInRight 0.8s ease-out forwards;
+        opacity: 0;
+      }
+
+      .animate-fade-in-scale {
+        animation: fadeInScale 0.8s ease-out forwards;
+        opacity: 0;
+      }
+
+      /* Staggered animation delays */
+      .animate-delay-100 {
+        animation-delay: 0.1s;
+      }
+      .animate-delay-200 {
+        animation-delay: 0.2s;
+      }
+      .animate-delay-300 {
+        animation-delay: 0.3s;
+      }
+      .animate-delay-400 {
+        animation-delay: 0.4s;
+      }
+      .animate-delay-500 {
+        animation-delay: 0.5s;
+      }
+      .animate-delay-600 {
+        animation-delay: 0.6s;
+      }
+
+      /* Smooth scrolling */
+      html {
+        scroll-behavior: smooth;
       }
 
       .demo-reading {
@@ -222,6 +466,9 @@
   </head>
   <body
     class="bg-[#0B1020] text-white antialiased selection:bg-violet-500/30 selection:text-white">
+    <!-- Skip link for accessibility -->
+    <a href="#main-title" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-300">Skip to main content</a>
+    
     <!-- Backgrounds -->
     <div class="pointer-events-none fixed inset-0 -z-10">
       <div
@@ -234,7 +481,8 @@
 
     <!-- Nav -->
     <header
-      class="sticky top-0 z-40 border-b border-white/10 backdrop-blur supports-[backdrop-filter]:bg-[#0B1020]/70">
+      class="sticky top-0 z-40 border-b border-white/10 backdrop-blur supports-[backdrop-filter]:bg-[#0B1020]/70"
+      role="banner">
       <div
         class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <a href="#" class="group inline-flex items-center gap-3">
@@ -311,11 +559,13 @@
       </div>
     </header>
 
+    <!-- Main Content -->
+    <main role="main">
     <!-- Hero -->
-    <section class="relative">
+    <section class="relative animate-fade-in-up" role="banner" aria-labelledby="main-title">
       <div
         class="grid grid-cols-1 sm:px-6 md:py-20 lg:grid-cols-2 lg:gap-16 lg:px-8 max-w-7xl mr-auto ml-auto pt-16 pr-4 pb-16 pl-4 gap-x-12 gap-y-12 items-center">
-        <div class="">
+        <div class="animate-fade-in-left animate-delay-200">
           <div
             class="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[12px] text-white/70 outline outline-1 outline-white/10 font-sans"
             style="">
@@ -332,6 +582,7 @@
             Private by default. Works offline.
           </div>
           <h1
+            id="main-title"
             class="text-4xl tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl font-semibold font-instrument-serif"
             style="">
             First 100% On-device AI Browsing Agent for Chrome
@@ -346,8 +597,7 @@
           </p>
           <div class="mt-8 flex flex-col items-start gap-3 sm:flex-row">
             <a
-              id="install"
-              href="#"
+              href="#install"
               class="inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-3 text-[15px] font-semibold tracking-tight text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] outline outline-1 outline-white/10 transition hover:from-indigo-400 hover:to-violet-400 font-sans"
               style="">
               <!-- Chrome icon (globe) -->
@@ -405,7 +655,7 @@
         </div>
 
         <!-- Hero visual: Browser mock + Erpa overlay -->
-        <div class="relative">
+        <div class="relative animate-fade-in-right animate-delay-100">
           <div
             class="rounded-xl border border-white/10 bg-white/5 p-2 shadow-2xl outline outline-1 outline-white/10 backdrop-blur">
             <div class="rounded-lg border border-white/10 bg-[#0D142A]">
@@ -583,7 +833,7 @@
 
                 <!-- Sidepanel mock -->
                 <div
-                  class="w-[280px] border-l border-white/10 bg-gray-900 flex flex-col relative overflow-hidden">
+                  class="w-[280px] border-l border-white/10 bg-gray-900 flex flex-col relative overflow-hidden erpa-overlay animate-fade-in-right animate-delay-300">
                   <!-- Animated background particles (simulating Spline) -->
                   <div class="absolute inset-0 opacity-30 pointer-events-none">
                     <div
@@ -636,58 +886,57 @@
                     </div>
                   </div>
 
-                    <!-- Chat Area -->
+                  <!-- Chat Area -->
+                  <div
+                    class="flex-1 overflow-hidden relative z-10"
+                    data-chat-area
+                    style="overflow-y: auto; max-height: 300px">
                     <div
-                      class="flex-1 overflow-hidden relative z-10"
-                      data-chat-area
-                      style="overflow-y: auto; max-height: 300px">
+                      class="h-full p-3 flex flex-col items-center justify-center"
+                      data-mic-icon>
+                      <!-- Mic icon in center -->
                       <div
-                        class="h-full p-3 flex flex-col items-center justify-center"
-                        data-mic-icon>
-                        <!-- Mic icon in center -->
-                        <div
-                          class="w-12 h-12 rounded-full bg-gray-700/50 flex items-center justify-center mb-3">
-                          <svg
-                            class="w-6 h-6 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                          </svg>
-                        </div>
-                        <h3 class="text-sm font-medium text-white mb-1">
-                          Start a conversation
-                        </h3>
-                        <p
-                          class="text-[10px] text-gray-500 text-center px-2 leading-tight">
-                          Click the voice orb below to start recording your first
-                          message. The AI will respond with its own voice memo.
-                        </p>
+                        class="w-12 h-12 rounded-full bg-gray-700/50 flex items-center justify-center mb-3">
+                        <svg
+                          class="w-6 h-6 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24">
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
                       </div>
+                      <h3 class="text-sm font-medium text-white mb-1">
+                        Start a conversation
+                      </h3>
+                      <p
+                        class="text-[10px] text-gray-500 text-center px-2 leading-tight">
+                        Click the voice orb below to start recording your first
+                        message. The AI will respond with its own voice memo.
+                      </p>
                     </div>
+                  </div>
 
-                    <!-- Search Input (hidden by default) -->
-                    <div
-                      id="search-input-container"
-                      class="hidden border-t border-gray-700 p-2 relative z-10 bg-gray-900">
-                      <div class="flex items-center gap-2">
-                        <input
-                          id="search-input"
-                          type="text"
-                          placeholder="Ask a question about the content..."
-                          class="flex-1 text-[10px] bg-gray-800 border border-gray-600 text-white px-2 py-1 rounded h-6 focus:outline-none focus:border-violet-500"
-                        />
-                        <button
-                          id="search-btn"
-                          class="text-[10px] bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-1 rounded hover:bg-violet-500/30 transition-colors">
-                          Search
-                        </button>
-                      </div>
+                  <!-- Search Input (hidden by default) -->
+                  <div
+                    id="search-input-container"
+                    class="hidden border-t border-gray-700 p-2 relative z-10 bg-gray-900">
+                    <div class="flex items-center gap-2">
+                      <input
+                        id="search-input"
+                        type="text"
+                        placeholder="Ask a question about the content..."
+                        class="flex-1 text-[10px] bg-gray-800 border border-gray-600 text-white px-2 py-1 rounded h-6 focus:outline-none focus:border-violet-500" />
+                      <button
+                        id="search-btn"
+                        class="text-[10px] bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-1 rounded hover:bg-violet-500/30 transition-colors">
+                        Search
+                      </button>
                     </div>
+                  </div>
 
                   <!-- Action panel -->
                   <div
@@ -742,21 +991,21 @@
                           class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-400/40 to-indigo-400/40"></div>
                       </div>
 
-                        <!-- Demo and Search buttons -->
-                        <div class="flex gap-1">
-                          <button
-                            id="search-demo-btn"
-                            class="text-xs bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-1 rounded hover:bg-violet-500/30 transition-colors"
-                            title="Try semantic search">
-                            Search
-                          </button>
-                          <button
-                            id="demo-start-btn"
-                            class="text-xs bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-2 py-1 rounded hover:bg-emerald-500/30 transition-colors"
-                            title="Start automated demo">
-                            Demo
-                          </button>
-                        </div>
+                      <!-- Demo and Search buttons -->
+                      <div class="flex gap-1">
+                        <button
+                          id="search-demo-btn"
+                          class="text-xs bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-1 rounded hover:bg-violet-500/30 transition-colors"
+                          title="Try semantic search">
+                          Search
+                        </button>
+                        <button
+                          id="demo-start-btn"
+                          class="text-xs bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-2 py-1 rounded hover:bg-emerald-500/30 transition-colors"
+                          title="Start automated demo">
+                          Demo
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -801,11 +1050,11 @@
     </div>
 
     <!-- Quick value props -->
-    <section class="border-t border-white/10">
+    <section class="border-t border-white/10 animate-fade-in-up">
       <div
         class="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
         <div
-          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06] animate-fade-in-scale animate-delay-100">
           <div class="flex items-center gap-3">
             <div
               class="rounded-md border border-white/10 bg-violet-500/20 p-2 text-violet-300">
@@ -833,7 +1082,7 @@
           </div>
         </div>
         <div
-          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06] animate-fade-in-scale animate-delay-200">
           <div class="flex items-center gap-3">
             <div
               class="rounded-md border border-white/10 bg-indigo-500/20 p-2 text-indigo-300">
@@ -862,7 +1111,7 @@
           </div>
         </div>
         <div
-          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06] animate-fade-in-scale animate-delay-300">
           <div class="flex items-center gap-3">
             <div
               class="rounded-md border border-white/10 bg-violet-500/20 p-2 text-violet-300">
@@ -892,7 +1141,7 @@
           </div>
         </div>
         <div
-          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06]">
+          class="group rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10 transition hover:bg-white/[0.06] animate-fade-in-scale animate-delay-400">
           <div class="flex items-center gap-3">
             <div
               class="rounded-md border border-white/10 bg-indigo-500/20 p-2 text-indigo-300">
@@ -929,12 +1178,13 @@
     </section>
 
     <!-- Features -->
-    <section id="features" class="border-t border-white/10">
+    <section id="features" class="border-t border-white/10 animate-fade-in-up" role="main" aria-labelledby="features-title">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <h2 id="features-title" class="sr-only">Features</h2>
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           <!-- Summarization -->
           <div
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-100">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -969,7 +1219,7 @@
           </div>
           <!-- Q&A -->
           <div
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-200">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -1009,7 +1259,7 @@
           </div>
           <!-- Read aloud -->
           <div
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-300">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -1045,7 +1295,7 @@
           </div>
           <!-- Outline navigation -->
           <div
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-400">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -1099,7 +1349,7 @@
           <!-- Privacy controls -->
           <div
             id="privacy"
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-500">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -1165,7 +1415,7 @@
           </div>
           <!-- Accessibility -->
           <div
-            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10">
+            class="rounded-xl border border-white/10 bg-white/[0.03] p-6 outline outline-1 outline-white/10 animate-fade-in-scale animate-delay-600">
             <div class="flex items-center justify-between">
               <h3
                 class="text-[18px] font-semibold tracking-tight font-sans"
@@ -1212,11 +1462,12 @@
     </section>
 
     <!-- Demo -->
-    <section id="demo" class="border-t border-white/10">
+    <section id="demo" class="border-t border-white/10 viewport-mount" role="main" aria-labelledby="demo-title">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
           <div class="">
             <h2
+              id="demo-title"
               class="text-3xl tracking-tight font-semibold font-instrument-serif"
               style="">
               See Erpa in action
@@ -1266,27 +1517,128 @@
                 View code
               </a>
             </div>
+
+            <p class="text-[12.5px] text-white/65 font-sans mt-6">Shortcuts</p>
+            <p class="text-[11.5px] text-white/65 font-sans mt-2">
+              Erpa offers shortcuts for every action you can take with the
+              extension.
+            </p>
             <div
-              class="mt-6 grid max-w-lg grid-cols-2 gap-4 text-[12.5px] text-white/65">
+              class="rounded-lg border border-white/10 bg-white/[0.03] outline outline-1 outline-white/10 overflow-hidden font-sans text-[12.5px] text-white/65 mt-2">
               <div
-                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
-                style="">
-                Ctrl/Cmd + J — Open Erpa
+                class="flex transition hover:bg-white/10 pt-2 pr-3 pb-2 pl-3 items-center justify-between">
+                <span class="text-white/85">Open Erpa</span>
+                <div class="inline-flex items-center gap-1.5 text-white/80">
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Cmd</kbd
+                  >
+                  <span class="text-white/50">+</span>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Shift</kbd
+                  >
+                  <span class="text-white/50">+</span>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Y</kbd
+                  >
+                </div>
               </div>
               <div
-                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
-                style="">
-                Ctrl/Cmd + K — Ask a question
+                class="border-t border-white/10 flex items-center justify-between px-3 py-2 transition hover:bg-white/10">
+                <span class="text-white/85">Ask a question</span>
+                <div class="inline-flex items-center gap-1.5 text-white/80">
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Cmd</kbd
+                  >
+                  <span class="text-white/50">+</span>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Shift</kbd
+                  >
+                  <span class="text-white/50">+</span>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Enter</kbd
+                  >
+                </div>
               </div>
               <div
-                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
-                style="">
-                Ctrl/Cmd + L — Read aloud
+                class="border-t border-white/10 flex items-center justify-between px-3 py-2 transition hover:bg-white/10">
+                <span class="text-white/85">Read aloud (Section)</span>
+                <div class="inline-flex items-center gap-1.5 text-white/80">
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Tab</kbd
+                  >
+                </div>
               </div>
               <div
-                class="rounded-md border border-white/10 bg-white/[0.04] p-3 font-sans"
-                style="">
-                Ctrl/Cmd + ] — Next section
+                class="border-t border-white/10 flex items-center justify-between px-3 py-2 transition hover:bg-white/10">
+                <span class="text-white/85">Next section</span>
+                <div class="inline-flex items-center gap-1.5 text-white/80">
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Ctrl</kbd
+                  >
+                  <span class="text-white/50">+</span>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Command</kbd
+                  >
+                  <span class="text-white/50">+</span>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Arrow Down</kbd
+                  >
+                </div>
+              </div>
+              <div
+                class="border-t border-white/10 flex items-center justify-between px-3 py-2 transition hover:bg-white/10">
+                <span class="text-white/85">Previous section</span>
+                <div class="inline-flex items-center gap-1.5 text-white/80">
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Ctrl</kbd
+                  >
+                  <span class="text-white/50">+</span>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Command</kbd
+                  >
+                  <span class="text-white/50">+</span>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Arrow Up</kbd
+                  >
+                </div>
+              </div>
+              <div
+                class="border-t border-white/10 flex items-center justify-between px-3 py-2 transition hover:bg-white/10">
+                <span class="text-white/85">Stop Reading Aloud</span>
+                <div class="inline-flex items-center gap-1.5 text-white/80">
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Ctrl</kbd
+                  >
+                  <span class="text-white/50">+</span>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Option</kbd
+                  >
+                  <span class="text-white/50">+</span>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Command</kbd
+                  >
+                  <span class="text-white/50">+</span>
+                  <kbd
+                    class="rounded bg-white/10 px-1.5 py-0.5 text-white/75 font-mono text-xs"
+                    >Enter</kbd
+                  >
+                </div>
               </div>
             </div>
           </div>
@@ -1351,11 +1703,413 @@
         </div>
       </div>
     </section>
+    <section id="install" class="border-t border-white/10 animate-fade-in-up" role="main" aria-labelledby="install-title">
+      <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between">
+          <h2
+            id="install-title"
+            class="text-3xl tracking-tight font-semibold font-instrument-serif"
+            style="">
+            Install via Developer mode
+          </h2>
+          <div
+            class="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[12.5px] text-white/70 outline outline-1 outline-white/10 sm:flex">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-[14px] w-[14px] text-emerald-300"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5">
+              <path d="m5 12 4.5 4.5L19 7"></path>
+            </svg>
+            No sign‑in required
+          </div>
+        </div>
+        <p
+          class="mt-3 max-w-2xl text-[15px] leading-7 text-white/70 font-sans"
+          style="">
+          Follow these steps to load the unpacked extension in Chrome for local
+          development or testing.
+        </p>
 
+        <div class="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-5">
+          <!-- Stepper -->
+          <ol
+            class="relative space-y-6 border-l border-white/10 pl-6 lg:col-span-3">
+            <!-- Step 1 -->
+            <li class="relative">
+              <span
+                class="absolute -left-[13px] top-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-[12px] font-medium text-white/90 shadow-sm"
+                >1</span
+              >
+              <div
+                class="rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-[18px] w-[18px] text-indigo-300"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <path d="M7 10l5 5 5-5"></path>
+                    <path d="M12 15V3"></path>
+                  </svg>
+                  <h3
+                    class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
+                    style="">
+                    Get the source
+                  </h3>
+                </div>
+                <p class="mt-1 text-[13.5px] text-white/70 font-sans" style="">
+                  Clone the repository or download the ZIP and unzip it locally.
+                </p>
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                  <a
+                    href="#oss"
+                    class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-[12.5px] text-white/85 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
+                    style="">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-[14px] w-[14px]"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5">
+                      <path
+                        d="M15 22v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 18 3.77 5.07 5.07 0 0 0 17.91 1S16.73.65 14 2.48a13.38 13.38 0 0 0-8 0C3.27.65 2.09 1 2.09 1A5.07 5.07 0 0 0 2 3.77 5.44 5.44 0 0 0 .5 8.52c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 6 18.13V22"></path>
+                    </svg>
+                    View repo
+                  </a>
+                  <a
+                    id="download-zip-btn"
+                    href="#"
+                    class="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-1.5 text-[12.5px] font-semibold tracking-tight text-white outline outline-1 outline-white/10 transition hover:from-indigo-400 hover:to-violet-400 font-sans"
+                    style="">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-[14px] w-[14px]"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5">
+                      <path d="M12 13V2"></path>
+                      <path d="M6 8l6 6 6-6"></path>
+                      <path d="M20 22H4"></path>
+                    </svg>
+                    Download ZIP
+                  </a>
+                </div>
+              </div>
+            </li>
+            <!-- Step 2 -->
+            <li class="relative">
+              <span
+                class="absolute -left-[13px] top-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-[12px] font-medium text-white/90 shadow-sm"
+                >2</span
+              >
+              <div
+                class="rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-[18px] w-[18px] text-violet-300"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M2 12h20"></path>
+                    <path
+                      d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10"></path>
+                  </svg>
+                  <h3
+                    class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
+                    style="">
+                    Open extensions page
+                  </h3>
+                </div>
+                <p class="mt-1 text-[13.5px] text-white/70 font-sans" style="">
+                  In Chrome, go to
+                  <span class="rounded bg-white/5 px-1 py-0.5 text-white/85"
+                    >chrome://extensions</span
+                  >.
+                </p>
+              </div>
+            </li>
+            <!-- Step 3 -->
+            <li class="relative">
+              <span
+                class="absolute -left-[13px] top-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-[12px] font-medium text-white/90 shadow-sm"
+                >3</span
+              >
+              <div
+                class="rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-[18px] w-[18px] text-indigo-300"
+                    viewBox="0 0 24 24"
+                    ="none"
+                    =""
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <rect x="2" y="7" width="20" height="10" rx="5"></rect>
+                    <circle cx="16" cy="12" r="3"></circle>
+                  </svg>
+                  <h3
+                    class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
+                    style="">
+                    Enable Developer mode
+                  </h3>
+                </div>
+                <p class="mt-1 text-[13.5px] text-white/70 font-sans" style="">
+                  Toggle the Developer mode switch in the top‑right of the page.
+                </p>
+              </div>
+            </li>
+            <!-- Step 4 -->
+            <li class="relative">
+              <span
+                class="absolute -left-[13px] top-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-[12px] font-medium text-white/90 shadow-sm"
+                >4</span
+              >
+              <div
+                class="rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-[18px] w-[18px] text-violet-300"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <path
+                      d="M6 20V6a2 2 0 0 1 2-2h6l4 4v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2Z"></path>
+                    <path d="M14 2v4h4"></path>
+                  </svg>
+                  <h3
+                    class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
+                    style="">
+                    Click "Load unpacked"
+                  </h3>
+                </div>
+                <p class="mt-1 text-[13.5px] text-white/70 font-sans" style="">
+                  Use the button in the top bar to choose your extension folder.
+                </p>
+              </div>
+            </li>
+            <!-- Step 5 -->
+            <li class="relative">
+              <span
+                class="absolute -left-[13px] top-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-[12px] font-medium text-white/90 shadow-sm"
+                >5</span
+              >
+              <div
+                class="rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-[18px] w-[18px] text-indigo-300"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16"></path>
+                    <path d="M18 22H8a2 2 0 0 1-2-2V4"></path>
+                    <path d="M14 2l6 6"></path>
+                    <path d="M20 8h-6V2"></path>
+                  </svg>
+                  <h3
+                    class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
+                    style="">
+                    Select the folder with manifest.json
+                  </h3>
+                </div>
+                <p class="mt-1 text-[13.5px] text-white/70 font-sans" style="">
+                  Choose the directory that contains
+                  <span class="rounded bg-white/5 px-1 py-0.5 text-white/85"
+                    >manifest.json</span
+                  >
+                  (e.g.,
+                  <span class="rounded bg-white/5 px-1 py-0.5 text-white/85"
+                    >/extension</span
+                  >
+                  or
+                  <span class="rounded bg-white/5 px-1 py-0.5 text-white/85"
+                    >/dist</span
+                  >).
+                </p>
+              </div>
+            </li>
+            <!-- Step 6 -->
+            <li class="relative">
+              <span
+                class="absolute -left-[13px] top-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-[12px] font-medium text-white/90 shadow-sm"
+                >6</span
+              >
+              <div
+                class="rounded-lg border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-[18px] w-[18px] text-violet-300"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <path d="m12 17 5-5-5-5"></path>
+                    <path d="m7 17 5-5-5-5"></path>
+                  </svg>
+                  <div
+                    class="text-[15px] font-medium tracking-tight text-white/90 font-sans"
+                    style="">
+                    Pin and launch
+                  </div>
+                </div>
+                <p class="mt-1 text-[13.5px] text-white/70 font-sans" style="">
+                  Pin the extension from the puzzle menu and open it from the
+                  toolbar.
+                </p>
+                <div
+                  class="mt-3 flex items-center gap-2 text-[12.5px] text-white/70">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-[16px] w-[16px] text-emerald-300"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <path d="m14 9 6-6"></path>
+                    <path d="M8 3 3 8l7.5 7.5"></path>
+                    <path d="M13 6 7 12"></path>
+                    <path d="M5 19l6-6"></path>
+                  </svg>
+                  Tip: Use Ctrl/Cmd + J to open Erpa quickly.
+                </div>
+              </div>
+            </li>
+          </ol>
+
+          <!-- Side panel -->
+          <div class="lg:col-span-2">
+            <div class="sticky top-20 space-y-4">
+              <div
+                class="rounded-xl border border-white/10 bg-white/[0.03] p-5 outline outline-1 outline-white/10">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-[18px] w-[18px] text-emerald-300"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <path d="m14 8-8 8"></path>
+                    <path d="m6 8 8 8"></path>
+                    <path d="M2 20h20"></path>
+                  </svg>
+                  <div
+                    class="text-[14px] font-semibold tracking-tight text-white/90 font-sans"
+                    style="">
+                    What to select
+                  </div>
+                </div>
+                <p class="mt-2 text-[13.5px] text-white/70 font-sans" style="">
+                  Pick the folder that contains the extension’s manifest.json.
+                  If you built from source, select the output directory.
+                </p>
+                <div
+                  class="mt-3 rounded-md border border-white/10 bg-[#0D142A] p-3 text-[12.5px] text-white/75 font-sans"
+                  style="">
+                  Examples:
+                  <div class="mt-1 text-white/85">/erpa/extension</div>
+                  <div class="text-white/85">/erpa/dist</div>
+                </div>
+              </div>
+              <div
+                class="rounded-xl border border-white/10 bg-white/[0.03] p-5 outline outline-1 outline-white/10">
+                <div class="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-[18px] w-[18px] text-indigo-300"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M9 12h6"></path>
+                    <path d="M12 9v6"></path>
+                  </svg>
+                  <div
+                    class="text-[14px] font-semibold tracking-tight text-white/90 font-sans"
+                    style="">
+                    Troubleshooting
+                  </div>
+                </div>
+                <ul
+                  class="mt-2 space-y-2 text-[13.5px] text-white/75 font-sans">
+                  <li class="flex items-center gap-2">
+                    <span class="h-1.5 w-1.5 rounded-full bg-violet-400"></span>
+                    “Invalid manifest”: ensure the selected folder contains
+                    manifest.json.
+                  </li>
+                  <li class="flex items-center gap-2">
+                    <span class="h-1.5 w-1.5 rounded-full bg-violet-400"></span>
+                    Button disabled: confirm Developer mode is toggled on.
+                  </li>
+                  <li class="flex items-center gap-2">
+                    <span class="h-1.5 w-1.5 rounded-full bg-violet-400"></span>
+                    Missing icon: try reloading the extension from the card
+                    menu.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 outline outline-1 outline-white/10">
+          <div
+            class="flex items-center gap-2 text-[13.5px] text-white/75 font-sans">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-[16px] w-[16px] text-emerald-300"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5">
+              <path d="m5 12 4.5 4.5L19 7"></path>
+            </svg>
+            Works on Chrome, Chromium, and compatible browsers.
+          </div>
+          <a
+            href="#faq"
+            class="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-[12.5px] text-white/85 outline outline-1 outline-white/10 transition hover:bg-white/10 hover:text-white font-sans"
+            style="">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-[14px] w-[14px]"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M9.09 9a3 3 0 1 1 5.82 1c0 2-3 2-3 4"></path>
+              <path d="M12 17h.01"></path>
+            </svg>
+            Read FAQ
+          </a>
+        </div>
+      </div>
+    </section>
     <!-- Audience -->
-    <section class="border-t border-white/10">
+    <section class="border-t border-white/10 animate-fade-in-up" role="main" aria-labelledby="audience-title">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <h2
+          id="audience-title"
           class="text-3xl tracking-tight font-semibold font-instrument-serif"
           style="">
           Made for focused work
@@ -1461,7 +2215,7 @@
     </section>
 
     <!-- Open source -->
-    <section id="oss" class="border-t border-white/10">
+    <section id="oss" class="border-t border-white/10 animate-fade-in-up">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 items-center gap-8 md:grid-cols-2">
           <div>
@@ -1587,7 +2341,7 @@
     </section>
 
     <!-- Testimonials -->
-    <section class="border-t border-white/10">
+    <section class="border-t border-white/10 animate-fade-in-up">
       <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div class="rounded-xl border border-white/10 bg-white/[0.03] p-6">
@@ -1643,9 +2397,10 @@
     </section>
 
     <!-- FAQ -->
-    <section id="faq" class="border-t border-white/10">
+    <section id="faq" class="border-t border-white/10 animate-fade-in-up" role="main" aria-labelledby="faq-title">
       <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
         <h2
+          id="faq-title"
           class="text-center text-3xl tracking-tight font-semibold font-instrument-serif"
           style="">
           Questions, answered
@@ -1711,7 +2466,7 @@
     </section>
 
     <!-- CTA -->
-    <section class="border-t border-white/10">
+    <section class="border-t border-white/10 animate-fade-in-up" role="main" aria-labelledby="cta-title">
       <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
         <div
           class="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-[#121A39] to-[#131734] p-8 outline outline-1 outline-white/10 sm:p-10">
@@ -1720,11 +2475,12 @@
           <div
             class="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3
+              <h2
+                id="cta-title"
                 class="text-2xl tracking-tight font-semibold font-instrument-serif"
                 style="">
                 Install Erpa and reclaim your focus
-              </h3>
+              </h2>
               <p class="mt-2 text-[14.5px] text-white/70 font-sans" style="">
                 Summarize, listen, and navigate smarter—without giving up your
                 privacy.
@@ -1732,7 +2488,7 @@
             </div>
             <div class="flex items-center gap-3">
               <a
-                href="#"
+                href="#install"
                 class="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-3 text-[15px] font-semibold tracking-tight text-white outline outline-1 outline-white/10 transition hover:from-indigo-400 hover:to-violet-400 font-sans"
                 style="">
                 <svg
@@ -1772,9 +2528,10 @@
         </div>
       </div>
     </section>
+    </main>
 
     <!-- Footer -->
-    <footer class="border-t border-white/10">
+    <footer class="border-t border-white/10" role="contentinfo">
       <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 items-start gap-8 md:grid-cols-3">
           <div class="space-y-3">
@@ -1992,28 +2749,33 @@
         // Semantic search demo - natural language questions and their answers
         const semanticSearchDemo = [
           {
-            question: "What are the main principles of privacy-first computing?",
+            question:
+              "What are the main principles of privacy-first computing?",
             targetId: "demo-principles",
             description: "Searching for principles information",
-            readout: "The main principles of privacy-first computing include: Data minimization - collect only what is necessary. Local processing - default to on-device computation. Transparent controls - clear privacy settings. Zero-knowledge architecture - server cannot access plaintext data. User sovereignty - users own and control their data."
+            readout:
+              "The main principles of privacy-first computing include: Data minimization - collect only what is necessary. Local processing - default to on-device computation. Transparent controls - clear privacy settings. Zero-knowledge architecture - server cannot access plaintext data. User sovereignty - users own and control their data."
           },
           {
             question: "How is privacy-first computing implemented?",
-            targetId: "demo-implementation", 
+            targetId: "demo-implementation",
             description: "Finding implementation details",
-            readout: "Privacy-first computing is implemented through various techniques including homomorphic encryption, differential privacy, federated learning, and on-device AI. Modern frameworks enable developers to build applications that process sensitive data locally while maintaining functionality."
+            readout:
+              "Privacy-first computing is implemented through various techniques including homomorphic encryption, differential privacy, federated learning, and on-device AI. Modern frameworks enable developers to build applications that process sensitive data locally while maintaining functionality."
           },
           {
             question: "What does the quote say about data handling?",
             targetId: "demo-quote",
             description: "Locating the key quote about data handling",
-            readout: "The quote states: Privacy-first computing ensures that user data remains on-device by default, with cloud processing as an explicit opt-in choice rather than the default behavior."
+            readout:
+              "The quote states: Privacy-first computing ensures that user data remains on-device by default, with cloud processing as an explicit opt-in choice rather than the default behavior."
           },
           {
             question: "What is privacy-first computing?",
             targetId: "demo-intro",
             description: "Finding the definition",
-            readout: "Privacy-first computing is a computing paradigm that emphasizes data protection and user privacy as primary design principles. Unlike traditional approaches where privacy is added as an afterthought, privacy-first systems are architected from the ground up to minimize data collection and processing."
+            readout:
+              "Privacy-first computing is a computing paradigm that emphasizes data protection and user privacy as primary design principles. Unlike traditional approaches where privacy is added as an afterthought, privacy-first systems are architected from the ground up to minimize data collection and processing."
           }
         ]
 
@@ -2274,7 +3036,9 @@
           currentSearchStep = 0
 
           // Show search input
-          const searchContainer = document.getElementById("search-input-container")
+          const searchContainer = document.getElementById(
+            "search-input-container"
+          )
           if (searchContainer) {
             searchContainer.classList.remove("hidden")
           }
@@ -2297,7 +3061,10 @@
         }
 
         function runSearchDemoStep() {
-          if (!isSearchDemoRunning || currentSearchStep >= semanticSearchDemo.length) {
+          if (
+            !isSearchDemoRunning ||
+            currentSearchStep >= semanticSearchDemo.length
+          ) {
             stopSearchDemo()
             return
           }
@@ -2316,7 +3083,10 @@
           setTimeout(() => {
             highlightElement(step.targetId)
             readOutText(step.readout)
-            showChatMessage(`AI: Found relevant content and reading it aloud.`, "ai")
+            showChatMessage(
+              `AI: Found relevant content and reading it aloud.`,
+              "ai"
+            )
           }, 2000)
 
           // Move to next step after delay
@@ -2342,7 +3112,9 @@
           }
 
           // Hide search input
-          const searchContainer = document.getElementById("search-input-container")
+          const searchContainer = document.getElementById(
+            "search-input-container"
+          )
           if (searchContainer) {
             searchContainer.classList.add("hidden")
           }
@@ -2379,15 +3151,21 @@
 
           // Find best matching content (simple keyword matching for demo)
           const bestMatch = findBestMatch(query)
-          
+
           if (bestMatch) {
-            showChatMessage(`AI: Found relevant content about "${bestMatch.description}"`, "ai")
+            showChatMessage(
+              `AI: Found relevant content about "${bestMatch.description}"`,
+              "ai"
+            )
             setTimeout(() => {
               highlightElement(bestMatch.targetId)
               readOutText(bestMatch.readout)
             }, 1000)
           } else {
-            showChatMessage(`AI: I couldn't find specific information about "${query}". Try asking about principles, implementation, or data handling.`, "ai")
+            showChatMessage(
+              `AI: I couldn't find specific information about "${query}". Try asking about principles, implementation, or data handling.`,
+              "ai"
+            )
           }
 
           // Clear input
@@ -2396,18 +3174,27 @@
 
         function findBestMatch(query) {
           const lowerQuery = query.toLowerCase()
-          
+
           // Simple keyword matching
           if (lowerQuery.includes("principle") || lowerQuery.includes("main")) {
             return semanticSearchDemo[0]
-          } else if (lowerQuery.includes("implement") || lowerQuery.includes("how")) {
+          } else if (
+            lowerQuery.includes("implement") ||
+            lowerQuery.includes("how")
+          ) {
             return semanticSearchDemo[1]
-          } else if (lowerQuery.includes("quote") || lowerQuery.includes("data")) {
+          } else if (
+            lowerQuery.includes("quote") ||
+            lowerQuery.includes("data")
+          ) {
             return semanticSearchDemo[2]
-          } else if (lowerQuery.includes("what") || lowerQuery.includes("define")) {
+          } else if (
+            lowerQuery.includes("what") ||
+            lowerQuery.includes("define")
+          ) {
             return semanticSearchDemo[3]
           }
-          
+
           return null
         }
 
@@ -2435,7 +3222,7 @@
         }
 
         if (searchInput) {
-          searchInput.addEventListener("keypress", function(e) {
+          searchInput.addEventListener("keypress", function (e) {
             if (e.key === "Enter") {
               performSearch()
             }
