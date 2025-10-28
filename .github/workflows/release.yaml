@@ -7,6 +7,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Cache pnpm modules
@@ -34,7 +36,7 @@ jobs:
           cd build
           zip -r ../erpa-chrome-extension-${{ github.ref_name }}.zip chrome-mv3-prod/
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: erpa-chrome-extension-${{ github.ref_name }}.zip
           generate_release_notes: true
