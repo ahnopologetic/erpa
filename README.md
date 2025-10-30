@@ -7,6 +7,10 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)
 ![React](https://img.shields.io/badge/React-18.2-blue.svg)
 
+
+[![Erpa Demo](https://img.youtube.com/vi/B4b-CDFzBYk/maxresdefault.jpg)](https://youtu.be/B4b-CDFzBYk)
+
+
 **Erpa** is an intelligent browser extension that transforms how you interact with web content. Powered by Chrome's Prompt API and advanced semantic search, Erpa understands page content and responds to your voice and text commands through an AI agent.
 
 ## ✨ Features
